@@ -1,16 +1,45 @@
 import { useState } from 'react'
 import { X } from 'lucide-react'
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion as Motion, AnimatePresence } from 'framer-motion'
+import toast from 'react-hot-toast'
 import useAuthStore from '../../stores/useAuthStore'
 
 export default function AuthModal() {
-  const { isAuthModalOpen, closeAuthModal, signInWithGoogle } = useAuthStore()
+  const { isAuthModalOpen, closeAuthModal, signInWithGoogle, signInWithEmail } = useAuthStore()
   const [role, setRole] = useState('guest')
+  const [email, setEmail] = useState('')
+  const [isEmailLoading, setIsEmailLoading] = useState(false)
 
   const handleGoogleSignIn = async () => {
-    localStorage.setItem('travolish_signup_role', role)
-    await signInWithGoogle()
-    closeAuthModal()
+    try {
+      localStorage.setItem('travolish_signup_role', role)
+      await signInWithGoogle()
+      closeAuthModal()
+    } catch (error) {
+      console.error('Google sign-in error:', error)
+      toast.error(error.message || 'Unable to start Google sign-in.')
+    }
+  }
+
+  const handleEmailSignIn = async (e) => {
+    e.preventDefault()
+
+    const normalizedEmail = email.trim().toLowerCase()
+    if (!normalizedEmail) return
+
+    try {
+      setIsEmailLoading(true)
+      localStorage.setItem('travolish_signup_role', role)
+      await signInWithEmail(normalizedEmail)
+      toast.success('Check your email for a magic sign-in link.')
+      setEmail('')
+      closeAuthModal()
+    } catch (error) {
+      console.error('Email sign-in error:', error)
+      toast.error(error.message || 'Unable to send sign-in email.')
+    } finally {
+      setIsEmailLoading(false)
+    }
   }
 
   return (
@@ -18,7 +47,7 @@ export default function AuthModal() {
       {isAuthModalOpen && (
         <>
           {/* Backdrop */}
-          <motion.div
+          <Motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
@@ -28,7 +57,7 @@ export default function AuthModal() {
 
           {/* Modal Container */}
           <div className="fixed inset-0 z-[101] flex items-center justify-center p-4">
-            <motion.div
+            <Motion.div
               initial={{ opacity: 0, scale: 0.95, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
@@ -113,26 +142,33 @@ export default function AuthModal() {
                 </div>
               </div>
 
-              {/* Email placeholder (non-functional) */}
-              <div className="space-y-3">
+              <form onSubmit={handleEmailSignIn} className="space-y-3">
                 <div className="border border-gray-300 rounded-xl overflow-hidden focus-within:border-dark focus-within:ring-1 focus-within:ring-dark transition-all">
-                  <label className="block px-4 pt-2 text-[10px] font-semibold text-muted uppercase tracking-wider">
+                  <label
+                    htmlFor="auth-email"
+                    className="block px-4 pt-2 text-[10px] font-semibold text-muted uppercase tracking-wider"
+                  >
                     Email
                   </label>
                   <input
+                    id="auth-email"
                     type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
                     placeholder="you@example.com"
+                    autoComplete="email"
+                    required
                     className="w-full px-4 pb-2.5 text-sm text-dark bg-transparent outline-none placeholder:text-gray-300"
-                    readOnly
                   />
                 </div>
                 <button
-                  onClick={handleGoogleSignIn}
-                  className="w-full bg-gradient-to-r from-brand to-rose-500 text-white rounded-xl py-3.5 text-sm font-bold hover:opacity-90 transition-opacity"
+                  type="submit"
+                  disabled={isEmailLoading}
+                  className="w-full bg-gradient-to-r from-brand to-rose-500 text-white rounded-xl py-3.5 text-sm font-bold hover:opacity-90 transition-opacity disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  Continue
+                  {isEmailLoading ? 'Sending link...' : 'Continue with email'}
                 </button>
-              </div>
+              </form>
 
               <p className="text-[11px] text-muted mt-6 leading-relaxed">
                 By continuing, you agree to Travolish's{' '}
@@ -141,7 +177,7 @@ export default function AuthModal() {
                 <a href="#" className="underline font-semibold text-dark">Privacy Policy</a>.
               </p>
             </div>
-          </motion.div>
+            </Motion.div>
           </div>
         </>
       )}

@@ -1,16 +1,21 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { Search, MapPin, Calendar, Users, X, SlidersHorizontal } from 'lucide-react'
+import { Search, MapPin, X, SlidersHorizontal } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { properties } from '../data/mockData'
 import PropertyCard from '../components/home/PropertyCard'
+import useNativeAppLocationStore from '../stores/useNativeAppLocationStore'
+import {
+  formatCoordinates,
+  formatPlatformLabel,
+  sortPropertiesBySharedLocation,
+} from '../lib/nativeAppLocation'
 
 export default function SearchPage() {
-  const navigate = useNavigate()
   const [query, setQuery] = useState('')
   const [minPrice, setMinPrice] = useState('')
   const [maxPrice, setMaxPrice] = useState('')
   const [showFilters, setShowFilters] = useState(false)
+  const sharedLocation = useNativeAppLocationStore()
 
   const filtered = properties.filter((p) => {
     const matchesQuery =
@@ -24,6 +29,11 @@ export default function SearchPage() {
 
     return matchesQuery && matchesMin && matchesMax
   })
+  const sortedResults = sortPropertiesBySharedLocation(filtered, sharedLocation)
+  const sharedCoordinates = formatCoordinates(
+    sharedLocation.latitude,
+    sharedLocation.longitude,
+  )
 
   return (
     <motion.main
@@ -119,8 +129,51 @@ export default function SearchPage() {
         </div>
       </div>
 
+      {sharedLocation.isNativeAppLaunch && (
+        <div className="max-w-[1760px] mx-auto px-6 md:px-10 xl:px-20 pt-8">
+          <div
+            className={`rounded-2xl border px-5 py-4 ${
+              sharedLocation.hasSharedLocation
+                ? 'border-brand/15 bg-rose-50'
+                : 'border-amber-200 bg-amber-50'
+            }`}
+          >
+            <div className="flex items-start gap-3">
+              <div
+                className={`mt-0.5 rounded-full p-2 ${
+                  sharedLocation.hasSharedLocation
+                    ? 'bg-white text-brand'
+                    : 'bg-white text-amber-600'
+                }`}
+              >
+                <MapPin size={18} />
+              </div>
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted">
+                  {formatPlatformLabel(sharedLocation.platform)} handoff
+                </p>
+                <h2 className="mt-1 text-lg font-semibold text-dark">
+                  {sharedLocation.hasSharedLocation
+                    ? 'Search results are sorted by your shared location'
+                    : 'Location was not shared from the app'}
+                </h2>
+                <p className="mt-1 text-sm text-muted">
+                  {sharedLocation.hasSharedLocation
+                    ? `${sharedCoordinates} · Permission granted`
+                    : `Permission status: ${
+                        sharedLocation.locationPermission || 'unknown'
+                      }. Showing the default result order.`}
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Quick Suggestions (when no query) */}
-      {!query && filtered.length === properties.length && (
+      {!query &&
+        filtered.length === properties.length &&
+        !sharedLocation.hasSharedLocation && (
         <div className="max-w-[1760px] mx-auto px-6 md:px-10 xl:px-20 py-8">
           <h2 className="text-lg font-semibold text-dark mb-4">Popular destinations</h2>
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
@@ -149,13 +202,16 @@ export default function SearchPage() {
 
       {/* Results */}
       <div className="max-w-[1760px] mx-auto px-6 md:px-10 xl:px-20 py-8">
-        {query && (
+        {(query || sharedLocation.hasSharedLocation) && (
           <p className="text-sm text-muted mb-6">
-            {filtered.length} result{filtered.length !== 1 ? 's' : ''} for "{query}"
+            {sortedResults.length} result{sortedResults.length !== 1 ? 's' : ''}
+            {query
+              ? ` for "${query}"`
+              : ' closest to your shared location'}
           </p>
         )}
 
-        {filtered.length === 0 ? (
+        {sortedResults.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 text-center">
             <Search size={48} className="text-gray-300 mb-4" />
             <h2 className="text-xl font-semibold text-dark mb-2">No results found</h2>
@@ -165,7 +221,7 @@ export default function SearchPage() {
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-x-6 gap-y-10">
-            {filtered.map((property, index) => (
+            {sortedResults.map((property, index) => (
               <PropertyCard key={property.id} property={property} index={index} />
             ))}
           </div>

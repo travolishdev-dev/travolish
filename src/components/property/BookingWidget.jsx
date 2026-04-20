@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Link } from 'react-router-dom'
 import { Star, ChevronDown, ChevronUp, Minus, Plus } from 'lucide-react'
 
 export default function BookingWidget({ property }) {
@@ -107,6 +108,12 @@ export default function BookingWidget({ property }) {
           Reserve
         </button>
         <p className="text-center text-muted text-xs mt-3">You won't be charged yet</p>
+        <Link
+          to={`/checkout/${property.id}`}
+          className="mt-3 inline-flex w-full items-center justify-center rounded-xl border border-gray-200 px-4 py-3 text-sm font-semibold text-dark transition-colors hover:bg-gray-50"
+        >
+          Preview checkout
+        </Link>
 
         {/* Price Breakdown */}
         <div className="mt-6 space-y-3 border-t border-gray-200 pt-6">

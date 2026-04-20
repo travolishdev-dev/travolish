@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { supabase } from '../lib/supabase'
+import useNativeAppLocationStore from './useNativeAppLocationStore'
 
 const useAuthStore = create((set) => ({
   user: null,
@@ -28,6 +29,8 @@ const useAuthStore = create((set) => ({
         if (profile) {
           set({ profile })
         }
+
+        await useNativeAppLocationStore.getState().syncDetails()
       } else {
         set({ isLoading: false })
       }
@@ -44,7 +47,17 @@ const useAuthStore = create((set) => ({
         redirectTo: `${window.location.origin}/auth/callback`,
       },
     })
-    if (error) console.error('Google sign-in error:', error)
+    if (error) throw error
+  },
+
+  signInWithEmail: async (email) => {
+    const { error } = await supabase.auth.signInWithOtp({
+      email,
+      options: {
+        emailRedirectTo: `${window.location.origin}/auth/callback`,
+      },
+    })
+    if (error) throw error
   },
 
   signOut: async () => {

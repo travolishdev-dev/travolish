@@ -129,15 +129,7 @@ eas build --platform android --local
 
 ## 🧩 Architecture Overview
 
-```mermaid
-flowchart TD
-A[React Native App] --> B[WebView]
-B --> C[Hosted Web App (Vercel)]
-C --> D[Supabase Auth]
-C --> E[Firebase Services]
-```
 
----
 
 ## 📌 Important Notes
 

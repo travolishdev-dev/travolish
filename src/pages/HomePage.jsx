@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Sparkles, Map } from 'lucide-react'
 import PropertyCard from '../components/home/PropertyCard'
-import { properties } from '../data/mockData'
+import { searchHotels, listRooms } from '../services/hotelsApi'
+import { adaptHotels } from '../lib/hotelAdapter'
 import useNativeAppLocationStore from '../stores/useNativeAppLocationStore'
 import {
   formatCoordinates,
@@ -46,12 +47,7 @@ function SectionSkeleton() {
   )
 }
 
-function PropertySection({
-  eyebrow,
-  title,
-  description,
-  propertiesToShow,
-}) {
+function PropertySection({ eyebrow, title, description, propertiesToShow }) {
   return (
     <section className="space-y-6">
       <div className="max-w-3xl">
@@ -77,12 +73,28 @@ function PropertySection({
 
 export default function HomePage() {
   const navigate = useNavigate()
+  const [properties, setProperties] = useState([])
   const [isLoading, setIsLoading] = useState(true)
   const sharedLocation = useNativeAppLocationStore()
 
   useEffect(() => {
-    const timer = setTimeout(() => setIsLoading(false), 600)
-    return () => clearTimeout(timer)
+    let cancelled = false
+    async function load() {
+      try {
+        const [searchResult, rooms] = await Promise.all([
+          searchHotels({ pageSize: 20 }),
+          listRooms(),
+        ])
+        if (cancelled) return
+        setProperties(adaptHotels(searchResult.content ?? [], rooms))
+      } catch {
+        // API unavailable — leave properties empty
+      } finally {
+        if (!cancelled) setIsLoading(false)
+      }
+    }
+    load()
+    return () => { cancelled = true }
   }, [])
 
   const platformLabel = formatPlatformLabel(sharedLocation.platform)
@@ -90,32 +102,21 @@ export default function HomePage() {
     sharedLocation.latitude,
     sharedLocation.longitude,
   )
+
   const nearbySource = sharedLocation.hasSharedLocation
     ? sortPropertiesBySharedLocation(properties, sharedLocation)
-    : [...properties].sort((left, right) => {
-        if (right.reviewCount !== left.reviewCount) {
-          return right.reviewCount - left.reviewCount
-        }
-
-        return right.rating - left.rating
+    : [...properties].sort((a, b) => {
+        if (b.reviewCount !== a.reviewCount) return b.reviewCount - a.reviewCount
+        return b.rating - a.rating
       })
+
   const nearbyProperties = nearbySource.slice(0, SECTION_SIZE)
-  const nearbyIds = new Set(nearbyProperties.map((property) => property.id))
+  const nearbyIds = new Set(nearbyProperties.map((p) => p.id))
   const recommendedProperties = [...properties]
-    .filter((property) => !nearbyIds.has(property.id))
-    .sort((left, right) => {
-      const hostDifference =
-        Number(right.host.superhost) - Number(left.host.superhost)
-
-      if (hostDifference !== 0) {
-        return hostDifference
-      }
-
-      if (right.rating !== left.rating) {
-        return right.rating - left.rating
-      }
-
-      return right.reviewCount - left.reviewCount
+    .filter((p) => !nearbyIds.has(p.id))
+    .sort((a, b) => {
+      if (b.rating !== a.rating) return b.rating - a.rating
+      return b.reviewCount - a.reviewCount
     })
     .slice(0, SECTION_SIZE)
 

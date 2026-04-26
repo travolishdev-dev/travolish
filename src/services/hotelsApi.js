@@ -31,3 +31,7 @@ export async function getHotel(id) {
 export async function listRooms(hotelId) {
   return get('/api/rooms', hotelId ? { hotelId } : {})
 }
+
+export async function getHotelReviews(hotelId, { pageSize = 20 } = {}) {
+  return get(`/api/reviews/hotels/${hotelId}`, { pageSize })
+}

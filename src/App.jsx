@@ -25,6 +25,22 @@ import MessagesPage from './pages/messages/MessagesPage'
 import ConversationPage from './pages/messages/ConversationPage'
 import MyReviewsPage from './pages/reviews/MyReviewsPage'
 import ReviewEditorPage from './pages/reviews/ReviewEditorPage'
+import HostDashboardPage from './pages/host/HostDashboardPage'
+import HostListingsPage from './pages/host/HostListingsPage'
+import HostListingEditorPage from './pages/host/HostListingEditorPage'
+import HostRoomsPage from './pages/host/HostRoomsPage'
+import HostRoomEditorPage from './pages/host/HostRoomEditorPage'
+import HostAvailabilityPage from './pages/host/HostAvailabilityPage'
+import HostInventoryPage from './pages/host/HostInventoryPage'
+import HostReportsPage from './pages/host/HostReportsPage'
+import HostPricingRulesPage from './pages/host/HostPricingRulesPage'
+import HostPromotionsPage from './pages/host/HostPromotionsPage'
+import HostPricingAIPage from './pages/host/HostPricingAIPage'
+import HostPayoutsPage from './pages/host/HostPayoutsPage'
+import HostKycPage from './pages/host/HostKycPage'
+import HostBankAccountsPage from './pages/host/HostBankAccountsPage'
+import HostAutoRepliesPage from './pages/host/HostAutoRepliesPage'
+import HostEmergencyPage from './pages/host/HostEmergencyPage'
 import useAuthStore from './stores/useAuthStore'
 import useNativeAppLocationStore from './stores/useNativeAppLocationStore'
 
@@ -43,7 +59,8 @@ function isPortalRoute(pathname) {
     pathname.startsWith('/trips') ||
     pathname.startsWith('/checkout') ||
     pathname.startsWith('/messages') ||
-    pathname.startsWith('/reviews')
+    pathname.startsWith('/reviews') ||
+    (pathname.startsWith('/host') && pathname !== '/host/onboarding')
   )
 }
 
@@ -254,6 +271,150 @@ export default function App() {
           element={
             <AppLayout>
               <ReviewEditorPage />
+            </AppLayout>
+          }
+        />
+        <Route
+          path="/host"
+          element={
+            <AppLayout>
+              <HostDashboardPage />
+            </AppLayout>
+          }
+        />
+        <Route
+          path="/host/listings"
+          element={
+            <AppLayout>
+              <HostListingsPage />
+            </AppLayout>
+          }
+        />
+        <Route
+          path="/host/listings/new"
+          element={
+            <AppLayout>
+              <HostListingEditorPage />
+            </AppLayout>
+          }
+        />
+        <Route
+          path="/host/listings/:id/edit"
+          element={
+            <AppLayout>
+              <HostListingEditorPage />
+            </AppLayout>
+          }
+        />
+        <Route
+          path="/host/listings/:id/rooms"
+          element={
+            <AppLayout>
+              <HostRoomsPage />
+            </AppLayout>
+          }
+        />
+        <Route
+          path="/host/rooms/new"
+          element={
+            <AppLayout>
+              <HostRoomEditorPage />
+            </AppLayout>
+          }
+        />
+        <Route
+          path="/host/rooms/:id/edit"
+          element={
+            <AppLayout>
+              <HostRoomEditorPage />
+            </AppLayout>
+          }
+        />
+        <Route
+          path="/host/availability"
+          element={
+            <AppLayout>
+              <HostAvailabilityPage />
+            </AppLayout>
+          }
+        />
+        <Route
+          path="/host/inventory"
+          element={
+            <AppLayout>
+              <HostInventoryPage />
+            </AppLayout>
+          }
+        />
+        <Route
+          path="/host/reports"
+          element={
+            <AppLayout>
+              <HostReportsPage />
+            </AppLayout>
+          }
+        />
+        <Route
+          path="/host/pricing"
+          element={
+            <AppLayout>
+              <HostPricingRulesPage />
+            </AppLayout>
+          }
+        />
+        <Route
+          path="/host/promotions"
+          element={
+            <AppLayout>
+              <HostPromotionsPage />
+            </AppLayout>
+          }
+        />
+        <Route
+          path="/host/pricing-ai"
+          element={
+            <AppLayout>
+              <HostPricingAIPage />
+            </AppLayout>
+          }
+        />
+        <Route
+          path="/host/payouts"
+          element={
+            <AppLayout>
+              <HostPayoutsPage />
+            </AppLayout>
+          }
+        />
+        <Route
+          path="/host/kyc"
+          element={
+            <AppLayout>
+              <HostKycPage />
+            </AppLayout>
+          }
+        />
+        <Route
+          path="/host/bank-accounts"
+          element={
+            <AppLayout>
+              <HostBankAccountsPage />
+            </AppLayout>
+          }
+        />
+        <Route
+          path="/host/auto-replies"
+          element={
+            <AppLayout>
+              <HostAutoRepliesPage />
+            </AppLayout>
+          }
+        />
+        <Route
+          path="/host/emergency"
+          element={
+            <AppLayout>
+              <HostEmergencyPage />
             </AppLayout>
           }
         />

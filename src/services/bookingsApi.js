@@ -45,6 +45,10 @@ export async function createBooking({
   })
 }
 
+export async function getBooking(id) {
+  return get(`/api/bookings/${id}`)
+}
+
 export async function listBookings() {
   return get('/api/bookings')
 }

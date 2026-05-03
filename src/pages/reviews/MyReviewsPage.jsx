@@ -1,97 +1,113 @@
+import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { MessageCircleHeart, Sparkles, Star } from 'lucide-react'
+import { format, parseISO } from 'date-fns'
 import {
   PortalShell,
   SectionCard,
   SectionHeading,
   StatusPill,
 } from '../../components/portal/PortalUI'
-import {
-  pendingReviewPrompts,
-  submittedReviews,
-} from '../../data/mockPortalData'
-import { properties } from '../../data/mockData'
+import { getUserReviews } from '../../services/reviewsApi'
+import { getHotel } from '../../services/hotelsApi'
 
-function propertyForReview(propertyId) {
-  return properties.find((property) => property.id === propertyId)
+const PLACEHOLDER_IMAGES = [
+  'https://images.unsplash.com/photo-1542314831-068cd1dbfeeb?w=800&auto=format&fit=crop',
+  'https://images.unsplash.com/photo-1571003123894-1f0594d2b5d9?w=800&auto=format&fit=crop',
+  'https://images.unsplash.com/photo-1566073771259-6a8506099945?w=800&auto=format&fit=crop',
+  'https://images.unsplash.com/photo-1520250497591-112f2f40a3f4?w=800&auto=format&fit=crop',
+  'https://images.unsplash.com/photo-1551882547-ff40c63fe5fa?w=800&auto=format&fit=crop',
+  'https://images.unsplash.com/photo-1445019980597-93fa8acb246c?w=800&auto=format&fit=crop',
+  'https://images.unsplash.com/photo-1498503182468-3b51cbb6cb24?w=800&auto=format&fit=crop',
+  'https://images.unsplash.com/photo-1533929736458-ca588d08c8be?w=800&auto=format&fit=crop',
+]
+
+const STATUS_TONE = {
+  APPROVED: 'success',
+  PENDING: 'warning',
+  REJECTED: 'warning',
+  FLAGGED: 'warning',
+}
+
+function placeholderImage(hotelId) {
+  return PLACEHOLDER_IMAGES[(Number(hotelId) || 0) % PLACEHOLDER_IMAGES.length]
+}
+
+function formatDate(dateStr) {
+  try { return format(parseISO(dateStr), 'MMM d, yyyy') } catch { return dateStr }
 }
 
 export default function MyReviewsPage() {
+  const [reviews, setReviews] = useState([])
+  const [hotelMap, setHotelMap] = useState({})
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    async function load() {
+      try {
+        const data = await getUserReviews(1)
+        const raw = data.content ?? data
+        setReviews(raw)
+
+        const ids = [...new Set(raw.map((r) => r.hotelId).filter(Boolean))]
+        const hotels = await Promise.all(ids.map((id) => getHotel(id).catch(() => ({ id }))))
+        setHotelMap(Object.fromEntries(hotels.map((h) => [h.id, h])))
+      } catch {
+        // leave empty
+      } finally {
+        setLoading(false)
+      }
+    }
+    load()
+  }, [])
+
+  const avgRating = useMemo(() => {
+    if (!reviews.length) return '—'
+    const sum = reviews.reduce((acc, r) => acc + (r.rating ?? 0), 0)
+    return (sum / reviews.length).toFixed(1)
+  }, [reviews])
+
   return (
     <PortalShell
       eyebrow="Reviews"
       title="Your review hub."
       mobileTitle="Reviews"
-      description="This mock page covers both submitted reviews and outstanding prompts, matching the backend review module without needing the APIs wired yet."
+      description="All the reviews you've submitted — track status, rating, and hotel responses."
       actions={[
         { label: 'Trips', href: '/trips', secondary: true },
-        {
-          label: pendingReviewPrompts[0]
-            ? `Review ${pendingReviewPrompts[0].property.title}`
-            : 'Browse stays',
-          href: pendingReviewPrompts[0]
-            ? `/reviews/new?bookingId=${pendingReviewPrompts[0].id}`
-            : '/search',
-        },
+        { label: 'Browse stays', href: '/search' },
       ]}
       stats={[
-        {
-          label: 'Published reviews',
-          value: String(submittedReviews.length),
-          note: 'Across recent stays',
-        },
-        {
-          label: 'Pending prompts',
-          value: String(pendingReviewPrompts.length),
-          note: 'Ready to complete',
-        },
-        { label: 'Average rating', value: '4.5', note: 'From your published reviews' },
+        { label: 'Published reviews', value: String(reviews.filter((r) => r.status === 'APPROVED').length), note: 'Approved by moderators' },
+        { label: 'Total submitted', value: String(reviews.length), note: 'All statuses' },
+        { label: 'Average rating', value: avgRating, note: 'From your reviews' },
       ]}
       accent="from-amber-50 via-white to-violet-50"
     >
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(0,0.95fr)]">
+        {/* Left: write a review CTA */}
         <SectionCard>
           <SectionHeading
-            eyebrow="Pending"
-            title="Reviews waiting for you"
-            description="These cards should feel enticing enough that guests actually finish the flow."
+            eyebrow="Share your experience"
+            title="Review a recent stay"
+            description="Visit a completed trip to leave a review for that property."
           />
 
-          <div className="mt-6 space-y-4">
-            {pendingReviewPrompts.map((booking) => (
-              <div
-                key={booking.id}
-                className="grid gap-4 rounded-[28px] border border-gray-200 bg-[#fcfcfb] p-4 md:grid-cols-[120px_minmax(0,1fr)] md:p-5"
-              >
-                <img
-                  src={booking.property.image}
-                  alt={booking.property.title}
-                  className="h-28 w-full rounded-[22px] object-cover md:h-full"
-                />
-                <div>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <StatusPill tone="warning">Review needed</StatusPill>
-                    <p className="text-sm text-muted">{booking.dateLabel}</p>
-                  </div>
-                  <h2 className="mt-3 text-xl font-semibold tracking-tight text-dark">
-                    {booking.property.title}
-                  </h2>
-                  <p className="mt-2 text-sm leading-6 text-muted">
-                    Help future guests understand what made this stay easy, calm, or
-                    worth the price.
-                  </p>
-                  <Link
-                    to={`/reviews/new?bookingId=${booking.id}`}
-                    className="mt-5 inline-flex w-full items-center justify-center rounded-full bg-dark px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-gray-800 sm:w-auto"
-                  >
-                    Write review
-                  </Link>
-                </div>
-              </div>
-            ))}
+          <div className="mt-6 grid gap-4 rounded-[28px] border border-gray-200 bg-[#fcfcfb] p-5">
+            <p className="text-sm leading-6 text-muted">
+              Open any trip from your bookings list and use the{' '}
+              <span className="font-semibold text-dark">Leave a review</span> button on completed stays.
+            </p>
+            <Link
+              to="/trips"
+              className="inline-flex w-full items-center justify-center rounded-full bg-dark px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-gray-800 sm:w-auto"
+            >
+              Go to trips
+            </Link>
           </div>
         </SectionCard>
 
+        {/* Right: editorial tips */}
         <SectionCard className="hidden md:block">
           <SectionHeading
             eyebrow="Review tone"
@@ -119,76 +135,100 @@ export default function MyReviewsPage() {
         </SectionCard>
       </div>
 
+      {/* Submitted reviews */}
       <SectionCard>
         <SectionHeading
           eyebrow="Published"
           title="Your review history"
-          description="Review cards use more breathing room and stronger typography so they feel closer to a polished editorial archive."
+          description="All reviews you've submitted, with their current moderation status."
         />
 
-        <div className="mt-6 grid gap-4 xl:grid-cols-2">
-          {submittedReviews.map((review) => {
-            const property = propertyForReview(review.propertyId)
+        {loading && (
+          <div className="py-16 text-center text-sm text-muted">Loading reviews…</div>
+        )}
 
-            return (
-              <div
-                key={review.id}
-                className="rounded-[28px] border border-gray-200 bg-[#fcfcfb] p-5"
-              >
-                <div className="flex flex-wrap items-center gap-2">
-                  <StatusPill tone="success">{review.status}</StatusPill>
-                  <p className="text-sm text-muted">{review.submittedAt}</p>
-                </div>
+        {!loading && reviews.length === 0 && (
+          <div className="py-16 text-center text-sm text-muted">
+            No reviews yet.{' '}
+            <Link to="/trips" className="font-semibold underline">Go to your trips</Link>{' '}
+            to leave your first one.
+          </div>
+        )}
 
-                <div className="mt-4 flex items-start justify-between gap-4">
-                  <div>
-                    <h2 className="text-xl font-semibold tracking-tight text-dark">
-                      {review.title}
-                    </h2>
-                    <p className="mt-1 text-sm text-muted">
-                      {property?.title || 'Previous stay'}
-                    </p>
-                  </div>
-                  <div className="inline-flex items-center gap-1 rounded-full bg-white px-3 py-2 text-sm font-semibold text-dark">
-                    <Star size={14} className="fill-dark text-dark" />
-                    {review.rating}.0
-                  </div>
-                </div>
-
-                <p className="mt-4 text-sm leading-7 text-dark">{review.summary}</p>
-
-                <div className="mt-5 flex flex-wrap gap-2">
-                  {Object.entries(review.categoryScores).map(([label, score]) => (
-                    <StatusPill key={label} tone="sky">
-                      {label}: {score}
-                    </StatusPill>
-                  ))}
-                </div>
-
-                <div className="mt-5 rounded-[24px] border border-dashed border-gray-200 bg-white p-4">
-                  <div className="flex items-start gap-3">
-                    <div className="rounded-2xl bg-emerald-50 p-3 text-emerald-700">
-                      <MessageCircleHeart size={18} />
-                    </div>
-                    <div>
-                      <p className="text-sm font-semibold text-dark">Host response</p>
-                      <p className="mt-1 text-sm leading-6 text-muted">
-                        {review.hostResponse}
+        {!loading && reviews.length > 0 && (
+          <div className="mt-6 grid gap-4 xl:grid-cols-2">
+            {reviews.map((review) => {
+              const hotel = hotelMap[review.hotelId]
+              return (
+                <div key={review.id} className="rounded-[28px] border border-gray-200 bg-[#fcfcfb] p-5">
+                  <div className="flex items-start gap-4">
+                    <img
+                      src={placeholderImage(review.hotelId)}
+                      alt={hotel?.name || ''}
+                      className="h-16 w-16 rounded-2xl object-cover flex-shrink-0"
+                    />
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <StatusPill tone={STATUS_TONE[review.status] ?? 'slate'}>
+                          {review.status}
+                        </StatusPill>
+                        <p className="text-sm text-muted">{formatDate(review.createdAt)}</p>
+                      </div>
+                      <p className="mt-1 text-sm font-medium text-muted">
+                        {hotel?.name || `Hotel #${review.hotelId}`}
+                        {hotel?.city ? ` · ${hotel.city}` : ''}
                       </p>
                     </div>
                   </div>
-                </div>
 
-                <Link
-                  to={`/reviews/${review.id}/edit`}
-                  className="mt-5 inline-flex w-full items-center justify-center rounded-full border border-gray-200 bg-white px-4 py-2.5 text-sm font-semibold text-dark transition-colors hover:bg-gray-50 sm:w-auto"
-                >
-                  Edit review
-                </Link>
-              </div>
-            )
-          })}
-        </div>
+                  <div className="mt-4 flex items-start justify-between gap-4">
+                    <h2 className="text-xl font-semibold tracking-tight text-dark">
+                      {review.title || 'Untitled review'}
+                    </h2>
+                    <div className="inline-flex flex-shrink-0 items-center gap-1 rounded-full bg-white px-3 py-2 text-sm font-semibold text-dark border border-gray-200">
+                      <Star size={14} className="fill-dark text-dark" />
+                      {review.rating}
+                    </div>
+                  </div>
+
+                  {review.content && (
+                    <p className="mt-3 text-sm leading-7 text-dark line-clamp-3">{review.content}</p>
+                  )}
+
+                  {(review.helpfulCount > 0 || review.unhelpfulCount > 0) && (
+                    <div className="mt-4 flex gap-3">
+                      {review.helpfulCount > 0 && (
+                        <StatusPill tone="success">{review.helpfulCount} helpful</StatusPill>
+                      )}
+                      {review.unhelpfulCount > 0 && (
+                        <StatusPill tone="slate">{review.unhelpfulCount} unhelpful</StatusPill>
+                      )}
+                    </div>
+                  )}
+
+                  <div className="mt-5 rounded-[24px] border border-dashed border-gray-200 bg-white p-4">
+                    <div className="flex items-start gap-3">
+                      <div className="rounded-2xl bg-emerald-50 p-3 text-emerald-700">
+                        <MessageCircleHeart size={18} />
+                      </div>
+                      <div>
+                        <p className="text-sm font-semibold text-dark">Host response</p>
+                        <p className="mt-1 text-sm leading-6 text-muted">No response yet.</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <Link
+                    to={`/property/${review.hotelId}`}
+                    className="mt-5 inline-flex w-full items-center justify-center rounded-full border border-gray-200 bg-white px-4 py-2.5 text-sm font-semibold text-dark transition-colors hover:bg-gray-50 sm:w-auto"
+                  >
+                    View property
+                  </Link>
+                </div>
+              )
+            })}
+          </div>
+        )}
       </SectionCard>
     </PortalShell>
   )

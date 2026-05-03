@@ -4,9 +4,11 @@ import {
   ArrowLeft,
   CalendarRange,
   CreditCard,
+  Loader2,
   MapPinned,
   ShieldCheck,
   Star,
+  XCircle,
 } from 'lucide-react'
 import { format, parseISO } from 'date-fns'
 import {
@@ -15,7 +17,7 @@ import {
   SectionHeading,
   StatusPill,
 } from '../../components/portal/PortalUI'
-import { getBooking } from '../../services/bookingsApi'
+import { cancelBooking, getBooking } from '../../services/bookingsApi'
 import { getHotel } from '../../services/hotelsApi'
 
 const PLACEHOLDER_IMAGES = [
@@ -56,6 +58,9 @@ export default function TripDetailPage() {
   const [hotel, setHotel] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
+  const [confirmCancel, setConfirmCancel] = useState(false)
+  const [cancelling, setCancelling] = useState(false)
+  const [cancelError, setCancelError] = useState(null)
 
   useEffect(() => {
     async function load() {
@@ -91,6 +96,20 @@ export default function TripDetailPage() {
         </SectionCard>
       </PortalShell>
     )
+  }
+
+  const handleCancel = async () => {
+    setCancelling(true)
+    setCancelError(null)
+    try {
+      const updated = await cancelBooking(booking)
+      setBooking(updated)
+      setConfirmCancel(false)
+    } catch {
+      setCancelError('Could not cancel booking. Please try again.')
+    } finally {
+      setCancelling(false)
+    }
   }
 
   const status = API_STATUS_MAP[booking.status] ?? 'upcoming'
@@ -234,16 +253,63 @@ export default function TripDetailPage() {
               </div>
             )}
 
-            <div className="mt-4 hidden rounded-[24px] border border-dashed border-gray-200 bg-white p-5 md:block">
-              <div className="flex items-start gap-3">
-                <div className="rounded-2xl bg-emerald-50 p-3 text-emerald-700">
-                  <ShieldCheck size={18} />
+            {/* Cancel / review actions */}
+            {status === 'upcoming' && !confirmCancel && (
+              <button
+                type="button"
+                onClick={() => setConfirmCancel(true)}
+                className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-full border border-red-200 bg-white px-4 py-2.5 text-sm font-semibold text-red-600 transition-colors hover:bg-red-50 sm:w-auto"
+              >
+                <XCircle size={15} />
+                Cancel booking
+              </button>
+            )}
+
+            {status === 'upcoming' && confirmCancel && (
+              <div className="mt-5 rounded-[24px] border border-red-200 bg-red-50 p-4 space-y-3">
+                <p className="text-sm font-semibold text-red-700">Cancel this booking?</p>
+                <p className="text-sm text-red-600">This cannot be undone. The booking status will be set to cancelled.</p>
+                {cancelError && <p className="text-xs text-red-600">{cancelError}</p>}
+                <div className="flex gap-3">
+                  <button
+                    type="button"
+                    onClick={handleCancel}
+                    disabled={cancelling}
+                    className="inline-flex items-center gap-2 rounded-full bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700 disabled:opacity-50 transition-colors"
+                  >
+                    {cancelling ? <><Loader2 size={13} className="animate-spin" /> Cancelling…</> : 'Yes, cancel'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setConfirmCancel(false); setCancelError(null) }}
+                    disabled={cancelling}
+                    className="rounded-full border border-red-200 bg-white px-4 py-2 text-sm font-semibold text-red-600 hover:bg-red-50 disabled:opacity-50 transition-colors"
+                  >
+                    Keep booking
+                  </button>
                 </div>
-                <p className="text-sm leading-6 text-muted">
-                  Cancellation, refund, and support options can extend from this surface once those APIs are available.
-                </p>
               </div>
-            </div>
+            )}
+
+            {status === 'cancelled' && (
+              <div className="mt-5 flex items-start gap-3 rounded-[24px] border border-dashed border-gray-200 bg-white p-4">
+                <div className="rounded-2xl bg-gray-100 p-3 text-gray-500">
+                  <XCircle size={18} />
+                </div>
+                <p className="text-sm leading-6 text-muted">This booking has been cancelled.</p>
+              </div>
+            )}
+
+            {status === 'completed' && (
+              <div className="mt-4 hidden rounded-[24px] border border-dashed border-gray-200 bg-white p-5 md:block">
+                <div className="flex items-start gap-3">
+                  <div className="rounded-2xl bg-emerald-50 p-3 text-emerald-700">
+                    <ShieldCheck size={18} />
+                  </div>
+                  <p className="text-sm leading-6 text-muted">Stay completed. Thank you for travelling with Travolish.</p>
+                </div>
+              </div>
+            )}
 
             {canReview && (
               <Link

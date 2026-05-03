@@ -9,6 +9,7 @@ import {
 import { motion } from 'framer-motion'
 import { format, parseISO } from 'date-fns'
 import { getHotel, listRooms, getHotelReviews } from '../services/hotelsApi'
+import { getHotelRatingStats } from '../services/reviewsApi'
 import { adaptHotel } from '../lib/hotelAdapter'
 import useWishlistStore from '../stores/useWishlistStore'
 import ImageGallery from '../components/property/ImageGallery'
@@ -82,6 +83,7 @@ export default function PropertyDetailPage() {
   const [reviews, setReviews] = useState([])
   const [totalReviews, setTotalReviews] = useState(0)
   const [avgRating, setAvgRating] = useState(0)
+  const [ratingStats, setRatingStats] = useState(null)
   const [isLoading, setIsLoading] = useState(true)
   const [notFound, setNotFound] = useState(false)
 
@@ -94,10 +96,11 @@ export default function PropertyDetailPage() {
       setIsLoading(true)
       setNotFound(false)
       try {
-        const [hotel, hotelRooms, reviewsPage] = await Promise.all([
+        const [hotel, hotelRooms, reviewsPage, stats] = await Promise.all([
           getHotel(id),
           listRooms(id),
           getHotelReviews(id),
+          getHotelRatingStats(id).catch(() => null),
         ])
         if (cancelled) return
 
@@ -107,12 +110,11 @@ export default function PropertyDetailPage() {
         const approvedReviews = (reviewsPage.content ?? []).filter(
           (r) => r.status === 'APPROVED',
         )
-        const count = reviewsPage.totalElements ?? 0
-        const avg =
-          approvedReviews.length > 0
-            ? approvedReviews.reduce((s, r) => s + r.rating, 0) /
-              approvedReviews.length
-            : hotel.rating ?? 0
+        const count = stats?.totalReviews ?? reviewsPage.totalElements ?? 0
+        const avg = stats?.averageRating
+          ?? (approvedReviews.length > 0
+            ? approvedReviews.reduce((s, r) => s + r.rating, 0) / approvedReviews.length
+            : hotel.rating ?? 0)
 
         adapted.reviewCount = count
         adapted.rating = Math.round(avg * 10) / 10 || hotel.rating || 0
@@ -123,6 +125,7 @@ export default function PropertyDetailPage() {
         setReviews(approvedReviews)
         setTotalReviews(count)
         setAvgRating(adapted.rating)
+        setRatingStats(stats)
       } catch {
         if (!cancelled) setNotFound(true)
       } finally {
@@ -327,27 +330,33 @@ export default function PropertyDetailPage() {
             </div>
 
             {/* Rating Bars */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-12 gap-y-3 mb-10">
-              {[
-                { label: 'Cleanliness', score: 4.9 },
-                { label: 'Accuracy', score: 4.8 },
-                { label: 'Communication', score: 5.0 },
-                { label: 'Location', score: 4.9 },
-                { label: 'Check-in', score: 5.0 },
-                { label: 'Value', score: 4.7 },
-              ].map((item) => (
-                <div key={item.label} className="flex items-center gap-3">
-                  <span className="text-sm text-dark w-28 flex-shrink-0">{item.label}</span>
-                  <div className="flex-1 h-1 bg-gray-200 rounded-full overflow-hidden">
-                    <div
-                      className="h-full bg-dark rounded-full"
-                      style={{ width: `${(item.score / 5) * 100}%` }}
-                    />
-                  </div>
-                  <span className="text-xs font-semibold text-dark w-6 text-right">{item.score}</span>
-                </div>
-              ))}
-            </div>
+            {ratingStats && ratingStats.totalReviews > 0 && (
+              <div className="mb-10 space-y-2.5 max-w-sm">
+                {[
+                  { label: '5 stars', count: ratingStats.fiveStars ?? 0 },
+                  { label: '4 stars', count: ratingStats.fourStars ?? 0 },
+                  { label: '3 stars', count: ratingStats.threeStars ?? 0 },
+                  { label: '2 stars', count: ratingStats.twoStars ?? 0 },
+                  { label: '1 star', count: ratingStats.oneStar ?? 0 },
+                ].map((item) => {
+                  const pct = ratingStats.totalReviews > 0
+                    ? Math.round((item.count / ratingStats.totalReviews) * 100)
+                    : 0
+                  return (
+                    <div key={item.label} className="flex items-center gap-3">
+                      <span className="text-sm text-dark w-14 flex-shrink-0">{item.label}</span>
+                      <div className="flex-1 h-1.5 bg-gray-200 rounded-full overflow-hidden">
+                        <div
+                          className="h-full bg-dark rounded-full transition-all"
+                          style={{ width: `${pct}%` }}
+                        />
+                      </div>
+                      <span className="text-xs font-semibold text-muted w-8 text-right">{item.count}</span>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
 
             {/* Review Cards */}
             {reviews.length > 0 ? (

@@ -1,5 +1,5 @@
 import { format } from 'date-fns'
-import { get, post } from '../lib/api'
+import { get, post, put } from '../lib/api'
 
 const fmt = (date) => format(date, 'yyyy-MM-dd')
 
@@ -47,6 +47,10 @@ export async function createBooking({
 
 export async function getBooking(id) {
   return get(`/api/bookings/${id}`)
+}
+
+export async function cancelBooking(booking) {
+  return put(`/api/bookings/${booking.id}`, { ...booking, status: 'CANCELLED' })
 }
 
 export async function listBookings() {

@@ -10,10 +10,10 @@ async function get(path, params = {}) {
   return res.json()
 }
 
-async function post(path, body) {
+async function post(path, body, extraHeaders = {}) {
   const res = await fetch(`${BASE_URL}${path}`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...extraHeaders },
     body: JSON.stringify(body),
   })
   if (!res.ok) throw new Error(`API ${res.status}: ${path}`)

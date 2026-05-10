@@ -8,7 +8,7 @@ export default defineConfig({
     open: false,
     proxy: {
       '/api': {
-        target: 'http://localhost:8080',
+        target: 'https://traveller-service-vkxfrw4kvq-uc.a.run.app',
         changeOrigin: true,
       },
     },

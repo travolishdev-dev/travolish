@@ -1,7 +1,8 @@
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Search, MapPin, X, SlidersHorizontal } from 'lucide-react'
 import { motion } from 'framer-motion'
-import { properties } from '../data/mockData'
+import { searchHotels, listRooms } from '../services/hotelsApi'
+import { adaptHotels } from '../lib/hotelAdapter'
 import PropertyCard from '../components/home/PropertyCard'
 import useNativeAppLocationStore from '../stores/useNativeAppLocationStore'
 import {
@@ -10,30 +11,56 @@ import {
   sortPropertiesBySharedLocation,
 } from '../lib/nativeAppLocation'
 
+const DEBOUNCE_MS = 350
+
 export default function SearchPage() {
   const [query, setQuery] = useState('')
   const [minPrice, setMinPrice] = useState('')
   const [maxPrice, setMaxPrice] = useState('')
   const [showFilters, setShowFilters] = useState(false)
+  const [allProperties, setAllProperties] = useState([])
+  const [isLoading, setIsLoading] = useState(false)
+  const [totalResults, setTotalResults] = useState(0)
   const sharedLocation = useNativeAppLocationStore()
+  const debounceRef = useRef(null)
 
-  const filtered = properties.filter((p) => {
-    const matchesQuery =
-      !query ||
-      p.title.toLowerCase().includes(query.toLowerCase()) ||
-      p.location.toLowerCase().includes(query.toLowerCase()) ||
-      p.country.toLowerCase().includes(query.toLowerCase())
+  useEffect(() => {
+    clearTimeout(debounceRef.current)
+    debounceRef.current = setTimeout(async () => {
+      setIsLoading(true)
+      try {
+        const [searchResult, rooms] = await Promise.all([
+          searchHotels({ name: query || undefined, pageSize: 50 }),
+          listRooms(),
+        ])
+        setAllProperties(adaptHotels(searchResult.content ?? [], rooms))
+        setTotalResults(searchResult.totalElements ?? 0)
+      } catch {
+        setAllProperties([])
+        setTotalResults(0)
+      } finally {
+        setIsLoading(false)
+      }
+    }, query ? DEBOUNCE_MS : 0)
 
-    const matchesMin = !minPrice || p.price >= parseInt(minPrice)
-    const matchesMax = !maxPrice || p.price <= parseInt(maxPrice)
+    return () => clearTimeout(debounceRef.current)
+  }, [query])
 
-    return matchesQuery && matchesMin && matchesMax
+  // Price filter stays client-side (API has no price param)
+  const filtered = allProperties.filter((p) => {
+    const matchesMin = !minPrice || (p.price !== null && p.price >= parseInt(minPrice))
+    const matchesMax = !maxPrice || (p.price !== null && p.price <= parseInt(maxPrice))
+    return matchesMin && matchesMax
   })
+
   const sortedResults = sortPropertiesBySharedLocation(filtered, sharedLocation)
   const sharedCoordinates = formatCoordinates(
     sharedLocation.latitude,
     sharedLocation.longitude,
   )
+
+  const isEmptyState = !isLoading && sortedResults.length === 0
+  const showSuggestions = !query && !isLoading && allProperties.length > 0
 
   return (
     <motion.main
@@ -52,7 +79,7 @@ export default function SearchPage() {
                 type="text"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                placeholder="Search destinations, properties..."
+                placeholder="Search hotels, cities, countries..."
                 autoFocus
                 className="w-full pl-12 pr-4 py-3.5 border border-gray-300 rounded-full text-sm focus:outline-none focus:border-dark focus:ring-1 focus:ring-dark transition-all"
               />
@@ -117,7 +144,7 @@ export default function SearchPage() {
                 </div>
                 <div className="flex items-end">
                   <button
-                    onClick={() => { setMinPrice(''); setMaxPrice(''); }}
+                    onClick={() => { setMinPrice(''); setMaxPrice('') }}
                     className="text-sm font-semibold text-dark underline hover:text-muted transition-colors"
                   >
                     Clear filters
@@ -171,9 +198,7 @@ export default function SearchPage() {
       )}
 
       {/* Quick Suggestions (when no query) */}
-      {!query &&
-        filtered.length === properties.length &&
-        !sharedLocation.hasSharedLocation && (
+      {showSuggestions && !sharedLocation.hasSharedLocation && (
         <div className="max-w-[1760px] mx-auto px-6 md:px-10 xl:px-20 py-8">
           <h2 className="text-lg font-semibold text-dark mb-4">Popular destinations</h2>
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
@@ -202,29 +227,44 @@ export default function SearchPage() {
 
       {/* Results */}
       <div className="max-w-[1760px] mx-auto px-6 md:px-10 xl:px-20 py-8">
-        {(query || sharedLocation.hasSharedLocation) && (
-          <p className="text-sm text-muted mb-6">
-            {sortedResults.length} result{sortedResults.length !== 1 ? 's' : ''}
-            {query
-              ? ` for "${query}"`
-              : ' closest to your shared location'}
-          </p>
-        )}
-
-        {sortedResults.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-16 text-center">
-            <Search size={48} className="text-gray-300 mb-4" />
-            <h2 className="text-xl font-semibold text-dark mb-2">No results found</h2>
-            <p className="text-muted text-sm max-w-md">
-              Try searching for a different destination or adjusting your filters.
-            </p>
-          </div>
-        ) : (
+        {isLoading ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-x-6 gap-y-10">
-            {sortedResults.map((property, index) => (
-              <PropertyCard key={property.id} property={property} index={index} />
+            {Array.from({ length: 8 }).map((_, i) => (
+              <div key={i} className="animate-pulse">
+                <div className="aspect-square bg-gray-200 rounded-xl mb-3" />
+                <div className="space-y-2">
+                  <div className="h-4 bg-gray-200 rounded w-3/4" />
+                  <div className="h-3.5 bg-gray-200 rounded w-1/2" />
+                  <div className="h-4 bg-gray-200 rounded w-1/4 mt-1" />
+                </div>
+              </div>
             ))}
           </div>
+        ) : (
+          <>
+            {(query || sharedLocation.hasSharedLocation) && !isEmptyState && (
+              <p className="text-sm text-muted mb-6">
+                {sortedResults.length} result{sortedResults.length !== 1 ? 's' : ''}
+                {query ? ` for "${query}"` : ' closest to your shared location'}
+              </p>
+            )}
+
+            {isEmptyState ? (
+              <div className="flex flex-col items-center justify-center py-16 text-center">
+                <Search size={48} className="text-gray-300 mb-4" />
+                <h2 className="text-xl font-semibold text-dark mb-2">No results found</h2>
+                <p className="text-muted text-sm max-w-md">
+                  Try searching for a different destination or adjusting your filters.
+                </p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-x-6 gap-y-10">
+                {sortedResults.map((property, index) => (
+                  <PropertyCard key={property.id} property={property} index={index} />
+                ))}
+              </div>
+            )}
+          </>
         )}
       </div>
     </motion.main>

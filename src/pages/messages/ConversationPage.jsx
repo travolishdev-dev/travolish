@@ -1,15 +1,16 @@
+import { useEffect, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { ArrowLeft, CalendarRange, MapPin, SendHorizonal } from 'lucide-react'
+import { ArrowLeft, SendHorizonal } from 'lucide-react'
+import { format, parseISO } from 'date-fns'
 import {
   PortalShell,
   SectionCard,
   SectionHeading,
   StatusPill,
 } from '../../components/portal/PortalUI'
-import {
-  conversationMessages,
-  findConversation,
-} from '../../data/mockPortalData'
+import { getConversation, getMessages, sendMessage } from '../../services/chatApi'
+
+const MY_USER_ID = 1
 
 const quickReplies = [
   'Looks great, thank you.',
@@ -17,51 +18,110 @@ const quickReplies = [
   'Please share the check-in notes again.',
 ]
 
+function formatTime(dt) {
+  if (!dt) return ''
+  try { return format(parseISO(dt), 'h:mm a · MMM d') } catch { return '' }
+}
+
 export default function ConversationPage() {
   const { id } = useParams()
-  const conversation = findConversation(id)
-  const messages = conversationMessages[id] || []
+  const [conversation, setConversation] = useState(null)
+  const [messages, setMessages] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [text, setText] = useState('')
+  const [sending, setSending] = useState(false)
+  const bottomRef = useRef(null)
 
-  if (!conversation) {
+  useEffect(() => {
+    async function load() {
+      try {
+        const [conv, msgs] = await Promise.all([
+          getConversation(id),
+          getMessages(id),
+        ])
+        setConversation(conv)
+        setMessages((msgs.content ?? msgs).filter((m) => !m.isDeleted))
+      } catch {
+        // leave null — handled below
+      } finally {
+        setLoading(false)
+      }
+    }
+    load()
+  }, [id])
+
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [messages])
+
+  const receiverId = conversation
+    ? conversation.userId1 === MY_USER_ID
+      ? conversation.userId2
+      : conversation.userId1
+    : null
+
+  const handleSend = async (msgText) => {
+    const trimmed = (msgText ?? text).trim()
+    if (!trimmed || !receiverId) return
+    setText('')
+    const optimistic = {
+      id: `tmp-${Date.now()}`,
+      senderId: MY_USER_ID,
+      messageText: trimmed,
+      createdAt: new Date().toISOString(),
+    }
+    setMessages((prev) => [...prev, optimistic])
+    setSending(true)
+    try {
+      const saved = await sendMessage({
+        conversationId: Number(id),
+        receiverId,
+        messageText: trimmed,
+      })
+      setMessages((prev) => prev.map((m) => (m.id === optimistic.id ? saved : m)))
+    } catch {
+      setMessages((prev) => prev.filter((m) => m.id !== optimistic.id))
+    } finally {
+      setSending(false)
+    }
+  }
+
+  if (loading) {
     return (
-      <PortalShell
-        eyebrow="Conversation"
-        title="Conversation not found."
-        description="Use one of the mock conversation ids from the messages page to preview the thread view."
-        actions={[{ label: 'Back to inbox', href: '/messages' }]}
-      >
+      <PortalShell eyebrow="Conversation" title="Loading…" actions={[{ label: 'Back to inbox', href: '/messages', secondary: true }]}>
         <SectionCard>
-          <p className="text-sm text-muted">
-            The conversation UI is ready, but the requested thread is not part of the
-            current mock data set.
-          </p>
+          <div className="py-16 text-center text-sm text-muted">Fetching messages…</div>
         </SectionCard>
       </PortalShell>
     )
   }
 
+  if (!conversation) {
+    return (
+      <PortalShell eyebrow="Conversation" title="Not found." actions={[{ label: 'Back to inbox', href: '/messages' }]}>
+        <SectionCard>
+          <p className="text-sm text-muted">This conversation does not exist.</p>
+        </SectionCard>
+      </PortalShell>
+    )
+  }
+
+  const otherUserId = conversation.userId1 === MY_USER_ID ? conversation.userId2 : conversation.userId1
+  const unread = conversation.userId1 === MY_USER_ID ? conversation.user1UnreadCount : conversation.user2UnreadCount
+
   return (
     <PortalShell
       eyebrow="Conversation"
-      title={`Chat with ${conversation.participant}`}
+      title={`Chat with User #${otherUserId}`}
       mobileTitle="Chat"
-      description="The thread view keeps the stay context visible at all times, so guests never feel like they are messaging in a disconnected support tool."
+      description="Send and receive messages in real time."
       actions={[
         { label: 'Back to inbox', href: '/messages', secondary: true },
-        { label: 'Open booking', href: `/trips/${conversation.bookingId}` },
       ]}
       stats={[
-        {
-          label: 'Property',
-          value: conversation.property.location,
-          note: conversation.property.country,
-        },
-        { label: 'Booking id', value: conversation.bookingId, note: 'Linked stay' },
-        {
-          label: 'Thread status',
-          value: conversation.unreadCount > 0 ? 'Unread' : 'Current',
-          note: conversation.updatedAt,
-        },
+        { label: 'Thread', value: `#${conversation.id}`, note: conversation.isActive ? 'Active' : 'Inactive' },
+        { label: 'Participant', value: `User #${otherUserId}`, note: 'Other user' },
+        { label: 'Unread', value: String(unread ?? 0), note: 'In this thread' },
       ]}
       accent="from-sky-50 via-white to-emerald-50"
     >
@@ -73,120 +133,74 @@ export default function ConversationPage() {
         Back to inbox
       </Link>
 
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_340px]">
-        <SectionCard>
-          <SectionHeading
-            eyebrow="Thread"
-            title={conversation.title}
-            description="Message bubbles stay spacious and legible on mobile while still feeling premium on desktop."
-          />
+      <SectionCard>
+        <SectionHeading
+          eyebrow="Thread"
+          title={`Conversation #${conversation.id}`}
+          description="Messages are sent and stored in real time."
+        />
 
-          <div className="mt-4 rounded-[22px] border border-gray-200 bg-[#fcfcfb] p-3 xl:hidden">
-            <p className="text-sm font-semibold text-dark">
-              {conversation.property.title}
-            </p>
-            <p className="mt-1 text-sm text-muted">
-              {conversation.property.location}, {conversation.property.country}
-            </p>
-            <p className="mt-2 text-xs font-semibold uppercase tracking-[0.16em] text-muted">
-              Linked booking {conversation.bookingId}
-            </p>
-          </div>
-
-          <div className="mt-6 space-y-4">
-            {messages.map((message) => (
-              <div
-                key={message.id}
-                className={`flex ${
-                  message.sender === 'guest' ? 'justify-end' : 'justify-start'
-                }`}
-              >
+        {/* Message list */}
+        <div className="mt-6 space-y-4 max-h-[480px] overflow-y-auto pr-1">
+          {messages.length === 0 && (
+            <p className="py-10 text-center text-sm text-muted">No messages yet. Say hello!</p>
+          )}
+          {messages.map((message) => {
+            const isMe = message.senderId === MY_USER_ID
+            return (
+              <div key={message.id} className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
                 <div
                   className={`max-w-[86%] rounded-[24px] px-4 py-3 text-sm leading-7 md:max-w-[72%] ${
-                    message.sender === 'guest'
-                      ? 'bg-dark text-white'
-                      : 'border border-gray-200 bg-[#fcfcfb] text-dark'
+                    isMe ? 'bg-dark text-white' : 'border border-gray-200 bg-[#fcfcfb] text-dark'
                   }`}
                 >
-                  <p>{message.text}</p>
-                  <p
-                    className={`mt-2 text-xs ${
-                      message.sender === 'guest'
-                        ? 'text-white/65'
-                        : 'text-muted'
-                    }`}
-                  >
-                    {message.time}
+                  <p>{message.messageText}</p>
+                  <p className={`mt-2 text-xs ${isMe ? 'text-white/65' : 'text-muted'}`}>
+                    {formatTime(message.createdAt)}
                   </p>
                 </div>
               </div>
-            ))}
-          </div>
-
-          <div className="mt-6 grid gap-2 sm:flex sm:flex-wrap sm:gap-3">
-            {quickReplies.map((reply) => (
-              <button
-                key={reply}
-                type="button"
-                className="rounded-full border border-gray-200 bg-white px-4 py-2.5 text-sm font-semibold text-dark transition-colors hover:bg-gray-50"
-              >
-                {reply}
-              </button>
-            ))}
-          </div>
-
-          <div className="mt-4 flex flex-col gap-3 rounded-[26px] border border-gray-200 bg-[#fcfcfb] p-4 sm:flex-row sm:items-end">
-            <textarea
-              rows={3}
-              placeholder="Write a message to the host..."
-              className="min-h-[108px] flex-1 resize-none bg-transparent text-base leading-7 text-dark outline-none placeholder:text-gray-400 md:text-sm"
-            />
-            <button
-              type="button"
-              className="inline-flex h-12 w-full items-center justify-center rounded-2xl bg-dark text-white transition-colors hover:bg-gray-800 sm:w-12"
-            >
-              <SendHorizonal size={16} />
-            </button>
-          </div>
-        </SectionCard>
-
-        <div className="hidden space-y-6 xl:block">
-          <SectionCard>
-            <img
-              src={conversation.property.image}
-              alt={conversation.property.title}
-              className="aspect-[4/3] w-full rounded-[24px] object-cover"
-            />
-
-            <div className="mt-5 flex flex-wrap items-center gap-2">
-              <StatusPill tone="brand">Active stay thread</StatusPill>
-              <StatusPill tone="success">{conversation.role}</StatusPill>
-            </div>
-
-            <h2 className="mt-4 text-2xl font-semibold tracking-tight text-dark">
-              {conversation.property.title}
-            </h2>
-
-            <div className="mt-4 space-y-3 text-sm text-muted">
-              <p className="inline-flex items-center gap-2">
-                <MapPin size={15} />
-                {conversation.property.location}, {conversation.property.country}
-              </p>
-              <p className="inline-flex items-center gap-2">
-                <CalendarRange size={15} />
-                Linked booking {conversation.bookingId}
-              </p>
-            </div>
-
-            <Link
-              to={`/trips/${conversation.bookingId}`}
-              className="mt-5 inline-flex w-full items-center justify-center rounded-full border border-gray-200 bg-white px-4 py-2.5 text-sm font-semibold text-dark transition-colors hover:bg-gray-50 sm:w-auto"
-            >
-              View booking detail
-            </Link>
-          </SectionCard>
+            )
+          })}
+          <div ref={bottomRef} />
         </div>
-      </div>
+
+        {/* Quick replies */}
+        <div className="mt-6 grid gap-2 sm:flex sm:flex-wrap sm:gap-3">
+          {quickReplies.map((reply) => (
+            <button
+              key={reply}
+              type="button"
+              onClick={() => handleSend(reply)}
+              className="rounded-full border border-gray-200 bg-white px-4 py-2.5 text-sm font-semibold text-dark transition-colors hover:bg-gray-50"
+            >
+              {reply}
+            </button>
+          ))}
+        </div>
+
+        {/* Compose */}
+        <div className="mt-4 flex flex-col gap-3 rounded-[26px] border border-gray-200 bg-[#fcfcfb] p-4 sm:flex-row sm:items-end">
+          <textarea
+            rows={3}
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) handleSend()
+            }}
+            placeholder="Write a message… (⌘↵ to send)"
+            className="min-h-[108px] flex-1 resize-none bg-transparent text-base leading-7 text-dark outline-none placeholder:text-gray-400 md:text-sm"
+          />
+          <button
+            type="button"
+            onClick={() => handleSend()}
+            disabled={!text.trim() || sending}
+            className="inline-flex h-12 w-full items-center justify-center rounded-2xl bg-dark text-white transition-colors hover:bg-gray-800 disabled:opacity-40 sm:w-12"
+          >
+            <SendHorizonal size={16} />
+          </button>
+        </div>
+      </SectionCard>
     </PortalShell>
   )
 }

@@ -6,6 +6,12 @@ export default defineConfig({
   server: {
     port: 5173,
     open: false,
+    proxy: {
+      '/api': {
+        target: 'https://traveller-service-vkxfrw4kvq-uc.a.run.app',
+        changeOrigin: true,
+      },
+    },
   },
   resolve: {
     alias: {

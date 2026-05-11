@@ -1,64 +1,139 @@
+import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import {
   ArrowLeft,
   CalendarRange,
   CreditCard,
+  Loader2,
   MapPinned,
-  MessageCircleMore,
   ShieldCheck,
   Star,
-  Users,
+  XCircle,
 } from 'lucide-react'
+import { format, parseISO } from 'date-fns'
 import {
   PortalShell,
   SectionCard,
   SectionHeading,
   StatusPill,
 } from '../../components/portal/PortalUI'
-import { findBooking } from '../../data/mockPortalData'
+import { cancelBooking, getBooking } from '../../services/bookingsApi'
+import { getHotel } from '../../services/hotelsApi'
 
-const statusTone = {
+const PLACEHOLDER_IMAGES = [
+  'https://images.unsplash.com/photo-1542314831-068cd1dbfeeb?w=800&auto=format&fit=crop',
+  'https://images.unsplash.com/photo-1571003123894-1f0594d2b5d9?w=800&auto=format&fit=crop',
+  'https://images.unsplash.com/photo-1566073771259-6a8506099945?w=800&auto=format&fit=crop',
+  'https://images.unsplash.com/photo-1520250497591-112f2f40a3f4?w=800&auto=format&fit=crop',
+  'https://images.unsplash.com/photo-1551882547-ff40c63fe5fa?w=800&auto=format&fit=crop',
+  'https://images.unsplash.com/photo-1445019980597-93fa8acb246c?w=800&auto=format&fit=crop',
+  'https://images.unsplash.com/photo-1498503182468-3b51cbb6cb24?w=800&auto=format&fit=crop',
+  'https://images.unsplash.com/photo-1533929736458-ca588d08c8be?w=800&auto=format&fit=crop',
+]
+
+const API_STATUS_MAP = {
+  PENDING: 'upcoming',
+  CONFIRMED: 'upcoming',
+  COMPLETED: 'completed',
+  CANCELLED: 'cancelled',
+}
+
+const STATUS_TONE = {
   upcoming: 'brand',
   completed: 'success',
   cancelled: 'warning',
 }
 
+function placeholderImage(hotelId) {
+  return PLACEHOLDER_IMAGES[(Number(hotelId) || 0) % PLACEHOLDER_IMAGES.length]
+}
+
+function fmt(dateStr) {
+  try { return format(parseISO(dateStr), 'MMM d, yyyy') } catch { return dateStr }
+}
+
 export default function TripDetailPage() {
   const { id } = useParams()
-  const booking = findBooking(id)
+  const [booking, setBooking] = useState(null)
+  const [hotel, setHotel] = useState(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
+  const [confirmCancel, setConfirmCancel] = useState(false)
+  const [cancelling, setCancelling] = useState(false)
+  const [cancelError, setCancelError] = useState(null)
 
-  if (!booking) {
+  useEffect(() => {
+    async function load() {
+      try {
+        const b = await getBooking(id)
+        const h = await getHotel(b.hotelId).catch(() => ({ id: b.hotelId }))
+        setBooking(b)
+        setHotel(h)
+      } catch {
+        setError('Booking not found.')
+      } finally {
+        setLoading(false)
+      }
+    }
+    load()
+  }, [id])
+
+  if (loading) {
     return (
-      <PortalShell
-        eyebrow="Trip"
-        title="Booking not found."
-        description="The detail screen is ready, but this mock booking id does not exist."
-        actions={[{ label: 'Back to trips', href: '/trips' }]}
-      >
+      <PortalShell eyebrow="Trip" title="Loading…" actions={[{ label: 'Back to trips', href: '/trips', secondary: true }]}>
         <SectionCard>
-          <p className="text-sm text-muted">
-            Use one of the mock booking ids from the trips page to preview the trip
-            detail experience.
-          </p>
+          <div className="py-16 text-center text-sm text-muted">Fetching booking…</div>
         </SectionCard>
       </PortalShell>
     )
   }
 
+  if (error || !booking) {
+    return (
+      <PortalShell eyebrow="Trip" title="Booking not found." actions={[{ label: 'Back to trips', href: '/trips' }]}>
+        <SectionCard>
+          <p className="text-sm text-muted">{error || 'This booking does not exist.'}</p>
+        </SectionCard>
+      </PortalShell>
+    )
+  }
+
+  const handleCancel = async () => {
+    setCancelling(true)
+    setCancelError(null)
+    try {
+      const updated = await cancelBooking(booking)
+      setBooking(updated)
+      setConfirmCancel(false)
+    } catch {
+      setCancelError('Could not cancel booking. Please try again.')
+    } finally {
+      setCancelling(false)
+    }
+  }
+
+  const status = API_STATUS_MAP[booking.status] ?? 'upcoming'
+  const hotelName = hotel?.name || `Hotel #${booking.hotelId}`
+  const image = placeholderImage(booking.hotelId)
+  const paymentStatus =
+    booking.status === 'PENDING' ? 'Payment pending'
+    : booking.status === 'CONFIRMED' ? 'Payment confirmed'
+    : booking.status
+  const canReview = status === 'completed'
+
   return (
     <PortalShell
       eyebrow="Trip Detail"
-      title={booking.property.title}
+      title={hotelName}
       mobileTitle="Trip details"
-      description="This page is meant to become the central guest booking view: itinerary, host context, payment state, and review or support actions all in one place."
+      description="Your booking details — dates, payment, and property info all in one place."
       actions={[
         { label: 'Back to trips', href: '/trips', secondary: true },
-        { label: 'Message host', href: '/messages' },
       ]}
       stats={[
-        { label: 'Status', value: booking.status, note: booking.paymentStatus },
-        { label: 'Guests', value: String(booking.guests), note: booking.dateLabel },
-        { label: 'Total', value: booking.total, note: booking.confirmationCode },
+        { label: 'Status', value: booking.status, note: paymentStatus },
+        { label: 'Total', value: `$${Number(booking.totalPrice ?? 0).toFixed(2)}`, note: `Booking #${booking.id}` },
+        { label: 'Dates', value: fmt(booking.checkInDate), note: `→ ${fmt(booking.checkOutDate)}` },
       ]}
       accent="from-sky-50 via-white to-amber-50"
     >
@@ -73,17 +148,15 @@ export default function TripDetailPage() {
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)]">
         <SectionCard>
           <img
-            src={booking.property.image}
-            alt={booking.property.title}
+            src={image}
+            alt={hotelName}
             className="aspect-[16/9] w-full rounded-[28px] object-cover"
           />
 
           <div className="mt-6 flex flex-wrap items-center gap-2">
-            <StatusPill tone={statusTone[booking.status]}>{booking.status}</StatusPill>
-            <StatusPill tone="sky">{booking.paymentStatus}</StatusPill>
-            <p className="text-sm text-muted">
-              Confirmation {booking.confirmationCode}
-            </p>
+            <StatusPill tone={STATUS_TONE[status]}>{status}</StatusPill>
+            <StatusPill tone="sky">{paymentStatus}</StatusPill>
+            <p className="text-sm text-muted">Booking #{booking.id}</p>
           </div>
 
           <div className="mt-6 grid gap-4 md:grid-cols-3">
@@ -92,15 +165,18 @@ export default function TripDetailPage() {
                 <CalendarRange size={16} />
                 Dates
               </p>
-              <p className="mt-3 text-sm leading-6 text-muted">{booking.dateLabel}</p>
+              <p className="mt-3 text-sm leading-6 text-muted">
+                {fmt(booking.checkInDate)} → {fmt(booking.checkOutDate)}
+              </p>
             </div>
             <div className="rounded-[24px] border border-gray-200 bg-[#fcfcfb] p-4">
               <p className="inline-flex items-center gap-2 text-sm font-semibold text-dark">
-                <Users size={16} />
-                Travelers
+                <CreditCard size={16} />
+                Guest
               </p>
               <p className="mt-3 text-sm leading-6 text-muted">
-                {booking.travelers.join(', ')}
+                {booking.guestName}
+                {booking.guestEmail ? <><br />{booking.guestEmail}</> : null}
               </p>
             </div>
             <div className="rounded-[24px] border border-gray-200 bg-[#fcfcfb] p-4">
@@ -109,27 +185,8 @@ export default function TripDetailPage() {
                 Destination
               </p>
               <p className="mt-3 text-sm leading-6 text-muted">
-                {booking.property.location}, {booking.property.country}
+                {[hotel?.city, hotel?.country].filter(Boolean).join(', ') || '—'}
               </p>
-            </div>
-          </div>
-
-          <div className="mt-6">
-            <SectionHeading
-              eyebrow="Itinerary"
-              title="What is already lined up"
-              description="These cards become especially useful once bookings, inventory, and host tools are connected."
-            />
-
-            <div className="mt-5 space-y-3">
-              {booking.itinerary.map((item) => (
-                <div
-                  key={item}
-                  className="rounded-[24px] border border-gray-200 bg-[#fcfcfb] px-4 py-3"
-                >
-                  <p className="text-sm leading-6 text-dark">{item}</p>
-                </div>
-              ))}
             </div>
           </div>
         </SectionCard>
@@ -139,17 +196,20 @@ export default function TripDetailPage() {
             <SectionHeading
               eyebrow="Timeline"
               title="Reservation progression"
-              description="A visual structure already aligned with later booking status APIs."
             />
-
             <div className="mt-6 space-y-4">
-              {booking.timeline.map((item, index) => (
+              {[
+                { label: 'Booking created', value: `#${booking.id}` },
+                { label: 'Check-in', value: fmt(booking.checkInDate) },
+                { label: 'Check-out', value: fmt(booking.checkOutDate) },
+                { label: 'Status', value: booking.status },
+              ].map((item, index, arr) => (
                 <div key={item.label} className="flex gap-4">
                   <div className="flex flex-col items-center">
                     <div className="h-3 w-3 rounded-full bg-dark" />
-                    {index < booking.timeline.length - 1 ? (
+                    {index < arr.length - 1 && (
                       <div className="mt-2 h-full w-px bg-gray-200" />
-                    ) : null}
+                    )}
                   </div>
                   <div className="pb-4">
                     <p className="text-sm font-semibold text-dark">{item.label}</p>
@@ -161,45 +221,7 @@ export default function TripDetailPage() {
           </SectionCard>
 
           <SectionCard>
-            <SectionHeading
-              eyebrow="Host"
-              title={`Hosted by ${booking.property.host.name}`}
-              description="This card can later bridge booking, messaging, and safety flows."
-            />
-
-            <div className="mt-6 flex items-center gap-4">
-              <img
-                src={booking.property.host.avatar}
-                alt={booking.property.host.name}
-                className="h-16 w-16 rounded-2xl object-cover"
-              />
-              <div>
-                <p className="text-lg font-semibold text-dark">
-                  {booking.property.host.name}
-                </p>
-                <p className="text-sm text-muted">
-                  {booking.property.host.superhost ? 'Superhost' : 'Host'}
-                </p>
-              </div>
-            </div>
-
-            <p className="mt-5 text-sm leading-6 text-dark">{booking.hostNote}</p>
-
-            <Link
-              to="/messages"
-              className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-full border border-gray-200 bg-white px-4 py-2.5 text-sm font-semibold text-dark transition-colors hover:bg-gray-50 sm:w-auto"
-            >
-              <MessageCircleMore size={16} />
-              Open host conversation
-            </Link>
-          </SectionCard>
-
-          <SectionCard>
-            <SectionHeading
-              eyebrow="Payment"
-              title="Cost and protection"
-              description="Simple, readable financial context is more useful here than a dense invoice table."
-            />
+            <SectionHeading eyebrow="Payment" title="Cost and protection" />
 
             <div className="mt-6 rounded-[24px] bg-dark p-5 text-white">
               <div className="flex items-start justify-between gap-4">
@@ -207,36 +229,97 @@ export default function TripDetailPage() {
                   <p className="text-xs font-semibold uppercase tracking-[0.18em] text-white/70">
                     Reservation total
                   </p>
-                  <p className="mt-2 text-3xl font-semibold">{booking.total}</p>
+                  <p className="mt-2 text-3xl font-semibold">
+                    ${Number(booking.totalPrice ?? 0).toFixed(2)}
+                  </p>
                 </div>
                 <div className="rounded-2xl bg-white/10 p-3">
                   <CreditCard size={20} />
                 </div>
               </div>
-              <p className="mt-4 text-sm text-white/80">{booking.paymentStatus}</p>
+              <p className="mt-4 text-sm text-white/80">{paymentStatus}</p>
             </div>
 
-            <div className="mt-4 hidden rounded-[24px] border border-dashed border-gray-200 bg-white p-5 md:block">
-              <div className="flex items-start gap-3">
-                <div className="rounded-2xl bg-emerald-50 p-3 text-emerald-700">
-                  <ShieldCheck size={18} />
+            {booking.basePrice && (
+              <div className="mt-4 space-y-2 text-sm">
+                <div className="flex justify-between text-muted">
+                  <span>Base price / night</span>
+                  <span className="font-medium text-dark">${Number(booking.basePrice).toFixed(2)}</span>
                 </div>
-                <p className="text-sm leading-6 text-muted">
-                  Cancellation, refund, safety, and emergency controls can later slot
-                  into this same detail surface.
-                </p>
+                <div className="flex justify-between border-t border-gray-100 pt-2 font-semibold text-dark">
+                  <span>Total</span>
+                  <span>${Number(booking.totalPrice ?? 0).toFixed(2)}</span>
+                </div>
               </div>
-            </div>
+            )}
 
-            {booking.canReview ? (
+            {/* Cancel / review actions */}
+            {status === 'upcoming' && !confirmCancel && (
+              <button
+                type="button"
+                onClick={() => setConfirmCancel(true)}
+                className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-full border border-red-200 bg-white px-4 py-2.5 text-sm font-semibold text-red-600 transition-colors hover:bg-red-50 sm:w-auto"
+              >
+                <XCircle size={15} />
+                Cancel booking
+              </button>
+            )}
+
+            {status === 'upcoming' && confirmCancel && (
+              <div className="mt-5 rounded-[24px] border border-red-200 bg-red-50 p-4 space-y-3">
+                <p className="text-sm font-semibold text-red-700">Cancel this booking?</p>
+                <p className="text-sm text-red-600">This cannot be undone. The booking status will be set to cancelled.</p>
+                {cancelError && <p className="text-xs text-red-600">{cancelError}</p>}
+                <div className="flex gap-3">
+                  <button
+                    type="button"
+                    onClick={handleCancel}
+                    disabled={cancelling}
+                    className="inline-flex items-center gap-2 rounded-full bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700 disabled:opacity-50 transition-colors"
+                  >
+                    {cancelling ? <><Loader2 size={13} className="animate-spin" /> Cancelling…</> : 'Yes, cancel'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setConfirmCancel(false); setCancelError(null) }}
+                    disabled={cancelling}
+                    className="rounded-full border border-red-200 bg-white px-4 py-2 text-sm font-semibold text-red-600 hover:bg-red-50 disabled:opacity-50 transition-colors"
+                  >
+                    Keep booking
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {status === 'cancelled' && (
+              <div className="mt-5 flex items-start gap-3 rounded-[24px] border border-dashed border-gray-200 bg-white p-4">
+                <div className="rounded-2xl bg-gray-100 p-3 text-gray-500">
+                  <XCircle size={18} />
+                </div>
+                <p className="text-sm leading-6 text-muted">This booking has been cancelled.</p>
+              </div>
+            )}
+
+            {status === 'completed' && (
+              <div className="mt-4 hidden rounded-[24px] border border-dashed border-gray-200 bg-white p-5 md:block">
+                <div className="flex items-start gap-3">
+                  <div className="rounded-2xl bg-emerald-50 p-3 text-emerald-700">
+                    <ShieldCheck size={18} />
+                  </div>
+                  <p className="text-sm leading-6 text-muted">Stay completed. Thank you for travelling with Travolish.</p>
+                </div>
+              </div>
+            )}
+
+            {canReview && (
               <Link
-                to={`/reviews/new?bookingId=${booking.id}`}
+                to={`/reviews/new?hotelId=${booking.hotelId}`}
                 className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-full bg-dark px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-gray-800 sm:w-auto"
               >
                 <Star size={16} />
                 Leave a review
               </Link>
-            ) : null}
+            )}
           </SectionCard>
         </div>
       </div>

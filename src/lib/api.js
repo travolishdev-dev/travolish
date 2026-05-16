@@ -32,4 +32,13 @@ async function put(path, body, extraHeaders = {}) {
   return res.json()
 }
 
-export { get, post, put }
+async function del(path, extraHeaders = {}) {
+  const res = await fetch(`${BASE_URL}${path}`, {
+    method: 'DELETE',
+    headers: Object.keys(extraHeaders).length ? extraHeaders : undefined,
+  })
+  if (!res.ok) throw new Error(`API ${res.status}: ${path}`)
+  return res.status === 204 ? null : res.json().catch(() => null)
+}
+
+export { get, post, put, del }

@@ -1,4 +1,4 @@
-import { post } from '../lib/api'
+import { post, get } from '../lib/api'
 
 const PROPERTY_TYPE_TO_ROOM_TYPE = {
   house: 'DOUBLE',
@@ -28,4 +28,32 @@ export async function publishListing(draftData) {
   })
 
   return { hotel, room }
+}
+
+export async function generateListingDescription(body) {
+  return post('/api/ai/description-generator', body)
+}
+
+export async function uploadListingImage(hotelId, file) {
+  const formData = new FormData()
+  formData.append('file', file)
+  formData.append('hotelId', hotelId)
+  const res = await fetch(`/api/images/hotel/${hotelId}`, {
+    method: 'POST',
+    body: formData,
+  })
+  if (!res.ok) throw new Error(`Upload failed: ${res.status}`)
+  return res.json()
+}
+
+export async function uploadListingVideo(hotelId, file) {
+  const formData = new FormData()
+  formData.append('file', file)
+  formData.append('hotelId', hotelId)
+  const res = await fetch(`/api/images/hotel/${hotelId}/video`, {
+    method: 'POST',
+    body: formData,
+  })
+  if (!res.ok) throw new Error(`Upload failed: ${res.status}`)
+  return res.json()
 }

@@ -1,12 +1,50 @@
+import { useEffect, useState } from 'react'
 import {
   HostShell,
   SectionCard,
   SectionHeading,
   StatusPill,
 } from '../../components/host/HostPortalUI'
+import { getPayoutBalance, getPayoutHistory } from '../../services/payoutsApi'
 import { hostPayoutHistory, hostPayoutSummary } from '../../data/mockHostPortalData'
 
 export default function HostPayoutsPage() {
+  const [summary, setSummary] = useState(hostPayoutSummary)
+  const [history, setHistory] = useState(hostPayoutHistory)
+
+  useEffect(() => {
+    getPayoutBalance()
+      .then((data) => {
+        if (data) {
+          setSummary({
+            available: data.availableBalance ?? data.available ?? hostPayoutSummary.available,
+            pending: data.pendingBalance ?? data.pending ?? hostPayoutSummary.pending,
+            reserveHold: data.reserveBalance ?? data.reserveHold ?? hostPayoutSummary.reserveHold,
+            nextTransfer: data.nextPayoutDate ?? data.nextTransfer ?? hostPayoutSummary.nextTransfer,
+          })
+        }
+      })
+      .catch(() => {})
+
+    getPayoutHistory()
+      .then((res) => {
+        const items = res?.content ?? (Array.isArray(res) ? res : null)
+        if (items?.length) {
+          setHistory(
+            items.map((p) => ({
+              id: p.id,
+              date: p.payoutDate ?? p.createdAt ?? p.date,
+              amount: p.amount,
+              status: p.status,
+              destination: p.bankAccountName ?? p.destination ?? '—',
+              note: p.description ?? p.note ?? '',
+            })),
+          )
+        }
+      })
+      .catch(() => {})
+  }, [])
+
   return (
     <HostShell
       eyebrow="Payouts"
@@ -18,17 +56,17 @@ export default function HostPayoutsPage() {
         { label: 'KYC', href: '/host/kyc' },
       ]}
       stats={[
-        { label: 'Available', value: hostPayoutSummary.available, note: 'Ready to transfer' },
-        { label: 'Pending', value: hostPayoutSummary.pending, note: 'Awaiting stay completion' },
-        { label: 'Reserve', value: hostPayoutSummary.reserveHold, note: 'Security / damage hold' },
-        { label: 'Next transfer', value: hostPayoutSummary.nextTransfer, note: 'Projected payout run' },
+        { label: 'Available', value: summary.available, note: 'Ready to transfer' },
+        { label: 'Pending', value: summary.pending, note: 'Awaiting stay completion' },
+        { label: 'Reserve', value: summary.reserveHold, note: 'Security / damage hold' },
+        { label: 'Next transfer', value: summary.nextTransfer, note: 'Projected payout run' },
       ]}
     >
       <SectionCard>
         <SectionHeading eyebrow="History" title="Recent payouts" />
 
         <div className="mt-6 divide-y divide-gray-200 border-y border-gray-200">
-          {hostPayoutHistory.map((entry) => (
+          {history.map((entry) => (
             <div key={entry.id} className="py-5">
               <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                 <div>

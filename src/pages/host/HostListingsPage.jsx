@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { MapPin } from 'lucide-react'
 import {
@@ -8,20 +8,53 @@ import {
   StatusPill,
 } from '../../components/host/HostPortalUI'
 import { HostPillButton } from '../../components/host/HostFormFields'
+import { getHostListings } from '../../services/hostListingsApi'
 import { hostListings } from '../../data/mockHostPortalData'
 
 const filters = ['All', 'Live', 'Draft updates']
 
+function adaptListing(h) {
+  return {
+    id: h.id,
+    status: h.status ?? 'Live',
+    market: h.city ?? h.country ?? h.market ?? '—',
+    description: h.description ?? '',
+    roomCount: h.totalRooms ?? h.roomCount ?? 0,
+    occupancy30: h.occupancyRate != null ? `${h.occupancyRate}%` : h.occupancy30 ?? '—',
+    revenueMTD: h.revenueMTD ?? '—',
+    nextArrival: h.nextArrival ?? '—',
+    responseTime: h.responseTime ?? '—',
+    performanceNote: h.performanceNote ?? '',
+    housekeeping: h.housekeeping ?? '—',
+    property: {
+      title: h.name ?? h.property?.title ?? 'Untitled',
+      location: h.city ?? h.property?.location ?? '—',
+      country: h.country ?? h.property?.country ?? '—',
+      image: h.images?.[0] ?? h.property?.image ?? '',
+    },
+  }
+}
+
 export default function HostListingsPage() {
+  const [listings, setListings] = useState(hostListings)
   const [activeFilter, setActiveFilter] = useState('All')
 
-  const visibleListings = useMemo(() => {
-    if (activeFilter === 'All') {
-      return hostListings
-    }
+  useEffect(() => {
+    getHostListings()
+      .then((data) => {
+        const items = data?.content ?? (Array.isArray(data) ? data : null)
+        if (items?.length) setListings(items.map(adaptListing))
+      })
+      .catch(() => {})
+  }, [])
 
-    return hostListings.filter((listing) => listing.status === activeFilter)
-  }, [activeFilter])
+  const visibleListings = useMemo(() => {
+    if (activeFilter === 'All') return listings
+    return listings.filter((l) => l.status === activeFilter)
+  }, [activeFilter, listings])
+
+  const liveCount = listings.filter((l) => l.status === 'Live').length
+  const draftCount = listings.filter((l) => l.status !== 'Live').length
 
   return (
     <HostShell
@@ -35,8 +68,8 @@ export default function HostListingsPage() {
       ]}
       mobileAction={{ label: 'New', href: '/host/listings/new' }}
       stats={[
-        { label: 'Live', value: '3', note: 'Currently bookable' },
-        { label: 'Draft', value: '1', note: 'Needs updates' },
+        { label: 'Live', value: String(liveCount), note: 'Currently bookable' },
+        { label: 'Draft', value: String(draftCount), note: 'Needs updates' },
         { label: 'Avg occupancy', value: '79%', note: 'Rolling 30 days' },
         { label: 'Response time', value: '12 min', note: 'Across active threads' },
       ]}
@@ -84,9 +117,7 @@ export default function HostListingsPage() {
                     <MapPin size={14} />
                     {listing.property.location}, {listing.property.country}
                   </p>
-                  <p className="mt-3 text-sm leading-6 text-dark">
-                    {listing.description}
-                  </p>
+                  <p className="mt-3 text-sm leading-6 text-dark">{listing.description}</p>
                   <div className="mt-3 flex flex-wrap items-center gap-4 text-sm text-muted">
                     <span>{listing.roomCount} rooms</span>
                     <span>{listing.occupancy30} occupancy</span>

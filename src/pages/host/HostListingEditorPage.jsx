@@ -2,11 +2,13 @@ import { useRef, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import {
   AirVent,
+  Bot,
   Building2,
   Car,
   Castle,
   Coffee,
   Dumbbell,
+  Film,
   Flame,
   Home,
   Hotel,
@@ -32,6 +34,7 @@ import {
   StatusPill,
 } from '../../components/host/HostPortalUI'
 import { buildListingDraft, findHostListing } from '../../data/mockHostPortalData'
+import { generateListingDescription } from '../../services/listingsApi'
 
 const propertyTypes = [
   { id: 'house', label: 'House', icon: Home },
@@ -69,8 +72,10 @@ export default function HostListingEditorPage() {
   const { id } = useParams()
   const activeListing = id ? findHostListing(id) : null
   const draft = buildListingDraft(id)
-  const [formState, setFormState] = useState(draft)
+  const [formState, setFormState] = useState({ ...draft, video: null })
   const fileInputRef = useRef(null)
+  const videoInputRef = useRef(null)
+  const [generatingDesc, setGeneratingDesc] = useState(false)
 
   const updateField = (field) => (event) =>
     setFormState((current) => ({ ...current, [field]: event.target.value }))
@@ -126,6 +131,42 @@ export default function HostListingEditorPage() {
       ...current,
       photos: current.photos.filter((photo) => photo.id !== photoId),
     }))
+
+  const handleVideoPick = (event) => {
+    const file = event.target.files?.[0]
+    if (!file) return
+    setFormState((current) => ({
+      ...current,
+      video: { id: `video-${Date.now()}`, preview: URL.createObjectURL(file), file },
+    }))
+    event.target.value = ''
+  }
+
+  const removeVideo = () =>
+    setFormState((current) => ({ ...current, video: null }))
+
+  async function handleGenerateDescription() {
+    setGeneratingDesc(true)
+    try {
+      const result = await generateListingDescription({
+        title: formState.title,
+        propertyType: formState.propertyType,
+        amenities: formState.amenities,
+        location: formState.location,
+        guests: formState.basics.guests,
+        bedrooms: formState.basics.bedrooms,
+        bathrooms: formState.basics.bathrooms,
+      })
+      const generated = result?.description ?? result?.text ?? result?.content
+      if (generated) {
+        setFormState((current) => ({ ...current, description: generated }))
+      }
+    } catch {
+      // keep existing description
+    } finally {
+      setGeneratingDesc(false)
+    }
+  }
 
   const selectedPropertyType = propertyTypes.find(
     (type) => type.id === formState.propertyType,
@@ -216,13 +257,22 @@ export default function HostListingEditorPage() {
               </div>
 
               <div>
-                <label className="mb-2 block text-sm font-semibold text-dark">
-                  Description
-                </label>
+                <div className="mb-2 flex items-center justify-between gap-4">
+                  <label className="text-sm font-semibold text-dark">Description</label>
+                  <button
+                    type="button"
+                    onClick={handleGenerateDescription}
+                    disabled={generatingDesc}
+                    className="inline-flex items-center gap-1.5 rounded-xl border border-gray-200 bg-white px-3 py-1.5 text-xs font-semibold text-dark transition-colors hover:bg-gray-50 disabled:opacity-50"
+                  >
+                    <Bot size={13} />
+                    {generatingDesc ? 'Generating…' : 'AI generate'}
+                  </button>
+                </div>
                 <textarea
                   value={formState.description}
                   onChange={updateField('description')}
-                  placeholder="Describe what makes your place special..."
+                  placeholder="Describe what makes your place special, or use AI generate above…"
                   rows={5}
                   maxLength={500}
                   className="w-full resize-none rounded-xl border border-gray-300 px-4 py-3.5 text-sm text-dark outline-none transition-all focus:border-dark focus:ring-1 focus:ring-dark"
@@ -379,6 +429,52 @@ export default function HostListingEditorPage() {
                 ))}
               </div>
             ) : null}
+          </SectionCard>
+
+          <SectionCard>
+            <SectionHeading
+              eyebrow="Step 5b"
+              title="Video walkthrough"
+              description="Optional — upload a short walkthrough video (MP4, MOV, max 200 MB)."
+            />
+
+            <input
+              ref={videoInputRef}
+              type="file"
+              accept="video/*"
+              onChange={handleVideoPick}
+              className="hidden"
+            />
+
+            {formState.video ? (
+              <div className="mt-6 space-y-3">
+                <div className="relative overflow-hidden rounded-2xl bg-black">
+                  <video
+                    src={formState.video.preview}
+                    controls
+                    className="w-full max-h-64 object-contain"
+                  />
+                  <button
+                    type="button"
+                    onClick={removeVideo}
+                    className="absolute right-3 top-3 flex h-8 w-8 items-center justify-center rounded-full bg-white/95 shadow-sm"
+                  >
+                    <X size={14} />
+                  </button>
+                </div>
+                <p className="text-sm text-muted">{formState.video.file?.name}</p>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => videoInputRef.current?.click()}
+                className="mt-6 flex w-full flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-gray-300 px-6 py-10 text-center transition-colors hover:border-gray-500"
+              >
+                <Film size={34} className="text-gray-400" />
+                <span className="text-base font-semibold text-dark">Add video walkthrough</span>
+                <span className="text-sm text-muted">Optional — helps guests feel confident before booking</span>
+              </button>
+            )}
           </SectionCard>
 
           <SectionCard>

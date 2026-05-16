@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { BedDouble, PencilLine, Users } from 'lucide-react'
 import {
@@ -6,12 +7,71 @@ import {
   SectionHeading,
   StatusPill,
 } from '../../components/host/HostPortalUI'
+import { getHostListings, getHostRooms } from '../../services/hostListingsApi'
 import { findHostListing, findRoomsByListing } from '../../data/mockHostPortalData'
+
+function adaptRoom(r) {
+  return {
+    id: r.id,
+    name: r.name ?? r.roomName ?? 'Room',
+    type: r.roomType ?? r.type ?? '—',
+    status: r.status ?? 'Ready',
+    floor: r.floor ?? '—',
+    capacity: r.maxOccupancy ?? r.capacity ?? '—',
+    beds: r.bedConfiguration ?? r.beds ?? '—',
+    baths: r.bathrooms != null ? `${r.bathrooms} bath` : r.baths ?? '—',
+    baseRate: r.basePrice != null ? `$${r.basePrice}` : r.baseRate ?? '—',
+    upsells: r.amenities?.join(', ') ?? r.upsells ?? '',
+    housekeepingState: r.housekeepingStatus ?? r.housekeepingState ?? '—',
+    nightsSold: r.nightsSold ?? 0,
+    note: r.description ?? r.note ?? '',
+    listingId: r.hotelId ?? r.listingId,
+  }
+}
+
+function adaptListing(h) {
+  return {
+    id: h.id,
+    status: h.status ?? 'Live',
+    market: h.city ?? h.market ?? '—',
+    description: h.description ?? '',
+    roomCount: h.totalRooms ?? h.roomCount ?? 0,
+    occupancy30: h.occupancyRate != null ? `${h.occupancyRate}%` : h.occupancy30 ?? '—',
+    housekeeping: h.housekeeping ?? '—',
+    operationsStatus: h.operationsStatus ?? '',
+    nextArrival: h.nextArrival ?? '—',
+    property: {
+      title: h.name ?? h.property?.title ?? 'Untitled',
+      location: h.city ?? h.property?.location ?? '—',
+      country: h.country ?? h.property?.country ?? '—',
+      image: h.images?.[0] ?? h.property?.image ?? '',
+    },
+  }
+}
 
 export default function HostRoomsPage() {
   const { id } = useParams()
-  const listing = findHostListing(id)
-  const rooms = findRoomsByListing(id)
+  const [listing, setListing] = useState(() => findHostListing(id))
+  const [rooms, setRooms] = useState(() => findRoomsByListing(id))
+
+  useEffect(() => {
+    getHostListings()
+      .then((data) => {
+        const items = data?.content ?? (Array.isArray(data) ? data : null)
+        if (items?.length) {
+          const found = items.find((h) => String(h.id) === String(id))
+          if (found) setListing(adaptListing(found))
+        }
+      })
+      .catch(() => {})
+
+    getHostRooms(id)
+      .then((data) => {
+        const items = data?.content ?? (Array.isArray(data) ? data : null)
+        if (items?.length) setRooms(items.map(adaptRoom))
+      })
+      .catch(() => {})
+  }, [id])
 
   if (!listing) {
     return (
@@ -77,7 +137,15 @@ export default function HostRoomsPage() {
                 <div>
                   <div className="flex flex-wrap items-center gap-2">
                     <p className="text-lg font-semibold text-dark">{room.name}</p>
-                    <StatusPill tone={room.status === 'Ready' ? 'success' : room.status === 'Occupied' ? 'brand' : 'warning'}>
+                    <StatusPill
+                      tone={
+                        room.status === 'Ready'
+                          ? 'success'
+                          : room.status === 'Occupied'
+                            ? 'brand'
+                            : 'warning'
+                      }
+                    >
                       {room.status}
                     </StatusPill>
                   </div>

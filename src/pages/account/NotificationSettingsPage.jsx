@@ -52,6 +52,7 @@ export default function NotificationSettingsPage() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
+  const [saveError, setSaveError] = useState(null)
 
   useEffect(() => {
     getNotificationPreferences(1)
@@ -68,11 +69,15 @@ export default function NotificationSettingsPage() {
   const handleSave = async () => {
     setSaving(true)
     setSaved(false)
+    setSaveError(null)
     try {
       await updateNotificationPreferences(1, prefs)
       setSaved(true)
-    } catch {/* ignore */}
-    finally { setSaving(false) }
+    } catch {
+      setSaveError('Could not save preferences. Your account may need to receive its first notification before settings can be persisted.')
+    } finally {
+      setSaving(false)
+    }
   }
 
   return (
@@ -226,6 +231,8 @@ export default function NotificationSettingsPage() {
               <p className="inline-flex items-center gap-2 text-sm font-semibold text-emerald-600">
                 <CheckCheck size={15} /> Preferences saved
               </p>
+            ) : saveError ? (
+              <p className="text-sm text-red-600">{saveError}</p>
             ) : (
               <p className="text-sm text-muted">Changes are not saved until you click below.</p>
             )}

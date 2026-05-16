@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { Camera, MapPinned, PencilLine, UserRound } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { Camera, CheckCheck, Loader2, MapPinned, PencilLine, UserRound } from 'lucide-react'
 import {
   AccountShell,
   SectionCard,
@@ -7,6 +7,9 @@ import {
   StatusPill,
 } from '../../components/portal/PortalUI'
 import usePortalViewer from '../../hooks/usePortalViewer'
+import { getUser, updateUser } from '../../services/usersApi'
+
+const USER_ID = 1
 
 function Field({ label, value, onChange, placeholder, textarea = false }) {
   const Component = textarea ? 'textarea' : 'input'
@@ -40,17 +43,59 @@ export default function EditProfilePage() {
     travelStyle: viewer.travelStyle,
     bio: viewer.bio,
   })
+  const [saving, setSaving] = useState(false)
+  const [saved, setSaved] = useState(false)
+  const [saveError, setSaveError] = useState(null)
 
-  const updateField = (field) => (event) =>
+  useEffect(() => {
+    getUser(USER_ID)
+      .then((data) => {
+        const name = [data.firstName, data.lastName].filter(Boolean).join(' ')
+        setFormState((prev) => ({
+          ...prev,
+          fullName: name || prev.fullName,
+          preferredName: data.firstName || prev.preferredName,
+          email: data.email || prev.email,
+          phone: data.phone || prev.phone,
+        }))
+      })
+      .catch(() => {})
+  }, [])
+
+  const updateField = (field) => (event) => {
+    setSaved(false)
     setFormState((current) => ({ ...current, [field]: event.target.value }))
+  }
+
+  const handleSave = async () => {
+    setSaving(true)
+    setSaved(false)
+    setSaveError(null)
+    try {
+      const nameParts = formState.fullName.trim().split(' ')
+      const firstName = nameParts[0] ?? ''
+      const lastName = nameParts.slice(1).join(' ')
+      await updateUser(USER_ID, {
+        firstName,
+        lastName,
+        email: formState.email,
+        phone: formState.phone,
+      })
+      setSaved(true)
+    } catch {
+      setSaveError('Could not save profile. Please try again.')
+    } finally {
+      setSaving(false)
+    }
+  }
 
   return (
     <AccountShell
       title="Edit your traveler profile."
       mobileTitle="Edit profile"
-      description="This form is intentionally polished but still mock-only. It is ready to connect later to user profile and avatar upload endpoints without changing the interaction model."
-      mobileAction={{ label: 'Save', href: '/account' }}
-      mobileBottomAction={{ label: 'Save profile', href: '/account' }}
+      description="Update your name, email, phone, and travel details."
+      mobileAction={{ label: 'Save', onClick: handleSave }}
+      mobileBottomAction={{ label: 'Save profile', onClick: handleSave }}
       actions={[
         { label: 'Preview profile', href: '/account', secondary: true },
         { label: 'Save profile', href: '/account' },
@@ -62,7 +107,7 @@ export default function EditProfilePage() {
           <SectionHeading
             eyebrow="Profile Details"
             title="Edit the story travelers and hosts see"
-            description="The goal is a calm, premium form: strong spacing, low visual noise, and just enough context to make the preview believable."
+            description="Strong spacing, low visual noise, and just enough context to make the preview believable."
           />
 
           <div className="mt-6 grid gap-5 md:grid-cols-2">
@@ -119,6 +164,27 @@ export default function EditProfilePage() {
               textarea
             />
           </div>
+
+          {/* Save bar */}
+          <div className="mt-6 flex items-center justify-between gap-4 rounded-[24px] border border-gray-200 bg-[#fcfcfb] px-5 py-4">
+            {saved ? (
+              <p className="inline-flex items-center gap-2 text-sm font-semibold text-emerald-600">
+                <CheckCheck size={15} /> Profile saved
+              </p>
+            ) : saveError ? (
+              <p className="text-sm text-red-600">{saveError}</p>
+            ) : (
+              <p className="text-sm text-muted">Changes are not saved until you click below.</p>
+            )}
+            <button
+              type="button"
+              onClick={handleSave}
+              disabled={saving}
+              className="inline-flex items-center gap-2 rounded-full bg-dark px-6 py-2.5 text-sm font-bold text-white hover:opacity-90 disabled:opacity-40 transition-all"
+            >
+              {saving ? <><Loader2 size={14} className="animate-spin" /> Saving…</> : 'Save profile'}
+            </button>
+          </div>
         </SectionCard>
 
         <div className="space-y-6">
@@ -149,7 +215,7 @@ export default function EditProfilePage() {
             <SectionHeading
               eyebrow="Live Preview"
               title="How this profile reads"
-              description="Useful later when public profile rendering and account APIs are wired in."
+              description="Updates as you type."
             />
 
             <div className="mt-6 space-y-4">
@@ -176,8 +242,7 @@ export default function EditProfilePage() {
                     <MapPinned size={18} />
                   </div>
                   <p className="text-sm leading-6 text-muted">
-                    Location, profile completeness, and image upload controls can all
-                    connect later without reshaping the card hierarchy here.
+                    Location, profile completeness, and image upload controls can all connect later without reshaping the card hierarchy here.
                   </p>
                 </div>
               </div>

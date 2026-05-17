@@ -1,9 +1,12 @@
-import { useState, useEffect, useRef } from 'react'
-import { Search, MapPin, X, SlidersHorizontal } from 'lucide-react'
-import { motion } from 'framer-motion'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { MapPin, Search } from 'lucide-react'
+import { motion as Motion } from 'framer-motion'
 import { searchHotels, listRooms } from '../services/hotelsApi'
 import { adaptHotels } from '../lib/hotelAdapter'
-import PropertyCard from '../components/home/PropertyCard'
+import { useSearchContext } from '../hooks/useSearchContext'
+import SearchControls from '../components/search/SearchControls'
+import SearchPropertyCard from '../components/search/SearchPropertyCard'
+import SearchResultsMap from '../components/search/SearchResultsMap'
 import useNativeAppLocationStore from '../stores/useNativeAppLocationStore'
 import {
   formatCoordinates,
@@ -13,16 +16,42 @@ import {
 
 const DEBOUNCE_MS = 350
 
+function SearchCardSkeleton() {
+  return (
+    <div className="grid overflow-hidden rounded-[18px] border border-gray-200 bg-white shadow-sm md:grid-cols-[180px_minmax(0,1fr)]">
+      <div className="h-40 bg-gray-200 skeleton-shimmer md:h-full md:min-h-[140px]" />
+      <div className="space-y-2 p-3">
+        <div className="space-y-2">
+          <div className="h-4 w-40 rounded bg-gray-200" />
+          <div className="h-5 w-3/4 rounded bg-gray-200" />
+        </div>
+        <div className="flex gap-2">
+          <div className="h-5 w-20 rounded-full bg-gray-200" />
+          <div className="h-5 w-24 rounded-full bg-gray-200" />
+          <div className="h-5 w-28 rounded-full bg-gray-200" />
+        </div>
+        <div className="flex justify-end border-t border-gray-100 pt-2">
+          <div className="h-6 w-24 rounded bg-gray-200" />
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export default function SearchPage() {
-  const [query, setQuery] = useState('')
+  const { searchDraft, updateSearchDraft } = useSearchContext()
   const [minPrice, setMinPrice] = useState('')
   const [maxPrice, setMaxPrice] = useState('')
-  const [showFilters, setShowFilters] = useState(false)
+  const [minRating, setMinRating] = useState(0)
   const [allProperties, setAllProperties] = useState([])
   const [isLoading, setIsLoading] = useState(false)
   const [totalResults, setTotalResults] = useState(0)
+  const [selectedPropertyId, setSelectedPropertyId] = useState(null)
   const sharedLocation = useNativeAppLocationStore()
   const debounceRef = useRef(null)
+  const propertyCardRefs = useRef(new Map())
+
+  const destination = searchDraft.destination.trim()
 
   useEffect(() => {
     clearTimeout(debounceRef.current)
@@ -30,7 +59,7 @@ export default function SearchPage() {
       setIsLoading(true)
       try {
         const [searchResult, rooms] = await Promise.all([
-          searchHotels({ name: query || undefined, pageSize: 50 }),
+          searchHotels({ name: destination || undefined, pageSize: 50 }),
           listRooms(),
         ])
         setAllProperties(adaptHotels(searchResult.content ?? [], rooms))
@@ -41,132 +70,96 @@ export default function SearchPage() {
       } finally {
         setIsLoading(false)
       }
-    }, query ? DEBOUNCE_MS : 0)
+    }, destination ? DEBOUNCE_MS : 0)
 
     return () => clearTimeout(debounceRef.current)
-  }, [query])
+  }, [destination])
 
-  // Price filter stays client-side (API has no price param)
-  const filtered = allProperties.filter((p) => {
-    const matchesMin = !minPrice || (p.price !== null && p.price >= parseInt(minPrice))
-    const matchesMax = !maxPrice || (p.price !== null && p.price <= parseInt(maxPrice))
-    return matchesMin && matchesMax
+  const parsedMinPrice = minPrice ? parseInt(minPrice, 10) : null
+  const parsedMaxPrice = maxPrice ? parseInt(maxPrice, 10) : null
+  const parsedMinRating = Number(minRating) || 0
+
+  const filteredResults = allProperties.filter((property) => {
+    const matchesMin =
+      parsedMinPrice === null ||
+      (property.price !== null && property.price >= parsedMinPrice)
+    const matchesMax =
+      parsedMaxPrice === null ||
+      (property.price !== null && property.price <= parsedMaxPrice)
+    const matchesRating = !parsedMinRating || Number(property.rating || 0) >= parsedMinRating
+
+    return matchesMin && matchesMax && matchesRating
   })
 
-  const sortedResults = sortPropertiesBySharedLocation(filtered, sharedLocation)
+  const sortedResults = sortPropertiesBySharedLocation(
+    filteredResults,
+    sharedLocation,
+  )
   const sharedCoordinates = formatCoordinates(
     sharedLocation.latitude,
     sharedLocation.longitude,
   )
-
   const isEmptyState = !isLoading && sortedResults.length === 0
-  const showSuggestions = !query && !isLoading && allProperties.length > 0
+  const visibleCount = sortedResults.length
+  const resultScope = destination
+    ? `for "${destination}"`
+    : sharedLocation.hasSharedLocation
+      ? 'near your shared location'
+      : 'available now'
+
+  const clearFilters = () => {
+    setMinPrice('')
+    setMaxPrice('')
+    setMinRating(0)
+  }
+
+  const setPropertyCardRef = (propertyId) => (node) => {
+    const key = String(propertyId)
+    if (node) {
+      propertyCardRefs.current.set(key, node)
+    } else {
+      propertyCardRefs.current.delete(key)
+    }
+  }
+
+  const handleMapPropertySelect = useCallback((property) => {
+    setSelectedPropertyId(property.id)
+    propertyCardRefs.current.get(String(property.id))?.scrollIntoView({
+      behavior: 'smooth',
+      block: 'center',
+    })
+  }, [])
 
   return (
-    <motion.main
+    <Motion.main
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ duration: 0.3 }}
-      className="pt-24 pb-16 min-h-screen"
+      className="min-h-screen bg-gray-50 pt-20"
     >
-      {/* Search Header */}
-      <div className="border-b border-gray-200 bg-white">
-        <div className="max-w-[1760px] mx-auto px-6 md:px-10 xl:px-20 py-6">
-          <div className="flex items-center gap-4 max-w-3xl mx-auto">
-            <div className="flex-1 relative">
-              <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-muted" />
-              <input
-                type="text"
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder="Search hotels, cities, countries..."
-                autoFocus
-                className="w-full pl-12 pr-4 py-3.5 border border-gray-300 rounded-full text-sm focus:outline-none focus:border-dark focus:ring-1 focus:ring-dark transition-all"
-              />
-              {query && (
-                <button
-                  onClick={() => setQuery('')}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 p-0.5 bg-gray-200 rounded-full hover:bg-gray-300 transition-colors"
-                >
-                  <X size={12} />
-                </button>
-              )}
-            </div>
-            <button
-              onClick={() => setShowFilters(!showFilters)}
-              className={`flex items-center gap-2 px-5 py-3.5 border rounded-full text-sm font-semibold transition-all ${
-                showFilters ? 'border-dark bg-gray-50' : 'border-gray-300 hover:border-dark'
-              }`}
-            >
-              <SlidersHorizontal size={16} />
-              Filters
-            </button>
-          </div>
+      <SearchControls
+        searchDraft={searchDraft}
+        updateSearchDraft={updateSearchDraft}
+        minPrice={minPrice}
+        maxPrice={maxPrice}
+        minRating={minRating}
+        onMinPriceChange={setMinPrice}
+        onMaxPriceChange={setMaxPrice}
+        onMinRatingChange={setMinRating}
+        onClearFilters={clearFilters}
+      />
 
-          {/* Filters Panel */}
-          {showFilters && (
-            <motion.div
-              initial={{ height: 0, opacity: 0 }}
-              animate={{ height: 'auto', opacity: 1 }}
-              exit={{ height: 0, opacity: 0 }}
-              className="max-w-3xl mx-auto mt-4 overflow-hidden"
-            >
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pb-4">
-                <div>
-                  <label className="text-xs font-semibold text-muted uppercase tracking-wider block mb-2">
-                    Min price
-                  </label>
-                  <div className="relative">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted text-sm">$</span>
-                    <input
-                      type="number"
-                      value={minPrice}
-                      onChange={(e) => setMinPrice(e.target.value)}
-                      placeholder="0"
-                      className="w-full pl-7 pr-3 py-2.5 border border-gray-300 rounded-xl text-sm focus:outline-none focus:border-dark transition-all"
-                    />
-                  </div>
-                </div>
-                <div>
-                  <label className="text-xs font-semibold text-muted uppercase tracking-wider block mb-2">
-                    Max price
-                  </label>
-                  <div className="relative">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted text-sm">$</span>
-                    <input
-                      type="number"
-                      value={maxPrice}
-                      onChange={(e) => setMaxPrice(e.target.value)}
-                      placeholder="Any"
-                      className="w-full pl-7 pr-3 py-2.5 border border-gray-300 rounded-xl text-sm focus:outline-none focus:border-dark transition-all"
-                    />
-                  </div>
-                </div>
-                <div className="flex items-end">
-                  <button
-                    onClick={() => { setMinPrice(''); setMaxPrice('') }}
-                    className="text-sm font-semibold text-dark underline hover:text-muted transition-colors"
-                  >
-                    Clear filters
-                  </button>
-                </div>
-              </div>
-            </motion.div>
-          )}
-        </div>
-      </div>
-
-      {sharedLocation.isNativeAppLaunch && (
-        <div className="max-w-[1760px] mx-auto px-6 md:px-10 xl:px-20 pt-8">
+      <div className="w-full px-4 py-5 md:px-8 xl:px-0 xl:py-0">
+        {sharedLocation.isNativeAppLaunch && (
           <div
-            className={`rounded-2xl border px-5 py-4 ${
+            className={`mb-5 rounded-2xl border px-5 py-4 xl:mx-12 xl:my-5 ${
               sharedLocation.hasSharedLocation
                 ? 'border-brand/15 bg-rose-50'
                 : 'border-amber-200 bg-amber-50'
             }`}
           >
             <div className="flex items-start gap-3">
-              <div
+              <span
                 className={`mt-0.5 rounded-full p-2 ${
                   sharedLocation.hasSharedLocation
                     ? 'bg-white text-brand'
@@ -174,7 +167,7 @@ export default function SearchPage() {
                 }`}
               >
                 <MapPin size={18} />
-              </div>
+              </span>
               <div>
                 <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted">
                   {formatPlatformLabel(sharedLocation.platform)} handoff
@@ -188,85 +181,83 @@ export default function SearchPage() {
                   {sharedLocation.hasSharedLocation
                     ? `${sharedCoordinates} · Permission granted`
                     : `Permission status: ${
-                        sharedLocation.locationPermission || 'unknown'
-                      }. Showing the default result order.`}
+                      sharedLocation.locationPermission || 'unknown'
+                    }. Showing the default result order.`}
                 </p>
               </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* Quick Suggestions (when no query) */}
-      {showSuggestions && !sharedLocation.hasSharedLocation && (
-        <div className="max-w-[1760px] mx-auto px-6 md:px-10 xl:px-20 py-8">
-          <h2 className="text-lg font-semibold text-dark mb-4">Popular destinations</h2>
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-            {[
-              { name: 'Malibu', emoji: '🏖️' },
-              { name: 'Paris', emoji: '🗼' },
-              { name: 'Bora Bora', emoji: '🌴' },
-              { name: 'Zermatt', emoji: '🏔️' },
-              { name: 'Tokyo', emoji: '🏯' },
-              { name: 'Tuscany', emoji: '🍷' },
-            ].map((dest) => (
-              <button
-                key={dest.name}
-                onClick={() => setQuery(dest.name)}
-                className="flex items-center gap-3 p-3 rounded-xl border border-gray-200 hover:border-dark hover:shadow-md transition-all group"
-              >
-                <span className="text-2xl">{dest.emoji}</span>
-                <span className="text-sm font-semibold text-dark group-hover:text-brand transition-colors">
-                  {dest.name}
-                </span>
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Results */}
-      <div className="max-w-[1760px] mx-auto px-6 md:px-10 xl:px-20 py-8">
-        {isLoading ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-x-6 gap-y-10">
-            {Array.from({ length: 8 }).map((_, i) => (
-              <div key={i} className="animate-pulse">
-                <div className="aspect-square bg-gray-200 rounded-xl mb-3" />
-                <div className="space-y-2">
-                  <div className="h-4 bg-gray-200 rounded w-3/4" />
-                  <div className="h-3.5 bg-gray-200 rounded w-1/2" />
-                  <div className="h-4 bg-gray-200 rounded w-1/4 mt-1" />
-                </div>
+        <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(460px,42vw)] xl:gap-0">
+          <section className="space-y-3 xl:py-6 xl:pl-12 xl:pr-5">
+            <div className="mb-4 flex flex-col gap-2 lg:flex-row lg:items-end lg:justify-between">
+              <div>
+                <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-muted">
+                  Search results
+                </p>
+                <h1 className="mt-0.5 text-lg font-semibold leading-snug text-dark md:text-xl">
+                  {isLoading
+                    ? 'Finding stays'
+                    : `${visibleCount} stay${visibleCount === 1 ? '' : 's'} ${resultScope}`}
+                </h1>
               </div>
-            ))}
-          </div>
-        ) : (
-          <>
-            {(query || sharedLocation.hasSharedLocation) && !isEmptyState && (
-              <p className="text-sm text-muted mb-6">
-                {sortedResults.length} result{sortedResults.length !== 1 ? 's' : ''}
-                {query ? ` for "${query}"` : ' closest to your shared location'}
+              <p className="text-xs text-muted md:text-sm">
+                {totalResults > 0
+                  ? `${totalResults} total result${totalResults === 1 ? '' : 's'} before filters`
+                  : 'Use the top search panel to refine destination, dates, guests, and filters.'}
               </p>
-            )}
+            </div>
 
-            {isEmptyState ? (
-              <div className="flex flex-col items-center justify-center py-16 text-center">
-                <Search size={48} className="text-gray-300 mb-4" />
-                <h2 className="text-xl font-semibold text-dark mb-2">No results found</h2>
-                <p className="text-muted text-sm max-w-md">
-                  Try searching for a different destination or adjusting your filters.
+            {isLoading ? (
+              Array.from({ length: 6 }).map((_, index) => (
+                <SearchCardSkeleton key={index} />
+              ))
+            ) : isEmptyState ? (
+              <div className="flex min-h-[420px] flex-col items-center justify-center rounded-[28px] border border-gray-200 bg-white px-6 text-center shadow-sm">
+                <Search size={48} className="text-gray-300" />
+                <h2 className="mt-4 text-xl font-semibold text-dark">No results found</h2>
+                <p className="mt-2 max-w-md text-sm text-muted">
+                  Try a different destination or loosen the price and rating filters.
                 </p>
               </div>
             ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-x-6 gap-y-10">
-                {sortedResults.map((property, index) => (
-                  <PropertyCard key={property.id} property={property} index={index} />
-                ))}
-              </div>
+              sortedResults.map((property) => (
+                <div
+                  key={property.id}
+                  ref={setPropertyCardRef(property.id)}
+                  className={`scroll-mt-48 transition-shadow duration-300 ${
+                    selectedPropertyId === property.id
+                      ? 'ring-2 ring-brand ring-offset-2 ring-offset-gray-50'
+                      : ''
+                  }`}
+                >
+                  <SearchPropertyCard property={property} />
+                </div>
+              ))
             )}
-          </>
+          </section>
+
+          <aside className="hidden xl:block">
+            <SearchResultsMap
+              properties={isLoading ? [] : sortedResults}
+              destination={destination}
+              onPropertySelect={handleMapPropertySelect}
+            />
+          </aside>
+        </div>
+
+        {!isLoading && sortedResults.length > 0 && (
+          <div className="mt-6 xl:hidden">
+            <SearchResultsMap
+              properties={sortedResults}
+              destination={destination}
+              compact
+              onPropertySelect={handleMapPropertySelect}
+            />
+          </div>
         )}
       </div>
-    </motion.main>
+    </Motion.main>
   )
 }

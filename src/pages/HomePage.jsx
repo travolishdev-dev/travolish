@@ -1,7 +1,10 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Sparkles, Map } from 'lucide-react'
+import { Map } from 'lucide-react'
+import HomeSearchPanel from '../components/home/HomeSearchPanel'
 import PropertyCard from '../components/home/PropertyCard'
+import PopularDestinations from '../components/home/PopularDestinations'
+import RecentSearches from '../components/home/RecentSearches'
 import { searchHotels, listRooms } from '../services/hotelsApi'
 import { adaptHotels } from '../lib/hotelAdapter'
 import useNativeAppLocationStore from '../stores/useNativeAppLocationStore'
@@ -13,7 +16,22 @@ import {
 
 const SECTION_SIZE = 6
 
-function PropertyCardSkeleton() {
+function PropertyCardSkeleton({ variant = 'default' }) {
+  if (variant === 'deal') {
+    return (
+      <div className="overflow-hidden rounded-card border border-gray-200 bg-white shadow-[0_14px_34px_rgba(15,23,42,0.08)]">
+        <div className="h-48 skeleton-shimmer" />
+        <div className="space-y-3 p-4">
+          <div className="h-5 w-4/5 rounded-full bg-gray-200" />
+          <div className="h-4 w-1/2 rounded-full bg-gray-200" />
+          <div className="h-5 w-3/5 rounded-md bg-gray-200" />
+          <div className="h-7 w-1/2 rounded-full bg-gray-200" />
+          <div className="h-4 w-2/3 rounded-full bg-gray-200" />
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="animate-pulse">
       <div className="aspect-square bg-gray-200 rounded-xl mb-3" />
@@ -38,9 +56,9 @@ function SectionSkeleton() {
         <div className="h-8 w-72 rounded-full bg-gray-200" />
         <div className="h-4 w-[28rem] max-w-full rounded-full bg-gray-200" />
       </div>
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-6 gap-x-6 gap-y-10">
+      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
         {Array.from({ length: SECTION_SIZE }).map((_, index) => (
-          <PropertyCardSkeleton key={index} />
+          <PropertyCardSkeleton key={index} variant="deal" />
         ))}
       </div>
     </section>
@@ -48,23 +66,34 @@ function SectionSkeleton() {
 }
 
 function PropertySection({ eyebrow, title, description, propertiesToShow }) {
+  if (!propertiesToShow.length) {
+    return null
+  }
+
   return (
     <section className="space-y-6">
-      <div className="max-w-3xl">
-        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted">
-          {eyebrow}
-        </p>
-        <h2 className="mt-2 text-[28px] leading-tight font-semibold text-dark">
-          {title}
-        </h2>
-        <p className="mt-2 text-sm md:text-[15px] leading-6 text-muted">
-          {description}
-        </p>
+      <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+        <div className="max-w-3xl">
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted">
+            {eyebrow}
+          </p>
+          <h2 className="mt-2 text-[28px] leading-tight font-semibold text-dark">
+            {title}
+          </h2>
+          <p className="mt-2 text-sm md:text-[15px] leading-6 text-muted">
+            {description}
+          </p>
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-6 gap-x-6 gap-y-10">
+      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
         {propertiesToShow.map((property, index) => (
-          <PropertyCard key={property.id} property={property} index={index} />
+          <PropertyCard
+            key={property.id}
+            property={property}
+            index={index}
+            variant="deal"
+          />
         ))}
       </div>
     </section>
@@ -121,26 +150,20 @@ export default function HomePage() {
     .slice(0, SECTION_SIZE)
 
   const nearbyTitle = sharedLocation.hasSharedLocation
-    ? 'Frequently searched near you'
-    : 'Frequently searched stays'
+    ? 'Hotel deals near your handoff'
+    : 'Hotel deals worth opening'
   const nearbyDescription = sharedLocation.hasSharedLocation
-    ? `Sorted around ${sharedCoordinates} from your ${platformLabel.toLowerCase()} handoff so the first homes feel close, practical, and easy to open from mobile.`
-    : 'A fast shortlist of places travelers usually open first when they begin browsing for a stay.'
+    ? `Sorted around ${sharedCoordinates} from your ${platformLabel.toLowerCase()} handoff so nearby stays stay easy to compare.`
+    : 'A focused shortlist of stays with strong ratings, useful details, and clear next steps.'
   const recommendedDescription =
-    'A second pass of standout homes with strong ratings, reliable hosts, and memorable experiences for longer browsing.'
+    'More options to keep browsing once the first shortlist is covered.'
 
   return (
-    <main className="pt-24 pb-16">
-      <div className="max-w-[1760px] mx-auto px-6 md:px-10 xl:px-20">
-        <div className="max-w-4xl mb-12">
-          <h1 className="text-[32px] md:text-[42px] font-semibold tracking-tight text-dark">
-            Find the right stay faster.
-          </h1>
-          <p className="mt-3 text-base md:text-lg text-muted leading-7">
-            The home feed is now focused on two things only: what feels close to
-            you right now and what looks worth opening next.
-          </p>
-        </div>
+    <main className="pb-16">
+      <HomeSearchPanel />
+
+      <div className="max-w-[1760px] mx-auto space-y-16 px-6 pt-12 md:px-10 md:pt-14 xl:px-20">
+        <RecentSearches />
 
         {isLoading ? (
           <div className="space-y-16">
@@ -150,42 +173,22 @@ export default function HomePage() {
         ) : (
           <div className="space-y-16">
             <PropertySection
-              eyebrow="Near You"
+              eyebrow="Smart picks"
               title={nearbyTitle}
               description={nearbyDescription}
               propertiesToShow={nearbyProperties}
             />
 
-            <div className="rounded-[32px] bg-gradient-to-br from-gray-50 via-white to-rose-50 border border-gray-200 px-6 py-8 md:px-8 md:py-10">
-              <div className="flex items-start gap-4">
-                <div className="rounded-2xl bg-white p-3 shadow-sm text-brand">
-                  <Sparkles size={22} />
-                </div>
-                <div className="max-w-3xl">
-                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted">
-                    Recommended
-                  </p>
-                  <h2 className="mt-2 text-[28px] leading-tight font-semibold text-dark">
-                    Recommended for your next stay
-                  </h2>
-                  <p className="mt-2 text-sm md:text-[15px] leading-6 text-muted">
-                    {recommendedDescription}
-                  </p>
-                </div>
-              </div>
-
-              <div className="mt-8 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-6 gap-x-6 gap-y-10">
-                {recommendedProperties.map((property, index) => (
-                  <PropertyCard
-                    key={property.id}
-                    property={property}
-                    index={index}
-                  />
-                ))}
-              </div>
-            </div>
+            <PropertySection
+              eyebrow="Recommended"
+              title="Recommended for your next stay"
+              description={recommendedDescription}
+              propertiesToShow={recommendedProperties}
+            />
           </div>
         )}
+
+        <PopularDestinations />
 
         {!isLoading &&
           sharedLocation.hasSharedLocation &&

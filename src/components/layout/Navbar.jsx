@@ -218,20 +218,6 @@ export default function Navbar() {
          
           {/* Right Actions */}
           <div className="flex items-center gap-1 flex-shrink-0">
-            {!hideHostCta && (!profile || profile.role === 'host') && (
-              <Link
-                to={user ? '/host/onboarding' : '#'}
-                onClick={(e) => {
-                  if (!user) {
-                    e.preventDefault()
-                    openAuthModal()
-                  }
-                }}
-                className="hidden lg:flex px-4 py-2.5 text-sm font-semibold rounded-full hover:bg-gray-50 transition-colors"
-              >
-                {t('nav.hostHome')}
-              </Link>
-            )}
             <button
               type="button"
               onClick={() => setIsLocaleOpen(true)}

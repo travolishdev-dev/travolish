@@ -161,7 +161,7 @@ export default function SearchControls({
                 }
                 className="flex min-h-[62px] w-full items-center gap-3 rounded-[20px] px-3 text-left transition-colors hover:bg-gray-50 md:px-4"
               >
-                <span className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-2xl bg-gray-100 text-dark">
+                <span className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-2xl bg-rose-50 text-brand">
                   <CalendarDays size={18} />
                 </span>
                 <span className="min-w-0">
@@ -193,7 +193,7 @@ export default function SearchControls({
                 }
                 className="flex min-h-[62px] w-full items-center gap-3 rounded-[20px] px-3 text-left transition-colors hover:bg-gray-50 md:px-4"
               >
-                <span className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-2xl bg-gray-100 text-dark">
+                <span className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-2xl bg-rose-50 text-brand">
                   <UsersRound size={18} />
                 </span>
                 <span className="min-w-0">

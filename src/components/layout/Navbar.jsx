@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { Link, useLocation, useNavigate } from 'react-router-dom'
+import { Link, useLocation } from 'react-router-dom'
 import {
   Search,
   Globe,
@@ -18,11 +18,6 @@ import {
 import { AnimatePresence, motion as Motion } from 'framer-motion'
 import { useTranslation } from 'react-i18next'
 import useAuthStore from '../../stores/useAuthStore'
-import useNativeAppLocationStore from '../../stores/useNativeAppLocationStore'
-import {
-  formatCoordinates,
-  formatPlatformLabel,
-} from '../../lib/nativeAppLocation'
 
 const countryOptions = [
   { code: 'IN', label: 'India', currency: 'INR' },
@@ -169,20 +164,11 @@ function LanguageRegionModal({ country, onCountryChange, onClose }) {
 export default function Navbar() {
   const { t } = useTranslation()
   const { user, profile, openAuthModal, signOut } = useAuthStore()
-  const {
-    isNativeAppLaunch,
-    hasSharedLocation,
-    locationPermission,
-    latitude,
-    longitude,
-    platform,
-  } = useNativeAppLocationStore()
   const [isScrolled, setIsScrolled] = useState(false)
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [isLocaleOpen, setIsLocaleOpen] = useState(false)
   const [country, setCountry] = useState(readStoredCountry)
   const menuRef = useRef(null)
-  const navigate = useNavigate()
   const { pathname } = useLocation()
   const isHomePage = pathname === '/'
   const hideCompactSearch =
@@ -211,20 +197,6 @@ export default function Navbar() {
     return 'U'
   }
 
-  const locationTitle = hasSharedLocation
-    ? 'Current location'
-    : isNativeAppLaunch
-      ? 'Location unavailable'
-      : t('nav.anywhere')
-  const locationMeta = hasSharedLocation
-    ? formatCoordinates(latitude, longitude)
-    : isNativeAppLaunch
-      ? `Permission: ${locationPermission || 'unknown'}`
-      : t('nav.anyWeek')
-  const guestLabel = isNativeAppLaunch
-    ? formatPlatformLabel(platform)
-    : t('nav.addGuests')
-
   return (
     <header
       className={`fixed top-0 left-0 right-0 z-50 bg-white transition-shadow duration-300 ${
@@ -243,41 +215,7 @@ export default function Navbar() {
             </span>
           </Link>
 
-          {/* Search Bar Trigger */}
-          {!hideCompactSearch && (
-            <button
-              onClick={() => navigate('/search')}
-              className="hidden md:flex items-center border border-gray-200 rounded-full shadow-sm hover:shadow-md transition-all duration-200 px-2 py-2 gap-1"
-            >
-              <span className="text-sm font-semibold px-4 border-r border-gray-200">
-                {locationTitle}
-              </span>
-              <span className="text-sm font-semibold px-4 border-r border-gray-200">
-                {locationMeta}
-              </span>
-              <span className="text-sm text-muted px-4">{guestLabel}</span>
-              <div className="bg-brand rounded-full p-2 ml-1">
-                <Search size={14} className="text-white" strokeWidth={3} />
-              </div>
-            </button>
-          )}
-
-          {/* Mobile Search */}
-          {!hideCompactSearch && (
-            <button
-              onClick={() => navigate('/search')}
-              className="md:hidden flex items-center gap-3 flex-1 mx-4 border border-gray-200 rounded-full shadow-sm px-4 py-2.5"
-            >
-              <Search size={18} className="text-dark" />
-              <div className="text-left">
-                <p className="text-xs font-semibold">{locationTitle}</p>
-                <p className="text-xs text-muted">
-                  {locationMeta} · {guestLabel}
-                </p>
-              </div>
-            </button>
-          )}
-
+         
           {/* Right Actions */}
           <div className="flex items-center gap-1 flex-shrink-0">
             {!hideHostCta && (!profile || profile.role === 'host') && (
@@ -377,6 +315,14 @@ export default function Navbar() {
                           {t('nav.hostDashboard')}
                         </Link>
                         <Link
+                          to="/host/listings/new"
+                          onClick={() => setIsMenuOpen(false)}
+                          className="flex items-center gap-3 px-4 py-2.5 text-sm hover:bg-gray-50 transition-colors"
+                        >
+                          <Plus size={16} className="text-gray-600" />
+                          {t('nav.hostProperty')}
+                        </Link>
+                        <Link
                           to="/wishlists"
                           onClick={() => setIsMenuOpen(false)}
                           className="flex items-center gap-3 px-4 py-2.5 text-sm hover:bg-gray-50 transition-colors"
@@ -425,6 +371,16 @@ export default function Navbar() {
                           className="w-full text-left px-4 py-2.5 text-sm hover:bg-gray-50 transition-colors"
                         >
                           {t('nav.login')}
+                        </button>
+                        <button
+                          onClick={() => {
+                            openAuthModal()
+                            setIsMenuOpen(false)
+                          }}
+                          className="flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm hover:bg-gray-50 transition-colors"
+                        >
+                          <Plus size={16} className="text-gray-600" />
+                          {t('nav.hostProperty')}
                         </button>
                         {!hideHostCta && (
                           <>

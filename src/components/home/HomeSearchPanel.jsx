@@ -171,7 +171,7 @@ export default function HomeSearchPanel() {
                 }
                 className="flex min-h-[72px] w-full items-center gap-4 rounded-[22px] px-4 text-left transition-colors hover:bg-gray-50 sm:px-5"
               >
-              <span className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-2xl bg-gray-100 text-dark">
+              <span className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-2xl bg-rose-50 text-brand">
                 <CalendarDays size={20} />
               </span>
               <span className="min-w-0">
@@ -201,7 +201,7 @@ export default function HomeSearchPanel() {
                 }
                 className="flex min-h-[72px] w-full items-center gap-4 rounded-[22px] px-4 text-left transition-colors hover:bg-gray-50 sm:px-5"
               >
-              <span className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-2xl bg-gray-100 text-dark">
+              <span className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-2xl bg-rose-50 text-brand">
                 <UsersRound size={20} />
               </span>
               <span className="min-w-0">

@@ -7,9 +7,7 @@ import {
   StatusPill,
 } from '../../components/portal/PortalUI'
 import usePortalViewer from '../../hooks/usePortalViewer'
-import { getUser, updateUser } from '../../services/usersApi'
-
-const USER_ID = 1
+import { findUserByEmail, createUser, updateUser } from '../../services/usersApi'
 
 function Field({ label, value, onChange, placeholder, textarea = false }) {
   const Component = textarea ? 'textarea' : 'input'
@@ -33,6 +31,7 @@ function Field({ label, value, onChange, placeholder, textarea = false }) {
 
 export default function EditProfilePage() {
   const { viewer } = usePortalViewer()
+  const [backendUserId, setBackendUserId] = useState(null)
   const [formState, setFormState] = useState({
     preferredName: viewer.preferredName,
     fullName: viewer.fullName,
@@ -48,19 +47,37 @@ export default function EditProfilePage() {
   const [saveError, setSaveError] = useState(null)
 
   useEffect(() => {
-    getUser(USER_ID)
+    const email = viewer.email
+    if (!email) return
+
+    const nameParts = viewer.fullName?.trim().split(' ') ?? []
+    const firstName = nameParts[0] ?? ''
+    const lastName = nameParts.slice(1).join(' ')
+
+    findUserByEmail(email)
+      .catch(async (err) => {
+        if (!err.message?.includes('404')) throw err
+        // User doesn't exist in backend yet — create them from auth profile
+        return createUser({ firstName, lastName, email, phone: viewer.phone ?? null })
+      })
       .then((data) => {
+        if (!data) return
+        setBackendUserId(data.id)
         const name = [data.firstName, data.lastName].filter(Boolean).join(' ')
         setFormState((prev) => ({
           ...prev,
           fullName: name || prev.fullName,
-          preferredName: data.firstName || prev.preferredName,
+          preferredName: data.preferredName || data.firstName || prev.preferredName,
           email: data.email || prev.email,
           phone: data.phone || prev.phone,
+          city: data.city || prev.city,
+          timeZone: data.timeZone || prev.timeZone,
+          travelStyle: data.travelStyle || prev.travelStyle,
+          bio: data.bio || prev.bio,
         }))
       })
       .catch(() => {})
-  }, [])
+  }, [viewer.email])
 
   const updateField = (field) => (event) => {
     setSaved(false)
@@ -68,6 +85,10 @@ export default function EditProfilePage() {
   }
 
   const handleSave = async () => {
+    if (!backendUserId) {
+      setSaveError('User account not found. Please sign in again.')
+      return
+    }
     setSaving(true)
     setSaved(false)
     setSaveError(null)
@@ -75,11 +96,16 @@ export default function EditProfilePage() {
       const nameParts = formState.fullName.trim().split(' ')
       const firstName = nameParts[0] ?? ''
       const lastName = nameParts.slice(1).join(' ')
-      await updateUser(USER_ID, {
+      await updateUser(backendUserId, {
         firstName,
         lastName,
+        preferredName: formState.preferredName,
         email: formState.email,
         phone: formState.phone,
+        city: formState.city,
+        timeZone: formState.timeZone,
+        travelStyle: formState.travelStyle,
+        bio: formState.bio,
       })
       setSaved(true)
     } catch {

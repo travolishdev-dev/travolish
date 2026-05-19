@@ -1,13 +1,55 @@
+import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Heart, Trash2 } from 'lucide-react'
+import { Heart, Loader2, Trash2 } from 'lucide-react'
 import { motion } from 'framer-motion'
 import useWishlistStore from '../stores/useWishlistStore'
-import { properties } from '../data/mockData'
+import { getHotel, listRooms } from '../services/hotelsApi'
+import { adaptHotels } from '../lib/hotelAdapter'
 import PropertyCard from '../components/home/PropertyCard'
 
 export default function WishlistPage() {
-  const { wishlistIds, clearWishlists } = useWishlistStore()
-  const wishlisted = properties.filter((p) => wishlistIds.includes(p.id))
+  const { wishlistIds, clearItems, backendUserId } = useWishlistStore()
+  const [properties, setProperties] = useState([])
+  const [isLoading, setIsLoading] = useState(false)
+
+  useEffect(() => {
+    if (!wishlistIds.length) {
+      setProperties([])
+      return
+    }
+
+    let cancelled = false
+    setIsLoading(true)
+
+    async function load() {
+      try {
+        const [hotels, rooms] = await Promise.all([
+          Promise.all(wishlistIds.map((id) => getHotel(Number(id)))),
+          listRooms(),
+        ])
+        if (cancelled) return
+        setProperties(adaptHotels(hotels.filter(Boolean), rooms))
+      } catch {
+        if (!cancelled) setProperties([])
+      } finally {
+        if (!cancelled) setIsLoading(false)
+      }
+    }
+
+    load()
+    return () => { cancelled = true }
+  }, [wishlistIds.length])
+
+  const handleClearAll = () => {
+    if (backendUserId) {
+      import('../services/wishlistApi').then(({ removeFromWishlist }) => {
+        wishlistIds.forEach((id) =>
+          removeFromWishlist(backendUserId, Number(id)).catch(() => {})
+        )
+      })
+    }
+    clearItems()
+  }
 
   return (
     <motion.main
@@ -18,9 +60,9 @@ export default function WishlistPage() {
     >
       <div className="flex items-center justify-between mb-8">
         <h1 className="text-3xl font-bold text-dark">Wishlists</h1>
-        {wishlisted.length > 0 && (
+        {wishlistIds.length > 0 && (
           <button
-            onClick={clearWishlists}
+            onClick={handleClearAll}
             className="flex items-center gap-2 text-sm text-muted hover:text-dark transition-colors"
           >
             <Trash2 size={16} />
@@ -29,7 +71,11 @@ export default function WishlistPage() {
         )}
       </div>
 
-      {wishlisted.length === 0 ? (
+      {isLoading ? (
+        <div className="flex items-center justify-center py-24">
+          <Loader2 size={28} className="animate-spin text-muted" />
+        </div>
+      ) : wishlistIds.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-24 text-center">
           <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mb-6">
             <Heart size={32} className="text-gray-400" />
@@ -49,7 +95,7 @@ export default function WishlistPage() {
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-x-6 gap-y-10">
-          {wishlisted.map((property, index) => (
+          {properties.map((property, index) => (
             <PropertyCard key={property.id} property={property} index={index} />
           ))}
         </div>

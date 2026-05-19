@@ -17,6 +17,7 @@ import {
 } from '../../lib/searchFormatting'
 import { indianDestinations } from '../../data/indianDestinations'
 import HomeDateRangePicker from './HomeDateRangePicker'
+import { saveSearch } from '../../lib/searchHistory'
 
 function CounterControl({ label, value, min = 0, onChange }) {
   return (
@@ -79,6 +80,7 @@ export default function HomeSearchPanel() {
   const handleSubmit = (event) => {
     event.preventDefault()
     setActivePanel(null)
+    saveSearch(searchDraft)
     navigate('/search')
   }
 

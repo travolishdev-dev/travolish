@@ -1,6 +1,48 @@
-import { useState } from 'react'
-import { ArrowRight } from 'lucide-react'
+import { useRef, useState } from 'react'
+import { ArrowRight, ChevronLeft, ChevronRight } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
+
+const DESTINATION_CARD_ITEM_CLASS =
+  'shrink-0 snap-start basis-[82%] sm:basis-[calc((100%-1.25rem)/2)] lg:basis-[calc((100%-2.5rem)/3)] 2xl:basis-[calc((100%-5rem)/5)]'
+
+function scrollDestinationTrack(trackRef, direction) {
+  const track = trackRef.current
+  if (!track) return
+
+  const firstItem = track.querySelector('[data-destination-carousel-item]')
+  const gap = Number.parseFloat(window.getComputedStyle(track).columnGap) || 20
+  const distance = firstItem
+    ? firstItem.getBoundingClientRect().width + gap
+    : track.clientWidth * 0.82
+
+  track.scrollBy({
+    left: direction * distance,
+    behavior: 'smooth',
+  })
+}
+
+function DestinationCarouselControls({ onPrevious, onNext }) {
+  return (
+    <div className="hidden items-center gap-2 md:flex">
+      <button
+        type="button"
+        onClick={onPrevious}
+        className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-gray-200 bg-white text-dark shadow-sm transition-colors hover:border-brand hover:text-brand"
+        aria-label="Scroll to previous destinations"
+      >
+        <ChevronLeft size={18} />
+      </button>
+      <button
+        type="button"
+        onClick={onNext}
+        className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-gray-200 bg-white text-dark shadow-sm transition-colors hover:border-brand hover:text-brand"
+        aria-label="Scroll to next destinations"
+      >
+        <ChevronRight size={18} />
+      </button>
+    </div>
+  )
+}
 
 const cityDestinations = [
   {
@@ -80,9 +122,15 @@ const regionalDestinations = [
 
 export default function PopularDestinations() {
   const [activeTab, setActiveTab] = useState('cities')
+  const trackRef = useRef(null)
   const navigate = useNavigate()
   const destinations =
     activeTab === 'cities' ? cityDestinations : regionalDestinations
+
+  const handleTabChange = (tabId) => {
+    setActiveTab(tabId)
+    trackRef.current?.scrollTo({ left: 0, behavior: 'smooth' })
+  }
 
   return (
     <section className="space-y-5">
@@ -96,34 +144,44 @@ export default function PopularDestinations() {
           </h2>
         </div>
 
-        <div className="flex w-full rounded-full bg-gray-100 p-1 sm:w-auto">
-          {[
-            { id: 'cities', label: 'Cities' },
-            { id: 'destinations', label: 'Destinations' },
-          ].map((tab) => (
-            <button
-              key={tab.id}
-              type="button"
-              onClick={() => setActiveTab(tab.id)}
-              className={`flex-1 rounded-full px-4 py-2 text-sm font-semibold transition-colors sm:flex-none ${
-                activeTab === tab.id
-                  ? 'bg-white text-dark shadow-sm'
-                  : 'text-muted hover:text-dark'
-              }`}
-            >
-              {tab.label}
-            </button>
-          ))}
+        <div className="flex w-full flex-col gap-3 sm:w-auto sm:items-end md:flex-row md:items-center">
+          <div className="flex w-full rounded-full bg-gray-100 p-1 sm:w-auto">
+            {[
+              { id: 'cities', label: 'Cities' },
+              { id: 'destinations', label: 'Destinations' },
+            ].map((tab) => (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => handleTabChange(tab.id)}
+                className={`flex-1 rounded-full px-4 py-2 text-sm font-semibold transition-colors sm:flex-none ${
+                  activeTab === tab.id
+                    ? 'bg-white text-dark shadow-sm'
+                    : 'text-muted hover:text-dark'
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+          <DestinationCarouselControls
+            onPrevious={() => scrollDestinationTrack(trackRef, -1)}
+            onNext={() => scrollDestinationTrack(trackRef, 1)}
+          />
         </div>
       </div>
 
-      <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-5">
+      <div
+        ref={trackRef}
+        className="hide-scrollbar -my-2 flex touch-pan-x snap-x snap-mandatory gap-5 overflow-x-auto scroll-smooth py-2"
+      >
         {destinations.map((destination) => (
           <button
             key={destination.name}
             type="button"
+            data-destination-carousel-item
             onClick={() => navigate('/search')}
-            className="group overflow-hidden rounded-card border border-gray-200 bg-white text-left shadow-[0_14px_34px_rgba(15,23,42,0.08)] transition-all hover:-translate-y-0.5 hover:shadow-[0_18px_42px_rgba(15,23,42,0.12)]"
+            className={`${DESTINATION_CARD_ITEM_CLASS} group overflow-hidden rounded-card border border-gray-200 bg-white text-left shadow-[0_14px_34px_rgba(15,23,42,0.08)] transition-all hover:-translate-y-0.5 hover:shadow-[0_18px_42px_rgba(15,23,42,0.12)]`}
           >
             <div className="h-44 overflow-hidden bg-gray-100">
               <img

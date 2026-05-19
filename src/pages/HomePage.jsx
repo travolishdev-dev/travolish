@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { Map } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
+import { ArrowRight, ChevronLeft, ChevronRight, Map } from 'lucide-react'
 import HomeSearchPanel from '../components/home/HomeSearchPanel'
 import PropertyCard from '../components/home/PropertyCard'
 import PopularDestinations from '../components/home/PopularDestinations'
@@ -14,7 +14,72 @@ import {
   sortPropertiesBySharedLocation,
 } from '../lib/nativeAppLocation'
 
-const SECTION_SIZE = 6
+const SECTION_SIZE = 8
+const CARD_TRACK_ITEM_CLASS =
+  'shrink-0 snap-start basis-[82%] sm:basis-[calc((100%-1.25rem)/2)] lg:basis-[calc((100%-2.5rem)/3)] xl:basis-[calc((100%-3.75rem)/4)] 2xl:basis-[calc((100%-5rem)/5)]'
+
+function scrollCardTrack(trackRef, direction) {
+  const track = trackRef.current
+  if (!track) return
+
+  const firstItem = track.querySelector('[data-carousel-item]')
+  const gap = Number.parseFloat(window.getComputedStyle(track).columnGap) || 20
+  const distance = firstItem
+    ? firstItem.getBoundingClientRect().width + gap
+    : track.clientWidth * 0.82
+
+  track.scrollBy({
+    left: direction * distance,
+    behavior: 'smooth',
+  })
+}
+
+function CarouselControls({ onPrevious, onNext }) {
+  return (
+    <div className="hidden items-center gap-2 md:flex">
+      <button
+        type="button"
+        onClick={onPrevious}
+        className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-gray-200 bg-white text-dark shadow-sm transition-colors hover:border-brand hover:text-brand"
+        aria-label="Scroll to previous cards"
+      >
+        <ChevronLeft size={18} />
+      </button>
+      <button
+        type="button"
+        onClick={onNext}
+        className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-gray-200 bg-white text-dark shadow-sm transition-colors hover:border-brand hover:text-brand"
+        aria-label="Scroll to next cards"
+      >
+        <ChevronRight size={18} />
+      </button>
+    </div>
+  )
+}
+
+function ViewAllCard({ title = 'View all stays', description = 'Open the full search page to compare more hotels, dates, and prices.' }) {
+  return (
+    <Link
+      to="/search"
+      className="group flex min-h-[356px] h-full flex-col justify-between rounded-card border border-dashed border-gray-300 bg-white p-5 text-left shadow-[0_14px_34px_rgba(15,23,42,0.06)] transition-all hover:-translate-y-0.5 hover:border-brand hover:shadow-[0_18px_42px_rgba(15,23,42,0.1)]"
+    >
+      <div>
+        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted">
+          More options
+        </p>
+        <h3 className="mt-3 text-2xl font-semibold leading-tight text-dark">
+          {title}
+        </h3>
+        <p className="mt-3 text-sm leading-6 text-muted">
+          {description}
+        </p>
+      </div>
+      <span className="inline-flex h-12 w-12 items-center justify-center rounded-2xl border border-gray-300 text-dark transition-colors group-hover:border-brand group-hover:bg-brand group-hover:text-white">
+        <ArrowRight size={20} />
+      </span>
+    </Link>
+  )
+}
 
 function PropertyCardSkeleton({ variant = 'default' }) {
   if (variant === 'deal') {
@@ -49,16 +114,30 @@ function PropertyCardSkeleton({ variant = 'default' }) {
 }
 
 function SectionSkeleton() {
+  const trackRef = useRef(null)
+
   return (
     <section className="space-y-6">
-      <div className="space-y-3">
-        <div className="h-3 w-28 rounded-full bg-gray-200" />
-        <div className="h-8 w-72 rounded-full bg-gray-200" />
-        <div className="h-4 w-[28rem] max-w-full rounded-full bg-gray-200" />
+      <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+        <div className="space-y-3">
+          <div className="h-3 w-28 rounded-full bg-gray-200" />
+          <div className="h-8 w-72 rounded-full bg-gray-200" />
+          <div className="h-4 w-[28rem] max-w-full rounded-full bg-gray-200" />
+        </div>
+        <CarouselControls
+          onPrevious={() => scrollCardTrack(trackRef, -1)}
+          onNext={() => scrollCardTrack(trackRef, 1)}
+        />
       </div>
-      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
+
+      <div
+        ref={trackRef}
+        className="hide-scrollbar -my-2 flex touch-pan-x snap-x snap-mandatory gap-5 overflow-x-auto scroll-smooth py-2"
+      >
         {Array.from({ length: SECTION_SIZE }).map((_, index) => (
-          <PropertyCardSkeleton key={index} variant="deal" />
+          <div key={index} data-carousel-item className={CARD_TRACK_ITEM_CLASS}>
+            <PropertyCardSkeleton variant="deal" />
+          </div>
         ))}
       </div>
     </section>
@@ -66,6 +145,8 @@ function SectionSkeleton() {
 }
 
 function PropertySection({ eyebrow, title, description, propertiesToShow }) {
+  const trackRef = useRef(null)
+
   if (!propertiesToShow.length) {
     return null
   }
@@ -84,17 +165,35 @@ function PropertySection({ eyebrow, title, description, propertiesToShow }) {
             {description}
           </p>
         </div>
+        <CarouselControls
+          onPrevious={() => scrollCardTrack(trackRef, -1)}
+          onNext={() => scrollCardTrack(trackRef, 1)}
+        />
       </div>
 
-      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
+      <div
+        ref={trackRef}
+        className="hide-scrollbar -my-2 flex touch-pan-x snap-x snap-mandatory gap-5 overflow-x-auto scroll-smooth py-2"
+      >
         {propertiesToShow.map((property, index) => (
-          <PropertyCard
+          <div
             key={property.id}
-            property={property}
-            index={index}
-            variant="deal"
-          />
+            data-carousel-item
+            className={CARD_TRACK_ITEM_CLASS}
+          >
+            <PropertyCard
+              property={property}
+              index={index}
+              variant="deal"
+            />
+          </div>
         ))}
+        <div data-carousel-item className={CARD_TRACK_ITEM_CLASS}>
+          <ViewAllCard
+            title={`View all ${eyebrow.toLowerCase()}`}
+            description="See the complete hotel list with search filters, map view, and more stay options."
+          />
+        </div>
       </div>
     </section>
   )

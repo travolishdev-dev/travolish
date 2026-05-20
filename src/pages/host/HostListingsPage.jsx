@@ -9,7 +9,7 @@ import {
 } from '../../components/host/HostPortalUI'
 import { HostPillButton } from '../../components/host/HostFormFields'
 import { getHostListings } from '../../services/hostListingsApi'
-import { hostListings } from '../../data/mockHostPortalData'
+import useHostContext from '../../hooks/useHostContext'
 
 const filters = ['All', 'Live', 'Draft updates']
 
@@ -36,17 +36,24 @@ function adaptListing(h) {
 }
 
 export default function HostListingsPage() {
-  const [listings, setListings] = useState(hostListings)
+  const { hostId, loading: hostLoading } = useHostContext()
+  const [listings, setListings] = useState([])
   const [activeFilter, setActiveFilter] = useState('All')
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    getHostListings()
+    if (hostLoading || !hostId) {
+      if (!hostLoading) setLoading(false)
+      return
+    }
+    getHostListings(hostId)
       .then((data) => {
         const items = data?.content ?? (Array.isArray(data) ? data : null)
         if (items?.length) setListings(items.map(adaptListing))
       })
       .catch(() => {})
-  }, [])
+      .finally(() => setLoading(false))
+  }, [hostId, hostLoading])
 
   const visibleListings = useMemo(() => {
     if (activeFilter === 'All') return listings
@@ -70,8 +77,6 @@ export default function HostListingsPage() {
       stats={[
         { label: 'Live', value: String(liveCount), note: 'Currently bookable' },
         { label: 'Draft', value: String(draftCount), note: 'Needs updates' },
-        { label: 'Avg occupancy', value: '79%', note: 'Rolling 30 days' },
-        { label: 'Response time', value: '12 min', note: 'Across active threads' },
       ]}
     >
       <SectionCard>
@@ -92,6 +97,17 @@ export default function HostListingsPage() {
             </div>
           </div>
         </div>
+
+        {loading && (
+          <div className="py-16 text-center text-sm text-muted">Loading listings…</div>
+        )}
+
+        {!loading && visibleListings.length === 0 && (
+          <div className="py-16 text-center">
+            <p className="text-sm font-semibold text-dark">No listings yet</p>
+            <p className="mt-1 text-sm text-muted">Add your first property to start accepting bookings.</p>
+          </div>
+        )}
 
         <div className="mt-6 divide-y divide-gray-200 border-y border-gray-200">
           {visibleListings.map((listing) => (

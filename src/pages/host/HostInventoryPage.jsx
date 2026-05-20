@@ -6,69 +6,66 @@ import {
   StatusPill,
 } from '../../components/host/HostPortalUI'
 import { getInventoryDashboard, getInventoryForecast, getInventoryAlerts } from '../../services/inventoryApi'
-import {
-  hostForecastBlocks,
-  hostInventoryAlerts,
-  hostInventoryMetrics,
-} from '../../data/mockHostPortalData'
+import useHostContext from '../../hooks/useHostContext'
+
+const EMPTY_METRICS = [
+  { label: 'Sellable nights', value: '—', note: '' },
+  { label: 'Booked nights', value: '—', note: '' },
+  { label: 'Occupancy', value: '—', note: '' },
+]
+
+const EMPTY_FORECAST = [
+  { title: 'Next 7 days', value: '—', note: '' },
+  { title: 'Next 30 days', value: '—', note: '' },
+  { title: 'Weekend occupancy', value: '—', note: '' },
+]
 
 export default function HostInventoryPage() {
-  const [metrics, setMetrics] = useState(hostInventoryMetrics)
-  const [forecastBlocks, setForecastBlocks] = useState(hostForecastBlocks)
-  const [alerts, setAlerts] = useState(hostInventoryAlerts)
+  const { primaryHotelId, loading: hostLoading } = useHostContext()
+  const [metrics, setMetrics] = useState(EMPTY_METRICS)
+  const [forecastBlocks, setForecastBlocks] = useState(EMPTY_FORECAST)
+  const [alerts, setAlerts] = useState([])
 
   useEffect(() => {
-    getInventoryDashboard()
+    if (hostLoading || !primaryHotelId) return
+
+    getInventoryDashboard(primaryHotelId)
       .then((data) => {
         if (data) {
-          const mapped = [
-            {
-              label: 'Sellable nights',
-              value: data.sellableNights ?? data.totalNights ?? hostInventoryMetrics[0].value,
-              note: hostInventoryMetrics[0].note,
-            },
-            {
-              label: 'Booked nights',
-              value: data.bookedNights ?? hostInventoryMetrics[1].value,
-              note: hostInventoryMetrics[1].note,
-            },
-            {
-              label: 'Occupancy',
-              value: data.occupancyRate != null ? `${data.occupancyRate}%` : hostInventoryMetrics[2].value,
-              note: hostInventoryMetrics[2].note,
-            },
-          ]
-          setMetrics(mapped)
+          setMetrics([
+            { label: 'Sellable nights', value: data.sellableNights ?? data.totalNights ?? '—', note: '' },
+            { label: 'Booked nights', value: data.bookedNights ?? '—', note: '' },
+            { label: 'Occupancy', value: data.occupancyRate != null ? `${data.occupancyRate}%` : '—', note: '' },
+          ])
         }
       })
       .catch(() => {})
 
-    getInventoryForecast()
+    getInventoryForecast(primaryHotelId)
       .then((data) => {
         if (data) {
-          const blocks = [
+          setForecastBlocks([
             {
               title: 'Next 7 days',
-              value: data.next7Days?.occupancy != null ? `${data.next7Days.occupancy}%` : hostForecastBlocks[0].value,
-              note: hostForecastBlocks[0].note,
+              value: data.next7Days?.occupancy != null ? `${data.next7Days.occupancy}%` : '—',
+              note: '',
             },
             {
               title: 'Next 30 days',
-              value: data.next30Days?.occupancy != null ? `${data.next30Days.occupancy}%` : hostForecastBlocks[1].value,
-              note: hostForecastBlocks[1].note,
+              value: data.next30Days?.occupancy != null ? `${data.next30Days.occupancy}%` : '—',
+              note: '',
             },
             {
               title: 'Weekend occupancy',
-              value: data.weekendOccupancy != null ? `${data.weekendOccupancy}%` : hostForecastBlocks[2].value,
-              note: hostForecastBlocks[2].note,
+              value: data.weekendOccupancy != null ? `${data.weekendOccupancy}%` : '—',
+              note: '',
             },
-          ]
-          setForecastBlocks(blocks)
+          ])
         }
       })
       .catch(() => {})
 
-    getInventoryAlerts()
+    getInventoryAlerts(primaryHotelId)
       .then((data) => {
         const items = Array.isArray(data) ? data : data?.alerts
         if (items?.length) {
@@ -82,7 +79,7 @@ export default function HostInventoryPage() {
         }
       })
       .catch(() => {})
-  }, [])
+  }, [primaryHotelId, hostLoading])
 
   return (
     <HostShell
@@ -111,7 +108,9 @@ export default function HostInventoryPage() {
               <p className="mt-2 text-2xl font-semibold tracking-tight text-dark">
                 {block.value}
               </p>
-              <p className="mt-1 text-sm leading-6 text-muted">{block.note}</p>
+              {block.note && (
+                <p className="mt-1 text-sm leading-6 text-muted">{block.note}</p>
+              )}
             </div>
           ))}
         </div>
@@ -119,20 +118,24 @@ export default function HostInventoryPage() {
         <div className="mt-8 border-t border-gray-200 pt-6">
           <SectionHeading eyebrow="Alerts" title="Operational pressure points" />
 
-          <div className="mt-5 space-y-4">
-            {alerts.map((alert) => (
-              <div
-                key={alert.title}
-                className="rounded-[22px] border border-gray-200 bg-[#fcfbf8] p-4"
-              >
-                <div className="flex flex-wrap items-center gap-2">
-                  <p className="text-lg font-semibold text-dark">{alert.title}</p>
-                  <StatusPill tone={alert.tone}>{alert.tone}</StatusPill>
+          {alerts.length === 0 ? (
+            <p className="mt-5 text-sm text-muted">No active alerts.</p>
+          ) : (
+            <div className="mt-5 space-y-4">
+              {alerts.map((alert) => (
+                <div
+                  key={alert.title}
+                  className="rounded-[22px] border border-gray-200 bg-[#fcfbf8] p-4"
+                >
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="text-lg font-semibold text-dark">{alert.title}</p>
+                    <StatusPill tone={alert.tone}>{alert.tone}</StatusPill>
+                  </div>
+                  <p className="mt-2 text-sm leading-6 text-muted">{alert.detail}</p>
                 </div>
-                <p className="mt-2 text-sm leading-6 text-muted">{alert.detail}</p>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
       </SectionCard>
     </HostShell>

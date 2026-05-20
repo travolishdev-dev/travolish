@@ -16,7 +16,7 @@ import {
   analyzeCompetitors,
   getSeasonalPricing,
 } from '../../services/pricingApi'
-import { hostPricingSuggestions, findHostListing, findHostRoom } from '../../data/mockHostPortalData'
+import useHostContext from '../../hooks/useHostContext'
 
 function adaptSuggestion(s) {
   return {
@@ -24,8 +24,8 @@ function adaptSuggestion(s) {
     listingId: s.hotelId ?? s.listingId,
     roomId: s.roomId,
     dateWindow: s.dateRange ?? s.dateWindow ?? '—',
-    currentRate: s.currentRate != null ? `$${s.currentRate}` : (s.currentRate ?? '—'),
-    suggestedRate: s.suggestedRate != null ? `$${s.suggestedRate}` : (s.suggestedRate ?? '—'),
+    currentRate: s.currentRate != null ? `$${s.currentRate}` : '—',
+    suggestedRate: s.suggestedRate != null ? `$${s.suggestedRate}` : '—',
     confidence: s.confidenceLevel ?? s.confidence ?? 'Medium',
     rationale: s.reasons ?? s.rationale ?? [],
     hotelName: s.hotelName,
@@ -44,7 +44,8 @@ function DemandMetric({ label, value, note }) {
 }
 
 export default function HostPricingAIPage() {
-  const [suggestions, setSuggestions] = useState(hostPricingSuggestions)
+  const { primaryHotelId, loading: hostLoading } = useHostContext()
+  const [suggestions, setSuggestions] = useState([])
   const [generating, setGenerating] = useState(false)
 
   const [demandData, setDemandData] = useState(null)
@@ -56,7 +57,9 @@ export default function HostPricingAIPage() {
   const [seasonalData, setSeasonalData] = useState(null)
 
   useEffect(() => {
-    getPricingSuggestions()
+    if (hostLoading || !primaryHotelId) return
+
+    getPricingSuggestions(primaryHotelId)
       .then((data) => {
         const items = data?.content ?? (Array.isArray(data) ? data : null)
         if (items?.length) setSuggestions(items.map(adaptSuggestion))
@@ -80,7 +83,7 @@ export default function HostPricingAIPage() {
 
     loadDemandAnalysis()
     loadCompetitorAnalysis()
-  }, [])
+  }, [primaryHotelId, hostLoading])
 
   function loadDemandAnalysis() {
     setDemandLoading(true)
@@ -99,9 +102,10 @@ export default function HostPricingAIPage() {
   }
 
   async function handleGenerate() {
+    if (!primaryHotelId) return
     setGenerating(true)
     try {
-      const result = await generatePricingSuggestions({ hotelId: 1 })
+      const result = await generatePricingSuggestions({ hotelId: primaryHotelId })
       const items = result?.content ?? (Array.isArray(result) ? result : null)
       if (items?.length) setSuggestions(items.map(adaptSuggestion))
     } catch {
@@ -164,7 +168,6 @@ export default function HostPricingAIPage() {
       ]}
     >
       <div className="space-y-5">
-        {/* Demand analysis */}
         <SectionCard>
           <SectionHeading
             eyebrow="Demand"
@@ -204,7 +207,6 @@ export default function HostPricingAIPage() {
           )}
         </SectionCard>
 
-        {/* Competitor analysis */}
         <SectionCard>
           <SectionHeading
             eyebrow="Competition"
@@ -244,7 +246,6 @@ export default function HostPricingAIPage() {
           )}
         </SectionCard>
 
-        {/* Seasonal pricing overview */}
         {seasonalData && (
           <SectionCard>
             <SectionHeading eyebrow="Seasonal" title="Seasonal pricing outlook" />
@@ -261,7 +262,6 @@ export default function HostPricingAIPage() {
           </SectionCard>
         )}
 
-        {/* AI suggestions */}
         <SectionCard>
           <SectionHeading
             eyebrow="Suggestions"
@@ -288,10 +288,8 @@ export default function HostPricingAIPage() {
           ) : (
             <div className="mt-6 divide-y divide-gray-200 border-y border-gray-200">
               {suggestions.map((suggestion) => {
-                const listing = findHostListing(suggestion.listingId)
-                const room = findHostRoom(suggestion.roomId)
-                const listingTitle = suggestion.hotelName ?? listing?.property.title ?? '—'
-                const roomName = suggestion.roomName ?? room?.name ?? '—'
+                const listingTitle = suggestion.hotelName ?? '—'
+                const roomName = suggestion.roomName ?? '—'
 
                 return (
                   <div key={suggestion.id} className="py-5">

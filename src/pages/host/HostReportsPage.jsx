@@ -5,55 +5,69 @@ import {
   SectionHeading,
 } from '../../components/host/HostPortalUI'
 import { getRevenueReport, getOccupancyReport } from '../../services/reportsApi'
-import { hostMarketSegments, hostReportCards } from '../../data/mockHostPortalData'
+import useHostContext from '../../hooks/useHostContext'
+
+const EMPTY_REPORT_CARDS = [
+  { title: 'Total Revenue', amount: '—', delta: '—', note: '' },
+  { title: 'Average Daily Rate', amount: '—', delta: '—', note: '' },
+  { title: 'RevPAR', amount: '—', delta: '—', note: '' },
+]
 
 export default function HostReportsPage() {
-  const [reportCards, setReportCards] = useState(hostReportCards)
-  const [marketSegments, setMarketSegments] = useState(hostMarketSegments)
+  const { primaryHotelId, loading: hostLoading } = useHostContext()
+  const [reportCards, setReportCards] = useState(EMPTY_REPORT_CARDS)
+  const [marketSegments, setMarketSegments] = useState([])
+  const [occupancyData, setOccupancyData] = useState(null)
 
   useEffect(() => {
-    getRevenueReport()
+    if (hostLoading || !primaryHotelId) return
+
+    getRevenueReport(primaryHotelId)
       .then((data) => {
         if (data) {
-          const cards = [
+          setReportCards([
             {
               title: 'Total Revenue',
-              amount: data.totalRevenue != null ? `$${data.totalRevenue.toLocaleString()}` : hostReportCards[0].amount,
-              delta: data.revenueGrowth != null ? `${data.revenueGrowth > 0 ? '+' : ''}${data.revenueGrowth}%` : hostReportCards[0].delta,
-              note: data.revenuePeriod ?? hostReportCards[0].note,
+              amount: data.totalRevenue != null ? `$${Math.round(data.totalRevenue).toLocaleString()}` : '—',
+              delta: data.revenueGrowth != null ? `${data.revenueGrowth > 0 ? '+' : ''}${data.revenueGrowth}%` : '—',
+              note: data.revenuePeriod ?? '',
             },
             {
               title: 'Average Daily Rate',
-              amount: data.averageDailyRate != null ? `$${data.averageDailyRate}` : hostReportCards[1].amount,
-              delta: data.adrChange != null ? `${data.adrChange > 0 ? '+' : ''}${data.adrChange}%` : hostReportCards[1].delta,
-              note: data.adrNote ?? hostReportCards[1].note,
+              amount: (data.averageDailyRate ?? data.averageDailyRevenue) != null
+                ? `$${Math.round(data.averageDailyRate ?? data.averageDailyRevenue).toLocaleString()}`
+                : '—',
+              delta: data.adrChange != null ? `${data.adrChange > 0 ? '+' : ''}${data.adrChange}%` : '—',
+              note: data.adrNote ?? '',
             },
             {
               title: 'RevPAR',
-              amount: data.revPar != null ? `$${data.revPar}` : hostReportCards[2].amount,
-              delta: data.revParChange != null ? `${data.revParChange > 0 ? '+' : ''}${data.revParChange}%` : hostReportCards[2].delta,
-              note: data.revParNote ?? hostReportCards[2].note,
+              amount: data.revPar != null ? `$${data.revPar}` : '—',
+              delta: data.revParChange != null ? `${data.revParChange > 0 ? '+' : ''}${data.revParChange}%` : '—',
+              note: data.revParNote ?? '',
             },
-          ]
-          setReportCards(cards)
+          ])
         }
       })
       .catch(() => {})
 
-    getOccupancyReport()
+    getOccupancyReport(primaryHotelId)
       .then((data) => {
-        if (data?.segments?.length) {
-          setMarketSegments(
-            data.segments.map((s) => ({
-              market: s.segmentName ?? s.market,
-              share: s.percentage != null ? `${s.percentage}%` : s.share,
-              trend: s.trend ?? s.change ?? '—',
-            })),
-          )
+        if (data) {
+          setOccupancyData(data)
+          if (data.segments?.length) {
+            setMarketSegments(
+              data.segments.map((s) => ({
+                market: s.segmentName ?? s.market,
+                share: s.percentage != null ? `${s.percentage}%` : s.share ?? '—',
+                trend: s.trend ?? s.change ?? '—',
+              })),
+            )
+          }
         }
       })
       .catch(() => {})
-  }, [])
+  }, [primaryHotelId, hostLoading])
 
   return (
     <HostShell
@@ -66,10 +80,16 @@ export default function HostReportsPage() {
         { label: 'Payouts', href: '/host/payouts' },
       ]}
       stats={[
-        { label: 'Period', value: 'Apr 2026', note: 'Current month' },
-        { label: 'Best listing', value: 'Island villa', note: 'Revenue leader' },
-        { label: 'Growth', value: '+12%', note: 'Month-over-month revenue' },
-        { label: 'Review score', value: '4.91', note: 'Portfolio average' },
+        {
+          label: 'Avg occupancy',
+          value: occupancyData?.averageOccupancy != null ? `${occupancyData.averageOccupancy}%` : '—',
+          note: 'Rolling period',
+        },
+        {
+          label: 'Total bookings',
+          value: occupancyData?.totalBookings != null ? String(occupancyData.totalBookings) : '—',
+          note: 'In period',
+        },
       ]}
     >
       <SectionCard>
@@ -85,7 +105,9 @@ export default function HostReportsPage() {
                 {card.amount}
               </p>
               <p className="mt-1 text-sm font-medium text-dark">{card.delta}</p>
-              <p className="mt-2 text-sm leading-6 text-muted">{card.note}</p>
+              {card.note && (
+                <p className="mt-2 text-sm leading-6 text-muted">{card.note}</p>
+              )}
             </div>
           ))}
         </div>
@@ -94,18 +116,22 @@ export default function HostReportsPage() {
       <SectionCard>
         <SectionHeading eyebrow="Segments" title="Demand mix" />
 
-        <div className="mt-6 divide-y divide-gray-200 border-y border-gray-200">
-          {marketSegments.map((segment) => (
-            <div
-              key={segment.market}
-              className="grid gap-2 py-4 md:grid-cols-[minmax(0,1fr)_120px_120px] md:items-center"
-            >
-              <p className="text-sm font-semibold text-dark">{segment.market}</p>
-              <p className="text-sm text-muted">{segment.share}</p>
-              <p className="text-sm font-medium text-dark">{segment.trend}</p>
-            </div>
-          ))}
-        </div>
+        {marketSegments.length === 0 ? (
+          <p className="mt-6 text-sm text-muted">No segment data available for this period.</p>
+        ) : (
+          <div className="mt-6 divide-y divide-gray-200 border-y border-gray-200">
+            {marketSegments.map((segment) => (
+              <div
+                key={segment.market}
+                className="grid gap-2 py-4 md:grid-cols-[minmax(0,1fr)_120px_120px] md:items-center"
+              >
+                <p className="text-sm font-semibold text-dark">{segment.market}</p>
+                <p className="text-sm text-muted">{segment.share}</p>
+                <p className="text-sm font-medium text-dark">{segment.trend}</p>
+              </div>
+            ))}
+          </div>
+        )}
       </SectionCard>
     </HostShell>
   )

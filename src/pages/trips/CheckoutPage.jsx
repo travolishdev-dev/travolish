@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { Link, useParams, useNavigate } from 'react-router-dom'
+import { Link, useParams, useNavigate, useLocation } from 'react-router-dom'
 import {
   CalendarDays,
   CreditCard,
@@ -40,7 +40,10 @@ const DEFAULT_CHECK_OUT = addDays(new Date(), 4)
 export default function CheckoutPage() {
   const { propertyId } = useParams()
   const navigate = useNavigate()
+  const location = useLocation()
   const { user, profile } = useAuthStore()
+
+  const incomingBooking = location.state?.booking ?? null
 
   // ── Hotel / room state ──────────────────────────────────────────────────────
   const [hotel, setHotel] = useState(null)
@@ -50,8 +53,12 @@ export default function CheckoutPage() {
   const [hotelError, setHotelError] = useState(false)
 
   // ── Date state ──────────────────────────────────────────────────────────────
-  const [checkIn, setCheckIn] = useState(DEFAULT_CHECK_IN)
-  const [checkOut, setCheckOut] = useState(DEFAULT_CHECK_OUT)
+  const [checkIn, setCheckIn] = useState(() =>
+    incomingBooking?.checkIn ? parseISO(incomingBooking.checkIn) : DEFAULT_CHECK_IN,
+  )
+  const [checkOut, setCheckOut] = useState(() =>
+    incomingBooking?.checkOut ? parseISO(incomingBooking.checkOut) : DEFAULT_CHECK_OUT,
+  )
 
   // ── Price / availability state ──────────────────────────────────────────────
   const [priceBreakdown, setPriceBreakdown] = useState(null)
@@ -86,10 +93,12 @@ export default function CheckoutPage() {
         setHotel(hotelData)
         setRooms(hotelRooms)
         if (hotelRooms.length > 0) {
+          const targetRoomId = incomingBooking?.room?.id
+          const match = targetRoomId ? hotelRooms.find((r) => r.id === targetRoomId) : null
           const cheapest = hotelRooms.reduce((min, r) =>
             r.pricePerNight < min.pricePerNight ? r : min,
           )
-          setSelectedRoom(cheapest)
+          setSelectedRoom(match ?? cheapest)
         }
       } catch {
         if (!cancelled) setHotelError(true)
@@ -101,15 +110,24 @@ export default function CheckoutPage() {
     return () => { cancelled = true }
   }, [propertyId])
 
-  // ── Pre-fill form from auth ─────────────────────────────────────────────────
+  // ── Pre-fill form from booking widget state, falling back to auth ───────────
   useEffect(() => {
+    if (incomingBooking?.guestDetails) {
+      const { fullName, email: gEmail, phone: gPhone } = incomingBooking.guestDetails
+      const parts = (fullName || '').trim().split(' ')
+      setFirstName(parts[0] || '')
+      setLastName(parts.slice(1).join(' ') || '')
+      setEmail(gEmail || '')
+      setPhone(gPhone || '')
+      return
+    }
     if (user?.email) setEmail(user.email)
     if (profile?.full_name) {
       const parts = profile.full_name.trim().split(' ')
       setFirstName(parts[0] || '')
       setLastName(parts.slice(1).join(' ') || '')
     }
-  }, [user, profile])
+  }, [user, profile, incomingBooking])
 
   // ── Recalculate price + availability when room/dates change ─────────────────
   const recalculate = useCallback(async () => {

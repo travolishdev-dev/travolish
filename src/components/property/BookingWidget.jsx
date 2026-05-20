@@ -226,7 +226,7 @@ export default function BookingWidget({ property, rooms = [], sticky = true }) {
 
   const handleContinueToPayment = () => {
     if (!reviewBooking) return
-    navigate('/payment-gateway', {
+    navigate(`/checkout/${reviewBooking.propertyId}`, {
       state: { booking: reviewBooking },
     })
   }

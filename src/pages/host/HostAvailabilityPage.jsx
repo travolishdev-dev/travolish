@@ -6,107 +6,124 @@ import {
   StatusPill,
 } from '../../components/host/HostPortalUI'
 import { getHotelAvailabilityRange } from '../../services/availabilityApi'
-import {
-  findHostListing,
-  hostAvailabilityDays,
-  hostAvailabilityRows,
-} from '../../data/mockHostPortalData'
+import { getHostRooms } from '../../services/hostListingsApi'
+import useHostContext from '../../hooks/useHostContext'
 
 const statusStyles = {
   open: 'bg-white text-dark border-gray-200',
   occupied: 'bg-dark text-white border-dark',
-  premium: 'bg-amber-50 text-amber-700 border-amber-200',
+  limited: 'bg-amber-50 text-amber-700 border-amber-200',
   blocked: 'bg-rose-50 text-rose-700 border-rose-200',
-  turn: 'bg-sky-50 text-sky-700 border-sky-200',
-  arrival: 'bg-emerald-50 text-emerald-700 border-emerald-200',
 }
 
-function buildDateRange() {
-  const start = new Date()
-  const end = new Date()
-  end.setDate(end.getDate() + 13)
-  return {
-    startDate: start.toISOString().split('T')[0],
-    endDate: end.toISOString().split('T')[0],
-  }
-}
-
-function buildDayLabels() {
-  const days = []
-  const d = new Date()
+function buildDates() {
+  const dates = []
+  const base = new Date()
   for (let i = 0; i < 14; i++) {
-    days.push(
-      d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-    )
-    d.setDate(d.getDate() + 1)
+    const d = new Date(base)
+    d.setDate(d.getDate() + i)
+    dates.push({
+      label: d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+      iso: d.toISOString().split('T')[0],
+    })
   }
-  return days
+  return dates
 }
 
-function mapStatus(availability) {
-  if (!availability) return 'open'
-  if (availability.blockedCount > 0) return 'blocked'
-  if (availability.availableRooms === 0) return 'occupied'
-  if (availability.isPremiumDate) return 'premium'
-  if (availability.isTurnoverDay) return 'turn'
-  if (availability.hasArrival) return 'arrival'
+function mapStatus(avail) {
+  if (!avail) return 'open'
+  const s = avail.status
+  if (s === 'BLOCKED' || s === 'CLOSED') return 'blocked'
+  if (s === 'FULL' || avail.availableRooms === 0) return 'occupied'
+  if (s === 'LIMITED') return 'limited'
   return 'open'
 }
 
+function statusLabel(s) {
+  if (s === 'occupied') return 'Full'
+  if (s === 'blocked') return 'Blk'
+  if (s === 'limited') return 'Low'
+  return ''
+}
+
+function roomLabel(room) {
+  return room.number ?? room.roomNumber ?? room.name ?? `Room ${room.id}`
+}
+
+function roomSub(room) {
+  return room.type ?? room.roomType ?? ''
+}
+
 export default function HostAvailabilityPage() {
-  const [days, setDays] = useState(hostAvailabilityDays)
-  const [rows, setRows] = useState(hostAvailabilityRows)
+  const { primaryHotelId, loading: hostLoading } = useHostContext()
+  const [dates] = useState(buildDates)
+  const [rows, setRows] = useState([])
+  const [dataLoading, setDataLoading] = useState(true)
 
   useEffect(() => {
-    const { startDate, endDate } = buildDateRange()
-    setDays(buildDayLabels())
+    if (hostLoading || !primaryHotelId) {
+      if (!hostLoading) setDataLoading(false)
+      return
+    }
 
-    // fetch availability for the first listing (id=1) as a representative call
-    getHotelAvailabilityRange(1, startDate, endDate)
-      .then((data) => {
-        const items = Array.isArray(data) ? data : data?.availabilityList
-        if (items?.length) {
-          // group by hotelId/listingId
-          const byListing = items.reduce((acc, item) => {
-            const lid = item.hotelId ?? item.listingId ?? 1
-            if (!acc[lid]) acc[lid] = []
-            acc[lid].push(item)
-            return acc
-          }, {})
+    const startDate = dates[0].iso
+    const endDate = dates[dates.length - 1].iso
 
-          const newRows = Object.entries(byListing).map(([listingId, dateItems]) => ({
-            listingId,
-            pattern: Array.from({ length: 14 }, (_, i) => {
-              const entry = dateItems[i]
-              return entry ? mapStatus(entry) : 'open'
-            }),
-          }))
-          if (newRows.length) setRows(newRows)
-        }
+    Promise.all([
+      getHostRooms(primaryHotelId).catch(() => []),
+      getHotelAvailabilityRange(primaryHotelId, startDate, endDate).catch(() => []),
+    ]).then(([roomsData, availData]) => {
+      const rooms = Array.isArray(roomsData) ? roomsData
+        : roomsData?.content ?? roomsData?.rooms ?? []
+
+      const items = Array.isArray(availData) ? availData
+        : availData?.availabilityList ?? availData?.content ?? []
+
+      // roomId → iso-date → AvailabilityCheckDTO
+      const byRoomDate = {}
+      items.forEach((item) => {
+        const rid = item.roomId
+        if (!rid) return
+        if (!byRoomDate[rid]) byRoomDate[rid] = {}
+        const iso = String(item.availabilityDate)
+        byRoomDate[rid][iso] = item
       })
-      .catch(() => {})
-  }, [])
+
+      // Build one row per room that has availability data, fall back to all fetched rooms
+      const roomsWithData = rooms.filter((r) => byRoomDate[r.id])
+      const sourceRooms = roomsWithData.length > 0 ? roomsWithData : rooms
+
+      const newRows = sourceRooms.map((room) => ({
+        roomId: room.id,
+        label: roomLabel(room),
+        sub: roomSub(room),
+        pattern: dates.map((d) => mapStatus(byRoomDate[room.id]?.[d.iso])),
+      }))
+
+      if (newRows.length) setRows(newRows)
+    }).finally(() => setDataLoading(false))
+  }, [primaryHotelId, hostLoading, dates])
 
   const openCount = rows.flatMap((r) => r.pattern).filter((s) => s === 'open').length
+  const occupiedCount = rows.flatMap((r) => r.pattern).filter((s) => s === 'occupied').length
   const blockedCount = rows.flatMap((r) => r.pattern).filter((s) => s === 'blocked').length
-  const premiumCount = rows.flatMap((r) => r.pattern).filter((s) => s === 'premium').length
-  const turnCount = rows.flatMap((r) => r.pattern).filter((s) => s === 'turn').length
+  const limitedCount = rows.flatMap((r) => r.pattern).filter((s) => s === 'limited').length
 
   return (
     <HostShell
       eyebrow="Availability"
       title="Availability"
       mobileTitle="Calendar"
-      description="Simple 14-day calendar view."
+      description="14-day room availability calendar."
       actions={[
         { label: 'Inventory', href: '/host/inventory', secondary: true },
         { label: 'Pricing rules', href: '/host/pricing' },
       ]}
       stats={[
         { label: 'Open nights', value: String(openCount), note: 'Next 14 days' },
-        { label: 'Blocked', value: String(blockedCount), note: 'Owner or maintenance hold' },
-        { label: 'Premium', value: String(premiumCount), note: 'High-demand dates' },
-        { label: 'Turns', value: String(turnCount), note: 'Expected room turns' },
+        { label: 'Occupied', value: String(occupiedCount), note: 'Fully booked' },
+        { label: 'Blocked', value: String(blockedCount), note: 'Maintenance / hold' },
+        { label: 'Limited', value: String(limitedCount), note: 'Low availability' },
       ]}
     >
       <SectionCard>
@@ -114,54 +131,77 @@ export default function HostAvailabilityPage() {
 
         <div className="mt-6 overflow-x-auto">
           <div className="min-w-[880px]">
-            <div className="grid grid-cols-[220px_repeat(14,minmax(0,1fr))] gap-2">
+            {/* Header row */}
+            <div className="grid grid-cols-[200px_repeat(14,minmax(0,1fr))] gap-2">
               <div />
-              {days.map((day) => (
+              {dates.map((d) => (
                 <div
-                  key={day}
+                  key={d.iso}
                   className="text-center text-xs font-semibold uppercase tracking-[0.14em] text-muted"
                 >
-                  {day}
+                  {d.label}
                 </div>
               ))}
             </div>
 
+            {/* Room rows */}
             <div className="mt-4 space-y-3">
-              {rows.map((row) => {
-                const listing = findHostListing(row.listingId)
-
-                return (
-                  <div
-                    key={row.listingId}
-                    className="grid grid-cols-[220px_repeat(14,minmax(0,1fr))] gap-2"
-                  >
-                    <div className="border-r border-gray-200 pr-4">
-                      <p className="text-sm font-semibold text-dark">
-                        {listing?.property.title ?? `Listing ${row.listingId}`}
-                      </p>
-                      <p className="mt-1 text-xs text-muted">{listing?.market ?? '—'}</p>
-                    </div>
-                    {row.pattern.map((status, index) => (
-                      <div
-                        key={`${row.listingId}-${days[index]}`}
-                        className={`flex min-h-[54px] items-center justify-center rounded-2xl border text-[11px] font-semibold uppercase tracking-[0.08em] ${statusStyles[status] ?? statusStyles.open}`}
-                      >
-                        {status}
-                      </div>
-                    ))}
+              {dataLoading && (
+                <div className="py-12 text-center text-sm text-muted">Loading calendar…</div>
+              )}
+              {!dataLoading && rows.length === 0 && (
+                <div className="py-12 text-center text-sm text-muted">
+                  No availability data for this period.
+                </div>
+              )}
+              {rows.map((row) => (
+                <div
+                  key={row.roomId}
+                  className="grid grid-cols-[200px_repeat(14,minmax(0,1fr))] gap-2"
+                >
+                  <div className="border-r border-gray-200 pr-4">
+                    <p className="text-sm font-semibold text-dark">{row.label}</p>
+                    {row.sub && <p className="mt-0.5 text-xs text-muted">{row.sub}</p>}
                   </div>
-                )
-              })}
+                  {row.pattern.map((status, idx) => (
+                    <div
+                      key={`${row.roomId}-${dates[idx].iso}`}
+                      className={`flex min-h-[52px] items-center justify-center rounded-xl border text-[11px] font-semibold uppercase tracking-[0.08em] ${statusStyles[status] ?? statusStyles.open}`}
+                    >
+                      {statusLabel(status)}
+                    </div>
+                  ))}
+                </div>
+              ))}
             </div>
           </div>
         </div>
 
-        <div className="mt-6 flex flex-wrap gap-2">
-          <StatusPill tone="success">arrival</StatusPill>
-          <StatusPill tone="sky">turn</StatusPill>
-          <StatusPill tone="warning">premium</StatusPill>
-          <StatusPill tone="danger">blocked</StatusPill>
+        {/* Legend */}
+        <div className="mt-6 flex flex-wrap gap-3">
+          <div className="flex items-center gap-1.5">
+            <div className="h-3 w-3 rounded-sm border border-gray-200 bg-white" />
+            <span className="text-xs text-muted">Open</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <div className="h-3 w-3 rounded-sm border border-dark bg-dark" />
+            <span className="text-xs text-muted">Occupied</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <div className="h-3 w-3 rounded-sm border border-amber-200 bg-amber-50" />
+            <span className="text-xs text-muted">Limited</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <div className="h-3 w-3 rounded-sm border border-rose-200 bg-rose-50" />
+            <span className="text-xs text-muted">Blocked</span>
+          </div>
         </div>
+
+        {rows.length > 0 && (
+          <p className="mt-3 text-xs text-muted">
+            Showing {rows.length} room{rows.length !== 1 ? 's' : ''} · {dates[0].label} – {dates[dates.length - 1].label}
+          </p>
+        )}
       </SectionCard>
     </HostShell>
   )

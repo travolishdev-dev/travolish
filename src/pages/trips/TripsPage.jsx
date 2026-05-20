@@ -10,6 +10,7 @@ import {
 } from '../../components/portal/PortalUI'
 import { listBookings } from '../../services/bookingsApi'
 import { getHotel } from '../../services/hotelsApi'
+import useAuthStore from '../../stores/useAuthStore'
 
 const PLACEHOLDER_IMAGES = [
   'https://images.unsplash.com/photo-1542314831-068cd1dbfeeb?w=800&auto=format&fit=crop',
@@ -90,11 +91,12 @@ export default function TripsPage() {
   const [bookings, setBookings] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
+  const { user } = useAuthStore()
 
   useEffect(() => {
     async function load() {
       try {
-        const raw = await listBookings()
+        const raw = await listBookings(user?.email)
         const hotelIds = [...new Set(raw.map((b) => b.hotelId).filter(Boolean))]
         const hotels = await Promise.all(
           hotelIds.map((id) => getHotel(id).catch(() => ({ id })))
@@ -108,7 +110,7 @@ export default function TripsPage() {
       }
     }
     load()
-  }, [])
+  }, [user])
 
   const visibleTrips = useMemo(
     () => (activeFilter === 'all' ? bookings : bookings.filter((b) => b.status === activeFilter)),

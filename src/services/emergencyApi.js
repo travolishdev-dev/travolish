@@ -1,4 +1,4 @@
-import { get, post } from '../lib/api'
+import { get, post, del } from '../lib/api'
 
 export async function getActiveSOSForHotel(hotelId = 1) {
   return get(`/api/emergency/sos/hotel/${hotelId}/active`)
@@ -15,4 +15,16 @@ export async function activateSOS(body) {
 
 export async function getEmergencyContacts(country, city) {
   return get('/api/emergency/contacts', { country, city })
+}
+
+export async function getHostEmergencyContacts(hotelId) {
+  return get(`/api/emergency/contacts/hotel/${hotelId}`)
+}
+
+export async function createHostEmergencyContact(dto) {
+  return post('/api/emergency/contacts', dto)
+}
+
+export async function deleteHostEmergencyContact(contactId) {
+  return del(`/api/emergency/contacts/${contactId}`)
 }

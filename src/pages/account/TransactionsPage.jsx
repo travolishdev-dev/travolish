@@ -8,6 +8,8 @@ import {
   StatusPill,
 } from '../../components/portal/PortalUI'
 import { listBookings } from '../../services/bookingsApi'
+import { getReceipt } from '../../services/paymentsApi'
+import usePortalViewer from '../../hooks/usePortalViewer'
 
 const STATUS_TONE = {
   CONFIRMED: 'success',
@@ -36,16 +38,34 @@ function adaptBooking(b) {
 }
 
 export default function TransactionsPage() {
+  const { viewer } = usePortalViewer()
   const [bookings, setBookings] = useState([])
   const [loading, setLoading] = useState(true)
   const [query, setQuery] = useState('')
+  const [receiptError, setReceiptError] = useState(null)
 
   useEffect(() => {
-    listBookings()
+    listBookings(viewer.email || undefined)
       .then((data) => setBookings(data))
       .catch(() => {})
       .finally(() => setLoading(false))
-  }, [])
+  }, [viewer.email])
+
+  const handleReceipt = async (bookingId) => {
+    setReceiptError(null)
+    try {
+      const receipt = await getReceipt(bookingId)
+      if (receipt.pdfUrl) {
+        window.open(receipt.pdfUrl, '_blank')
+      } else if (receipt.htmlUrl) {
+        window.open(receipt.htmlUrl, '_blank')
+      } else {
+        setReceiptError(`Receipt #${receipt.receiptNumber ?? bookingId} — no PDF available yet.`)
+      }
+    } catch {
+      setReceiptError('Receipt not available for this booking.')
+    }
+  }
 
   const transactions = useMemo(() => bookings.map(adaptBooking), [bookings])
 
@@ -120,6 +140,10 @@ export default function TransactionsPage() {
           <div className="py-16 text-center text-sm text-muted">Loading transactions…</div>
         )}
 
+        {receiptError && (
+          <p className="mt-4 text-sm text-red-600">{receiptError}</p>
+        )}
+
         {!loading && visible.length === 0 && (
           <div className="py-16 text-center text-sm text-muted">
             {query ? 'No transactions match your search.' : 'No transactions yet.'}
@@ -153,7 +177,7 @@ export default function TransactionsPage() {
                       <button
                         type="button"
                         className="inline-flex w-full items-center justify-center gap-2 rounded-full border border-gray-200 bg-white px-4 py-2.5 text-sm font-semibold text-dark transition-colors hover:bg-gray-50 sm:w-auto"
-                        onClick={() => {}}
+                        onClick={() => handleReceipt(t.id)}
                       >
                         <Download size={14} />
                         Receipt

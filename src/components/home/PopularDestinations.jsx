@@ -182,7 +182,10 @@ export default function PopularDestinations() {
             key={destination.name}
             type="button"
             data-destination-carousel-item
-            onClick={() => navigate('/search')}
+            onClick={() => {
+              updateSearchDraft({ destination: destination.name })
+              navigate('/search')
+            }}
             className={`${DESTINATION_CARD_ITEM_CLASS} group overflow-hidden rounded-card border border-gray-200 bg-white text-left shadow-[0_14px_34px_rgba(15,23,42,0.08)] transition-all hover:-translate-y-0.5 hover:shadow-[0_18px_42px_rgba(15,23,42,0.12)]`}
           >
             <div className="h-44 overflow-hidden bg-gray-100">

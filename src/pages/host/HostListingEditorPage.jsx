@@ -1,5 +1,5 @@
-import { useRef, useState } from 'react'
-import { useParams } from 'react-router-dom'
+import { useEffect, useRef, useState } from 'react'
+import { useNavigate, useParams } from 'react-router-dom'
 import {
   AirVent,
   Bot,
@@ -33,8 +33,21 @@ import {
   SectionHeading,
   StatusPill,
 } from '../../components/host/HostPortalUI'
-import { buildListingDraft, findHostListing } from '../../data/mockHostPortalData'
 import { generateListingDescription } from '../../services/listingsApi'
+import { createHotel, getHotel, updateHotel } from '../../services/hostListingsApi'
+import useHostContext from '../../hooks/useHostContext'
+
+const EMPTY_LISTING_DRAFT = {
+  title: '',
+  description: '',
+  propertyType: 'house',
+  basics: { guests: 1, bedrooms: 1, beds: 1, bathrooms: 1 },
+  amenities: [],
+  photos: [],
+  pricing: { weekday: '100', weekend: '120' },
+  location: '',
+  country: '',
+}
 
 const propertyTypes = [
   { id: 'house', label: 'House', icon: Home },
@@ -70,12 +83,30 @@ const basicFields = [
 
 export default function HostListingEditorPage() {
   const { id } = useParams()
-  const activeListing = id ? findHostListing(id) : null
-  const draft = buildListingDraft(id)
-  const [formState, setFormState] = useState({ ...draft, video: null })
+  const navigate = useNavigate()
+  const { hostId } = useHostContext()
+  const [formState, setFormState] = useState({ ...EMPTY_LISTING_DRAFT, video: null })
   const fileInputRef = useRef(null)
   const videoInputRef = useRef(null)
   const [generatingDesc, setGeneratingDesc] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [saveError, setSaveError] = useState(null)
+
+  useEffect(() => {
+    if (!id) return
+    getHotel(id)
+      .then((h) => {
+        if (!h) return
+        setFormState((prev) => ({
+          ...prev,
+          title: h.name ?? prev.title,
+          description: h.description ?? prev.description,
+          location: h.city ?? prev.location,
+          country: h.country ?? prev.country,
+        }))
+      })
+      .catch(() => {})
+  }, [id])
 
   const updateField = (field) => (event) =>
     setFormState((current) => ({ ...current, [field]: event.target.value }))
@@ -168,24 +199,48 @@ export default function HostListingEditorPage() {
     }
   }
 
+  async function handleSave() {
+    setSaving(true)
+    setSaveError(null)
+    try {
+      const payload = {
+        hostId,
+        name: formState.title,
+        description: formState.description,
+        city: formState.location,
+        country: formState.country,
+      }
+      if (id) {
+        await updateHotel(id, payload)
+      } else {
+        await createHotel(payload)
+      }
+      navigate('/host/listings')
+    } catch {
+      setSaveError('Save failed. Please try again.')
+    } finally {
+      setSaving(false)
+    }
+  }
+
   const selectedPropertyType = propertyTypes.find(
     (type) => type.id === formState.propertyType,
   )
 
   return (
     <HostShell
-      eyebrow={activeListing ? 'Edit listing' : 'New listing'}
-      title={activeListing ? `Edit ${activeListing.property.title}` : 'New listing'}
-      mobileTitle={activeListing ? 'Edit listing' : 'New listing'}
+      eyebrow={id ? 'Edit listing' : 'New listing'}
+      title={id ? (formState.title ? `Edit ${formState.title}` : 'Edit listing') : 'New listing'}
+      mobileTitle={id ? 'Edit listing' : 'New listing'}
       description="Same field model as host onboarding."
       actions={[
-        { label: 'Back to listings', href: '/host/listings', secondary: true },
-        activeListing
-          ? { label: 'Open rooms', href: `/host/listings/${activeListing.id}/rooms` }
-          : { label: 'Save draft', href: '/host/listings' },
+        id
+          ? { label: 'Open rooms', href: `/host/listings/${id}/rooms`, secondary: true }
+          : { label: 'Back to listings', href: '/host/listings', secondary: true },
+        { label: saving ? 'Saving…' : (id ? 'Save changes' : 'Save listing'), onClick: handleSave },
       ]}
-      mobileAction={{ label: 'Save', href: '/host/listings' }}
-      mobileBottomAction={{ label: 'Save listing', href: '/host/listings' }}
+      mobileAction={{ label: 'Save', onClick: handleSave }}
+      mobileBottomAction={{ label: saving ? 'Saving…' : (id ? 'Save changes' : 'Save listing'), onClick: handleSave }}
     >
       <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_320px]">
         <div className="space-y-5">
@@ -522,25 +577,29 @@ export default function HostListingEditorPage() {
               </div>
             </div>
           </SectionCard>
+
+          {saveError && (
+            <p className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+              {saveError}
+            </p>
+          )}
         </div>
 
         <div className="space-y-5">
           <SectionCard>
             <div className="aspect-[4/3] overflow-hidden rounded-[24px] bg-[#f4f1ea]">
-              <img
-                src={
-                  formState.photos[0]?.preview ||
-                  activeListing?.property.image ||
-                  'https://images.unsplash.com/photo-1505693416388-ac5ce068fe85?w=1200&h=800&fit=crop'
-                }
-                alt={formState.title}
-                className="h-full w-full object-cover"
-              />
+              {formState.photos[0]?.preview ? (
+                <img
+                  src={formState.photos[0].preview}
+                  alt={formState.title}
+                  className="h-full w-full object-cover"
+                />
+              ) : null}
             </div>
 
             <div className="mt-5 flex flex-wrap items-center gap-2">
-              <StatusPill tone={activeListing ? 'success' : 'warning'}>
-                {activeListing ? activeListing.status : 'Draft'}
+              <StatusPill tone={id ? 'success' : 'warning'}>
+                {id ? 'Live' : 'Draft'}
               </StatusPill>
               {selectedPropertyType ? (
                 <StatusPill tone="sky">{selectedPropertyType.label}</StatusPill>

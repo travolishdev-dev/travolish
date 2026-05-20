@@ -4,6 +4,7 @@ import { Heart, Loader2, Trash2 } from 'lucide-react'
 import { motion } from 'framer-motion'
 import useWishlistStore from '../stores/useWishlistStore'
 import { getHotel, listRooms } from '../services/hotelsApi'
+import { removeFromWishlist } from '../services/wishlistApi'
 import { adaptHotels } from '../lib/hotelAdapter'
 import PropertyCard from '../components/home/PropertyCard'
 

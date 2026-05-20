@@ -1,4 +1,4 @@
-import { get } from '../lib/api'
+import { get, post } from '../lib/api'
 
 export async function getHotelBoosts(hotelId = 1) {
   const data = await get(`/api/listings/boost/hotel/${hotelId}`)
@@ -7,4 +7,12 @@ export async function getHotelBoosts(hotelId = 1) {
 
 export async function getActiveHotelBoosts(hotelId = 1) {
   return get(`/api/listings/boost/hotel/${hotelId}/active`)
+}
+
+export async function purchaseBoost(body) {
+  return post('/api/listings/boost/purchase', body)
+}
+
+export async function cancelBoost(boostId) {
+  return post(`/api/listings/boost/${boostId}/cancel`, {})
 }

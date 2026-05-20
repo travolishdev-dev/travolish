@@ -14,7 +14,7 @@ import {
   uploadKycDocument,
   submitKyc,
 } from '../../services/kycApi'
-import { hostKycChecklist, hostKycTimeline } from '../../data/mockHostPortalData'
+import useHostContext from '../../hooks/useHostContext'
 
 const DOC_TYPES = [
   { id: 'GOVERNMENT_ID', label: 'Government ID' },
@@ -43,8 +43,9 @@ function normaliseStatus(raw) {
 }
 
 export default function HostKycPage() {
-  const [checklist, setChecklist] = useState(hostKycChecklist)
-  const [timeline, setTimeline] = useState(hostKycTimeline)
+  const { hostId, loading: hostLoading } = useHostContext()
+  const [checklist, setChecklist] = useState([])
+  const [timeline, setTimeline] = useState([])
   const [documents, setDocuments] = useState([])
   const [verificationStatus, setVerificationStatus] = useState(null)
 
@@ -62,7 +63,8 @@ export default function HostKycPage() {
   const fileInputRef = useRef(null)
 
   useEffect(() => {
-    getKycProfile()
+    if (hostLoading || !hostId) return
+    getKycProfile(hostId)
       .then((data) => {
         if (data?.checklist?.length) {
           setChecklist(
@@ -85,19 +87,19 @@ export default function HostKycPage() {
       })
       .catch(() => {})
 
-    getKycDocuments()
+    getKycDocuments(hostId)
       .then((data) => {
         const items = data?.content ?? (Array.isArray(data) ? data : null)
         if (items?.length) setDocuments(items)
       })
       .catch(() => {})
 
-    getVerificationStatus()
+    getVerificationStatus(hostId)
       .then((data) => {
         if (data) setVerificationStatus(data)
       })
       .catch(() => {})
-  }, [])
+  }, [hostId, hostLoading])
 
   function handleFilePick(event) {
     const file = event.target.files?.[0]
@@ -115,17 +117,15 @@ export default function HostKycPage() {
     setUploadError(null)
     setUploadSuccess(false)
     try {
-      await uploadKycDocument({
+      await uploadKycDocument(hostId, {
         documentType: uploadDocType,
-        fileName: uploadFile.name,
-        fileSize: uploadFile.size,
-        mimeType: uploadFile.type,
+        documentName: uploadFile.name,
       })
       setUploadSuccess(true)
       setUploadFile(null)
-      const fresh = await getKycDocuments().catch(() => null)
-      const items = fresh?.content ?? (Array.isArray(fresh) ? fresh : null)
-      if (items?.length) setDocuments(items)
+      const fresh = await getKycDocuments(hostId).catch(() => null)
+      const items = Array.isArray(fresh) ? fresh : (fresh?.content ?? [])
+      if (items.length) setDocuments(items)
     } catch {
       setUploadError('Upload failed. Please try again.')
     } finally {
@@ -143,8 +143,10 @@ export default function HostKycPage() {
     setSubmitError(null)
     setSubmitSuccess(false)
     try {
-      await submitKyc({
-        fullName: submitForm.fullName,
+      const nameParts = submitForm.fullName.trim().split(' ')
+      await submitKyc(hostId, {
+        firstName: nameParts[0] || submitForm.fullName,
+        lastName: nameParts.slice(1).join(' ') || '',
         taxId: submitForm.taxId,
         businessName: submitForm.businessName,
       })
@@ -173,6 +175,9 @@ export default function HostKycPage() {
           {/* Verification checklist */}
           <SectionCard>
             <SectionHeading eyebrow="Checklist" title="Verification items" />
+            {checklist.length === 0 && (
+              <p className="mt-6 text-sm text-muted">No verification items found. Submit your KYC application below to start the process.</p>
+            )}
             <div className="mt-6 divide-y divide-gray-200 border-y border-gray-200">
               {checklist.map((item) => (
                 <div key={item.id} className="py-5">
@@ -366,6 +371,9 @@ export default function HostKycPage() {
         {/* Timeline sidebar */}
         <SectionCard>
           <SectionHeading eyebrow="Timeline" title="Verification path" />
+          {timeline.length === 0 && (
+            <p className="mt-6 text-sm text-muted">Timeline will appear once your application is submitted.</p>
+          )}
           <div className="mt-6 space-y-4">
             {timeline.map((item, index) => (
               <div key={item.label} className="flex gap-4">

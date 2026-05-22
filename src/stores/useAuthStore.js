@@ -87,6 +87,18 @@ const useAuthStore = create((set) => ({
     if (error) throw error
   },
 
+  updateAvatar: async (avatarUrl) => {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (user) {
+      await supabase.from('profiles').upsert({ id: user.id, avatar_url: avatarUrl })
+    }
+    set((state) => ({
+      profile: state.profile
+        ? { ...state.profile, avatar_url: avatarUrl }
+        : { avatar_url: avatarUrl },
+    }))
+  },
+
   signOut: async () => {
     await supabase.auth.signOut()
     set({ user: null, profile: null, session: null })

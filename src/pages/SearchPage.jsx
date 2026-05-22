@@ -59,7 +59,7 @@ export default function SearchPage() {
       setIsLoading(true)
       try {
         const [searchResult, rooms] = await Promise.all([
-          searchHotels({ name: destination || undefined, pageSize: 50 }),
+          searchHotels({ query: destination || undefined, pageSize: 50 }),
           listRooms(),
         ])
         setAllProperties(adaptHotels(searchResult.content ?? [], rooms))

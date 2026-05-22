@@ -1,6 +1,7 @@
 import { get } from '../lib/api'
 
 export async function searchHotels({
+  query,
   name,
   city,
   country,
@@ -10,6 +11,7 @@ export async function searchHotels({
   pageSize = 12,
 } = {}) {
   return get('/api/hotels/search', {
+    query,
     name,
     city,
     country,
@@ -34,4 +36,8 @@ export async function listRooms(hotelId) {
 
 export async function getHotelReviews(hotelId, { pageSize = 20 } = {}) {
   return get(`/api/reviews/hotels/${hotelId}`, { pageSize })
+}
+
+export async function getHotelAddOns(hotelId) {
+  return get('/api/addons', { hotelId })
 }

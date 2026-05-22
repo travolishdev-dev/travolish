@@ -17,11 +17,37 @@ import {
   SectionHeading,
   StatusPill,
 } from '../../components/portal/PortalUI'
-import { checkoutPreview } from '../../data/mockPortalData'
-import { getHotel, listRooms } from '../../services/hotelsApi'
+import { getHotel, listRooms, getHotelAddOns } from '../../services/hotelsApi'
 import { checkAvailability, calculatePrice, createBooking } from '../../services/bookingsApi'
 import { adaptHotel } from '../../lib/hotelAdapter'
 import useAuthStore from '../../stores/useAuthStore'
+
+const CHECKOUT_ADDONS = [
+  {
+    id: 'addon-transfer',
+    title: 'Private arrival transfer',
+    description: 'Door-to-door pickup from the airport to the hotel in a private vehicle.',
+    price: 45,
+  },
+  {
+    id: 'addon-checkout',
+    title: 'Late check-out until 2 pm',
+    description: 'Extend your stay and leave at your leisure without rushing in the morning.',
+    price: 30,
+  },
+  {
+    id: 'addon-pantry',
+    title: 'Pre-stocked pantry',
+    description: 'Arrive to a curated selection of snacks, breakfast items, and beverages.',
+    price: 65,
+  },
+]
+
+const SUPPORT_HIGHLIGHTS = [
+  'Free cancellation up to 48 hours before check-in.',
+  'Your payment details are encrypted and never stored.',
+  'Message your host directly through the Travolish app.',
+]
 
 function buildPriceMap(rooms) {
   const map = {}
@@ -72,7 +98,8 @@ export default function CheckoutPage() {
   const [phone, setPhone] = useState('')
 
   // ── Add-ons state ───────────────────────────────────────────────────────────
-  const [selectedAddOns, setSelectedAddOns] = useState(['addon-transfer'])
+  const [addOns, setAddOns] = useState(CHECKOUT_ADDONS)
+  const [selectedAddOns, setSelectedAddOns] = useState([])
 
   // ── Submit state ────────────────────────────────────────────────────────────
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -85,13 +112,17 @@ export default function CheckoutPage() {
     async function load() {
       setIsLoadingHotel(true)
       try {
-        const [hotelData, hotelRooms] = await Promise.all([
+        const [hotelData, hotelRooms, fetchedAddOns] = await Promise.all([
           getHotel(propertyId),
           listRooms(propertyId),
+          getHotelAddOns(propertyId).catch(() => []),
         ])
         if (cancelled) return
         setHotel(hotelData)
         setRooms(hotelRooms)
+        if (Array.isArray(fetchedAddOns) && fetchedAddOns.length > 0) {
+          setAddOns(fetchedAddOns)
+        }
         if (hotelRooms.length > 0) {
           const targetRoomId = incomingBooking?.room?.id
           const match = targetRoomId ? hotelRooms.find((r) => r.id === targetRoomId) : null
@@ -158,9 +189,9 @@ export default function CheckoutPage() {
 
   // ── Derived values ──────────────────────────────────────────────────────────
   const nights = differenceInCalendarDays(checkOut, checkIn)
-  const addOnTotal = checkoutPreview.addOns
+  const addOnTotal = addOns
     .filter((a) => selectedAddOns.includes(a.id))
-    .reduce((sum, a) => sum + Number(a.price.replace(/[^0-9]/g, '')), 0)
+    .reduce((sum, a) => sum + a.price, 0)
 
   const displayTotal = priceBreakdown
     ? Math.round(priceBreakdown.totalPrice) + addOnTotal
@@ -440,7 +471,7 @@ export default function CheckoutPage() {
                 Included protection
               </p>
               <div className="mt-3 space-y-3">
-                {checkoutPreview.supportHighlights.map((highlight) => (
+                {SUPPORT_HIGHLIGHTS.map((highlight) => (
                   <div key={highlight} className="flex items-start gap-3">
                     <div className="rounded-full bg-emerald-50 p-1.5 text-emerald-700">
                       <ShieldCheck size={12} />
@@ -599,7 +630,7 @@ export default function CheckoutPage() {
               description="Optional services you can include with your stay."
             />
             <div className="mt-6 grid gap-4">
-              {checkoutPreview.addOns.map((addOn) => {
+              {addOns.map((addOn) => {
                 const isSelected = selectedAddOns.includes(addOn.id)
                 return (
                   <button
@@ -625,7 +656,7 @@ export default function CheckoutPage() {
                           {addOn.description}
                         </p>
                       </div>
-                      <p className="text-lg font-semibold">{addOn.price}</p>
+                      <p className="text-lg font-semibold">${addOn.price}</p>
                     </div>
                   </button>
                 )

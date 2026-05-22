@@ -48,7 +48,7 @@ export function adaptHotel(hotel, priceMap = {}) {
     bathrooms: 1,
     guests: 2,
     description: hotel.description || '',
-    coordinates: { lat: 0, lng: 0 },
+    coordinates: [hotel.latitude || 0, hotel.longitude || 0],
     category: 'city',
     dates: null,
   }

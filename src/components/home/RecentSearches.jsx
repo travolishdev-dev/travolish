@@ -1,32 +1,39 @@
+import { useEffect, useState } from 'react'
 import { ArrowRight, Clock3, Search } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
+import { getRecentSearches } from '../../lib/searchHistory'
 
-const recentSearches = [
+const FALLBACK_SEARCHES = [
   {
     city: 'Manali',
-    dates: '26 May - 27 May',
+    dates: 'Flexible dates',
     guests: '2 guests, 1 room',
-    image:
-      'https://images.unsplash.com/photo-1626621341517-bbf3d9990a23?w=700&auto=format&fit=crop',
+    image: 'https://images.unsplash.com/photo-1626621341517-bbf3d9990a23?w=700&auto=format&fit=crop',
   },
   {
     city: 'Goa',
-    dates: '26 May - 27 May',
+    dates: 'Flexible dates',
     guests: '2 guests, 1 room',
-    image:
-      'https://images.unsplash.com/photo-1512343879784-a960bf40e7f2?w=700&auto=format&fit=crop',
+    image: 'https://images.unsplash.com/photo-1512343879784-a960bf40e7f2?w=700&auto=format&fit=crop',
   },
   {
     city: 'Mumbai',
     dates: 'Flexible dates',
     guests: '2 guests, 1 room',
-    image:
-      'https://images.unsplash.com/photo-1567157577867-05ccb1388e66?w=700&auto=format&fit=crop',
+    image: 'https://images.unsplash.com/photo-1567157577867-05ccb1388e66?w=700&auto=format&fit=crop',
   },
 ]
 
 export default function RecentSearches() {
   const navigate = useNavigate()
+  const [searches, setSearches] = useState([])
+
+  useEffect(() => {
+    const saved = getRecentSearches()
+    setSearches(saved.length ? saved : FALLBACK_SEARCHES)
+  }, [])
+
+  if (!searches.length) return null
 
   return (
     <section className="space-y-5">
@@ -52,7 +59,7 @@ export default function RecentSearches() {
       </div>
 
       <div className="hide-scrollbar -mx-6 flex gap-4 overflow-x-auto px-6 pb-2 md:mx-0 md:px-0">
-        {recentSearches.map((item) => (
+        {searches.map((item) => (
           <button
             key={item.city}
             type="button"

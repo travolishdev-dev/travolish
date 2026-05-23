@@ -39,7 +39,7 @@ export function adaptHotel(hotel, priceMap = {}) {
     city: hotel.city || '',
     price: price !== undefined ? Math.round(price) : null,
     rating: hotel.rating ?? 0,
-    reviewCount: hotel.reviews?.length ?? 0,
+    reviewCount: hotel.reviewCount ?? hotel.reviews?.length ?? 0,
     images: getPlaceholderImages(hotel.id),
     host: { name: 'Host', superhost: false },
     amenities: [],
@@ -48,7 +48,7 @@ export function adaptHotel(hotel, priceMap = {}) {
     bathrooms: 1,
     guests: 2,
     description: hotel.description || '',
-    coordinates: { lat: 0, lng: 0 },
+    coordinates: [hotel.latitude || 0, hotel.longitude || 0],
     category: 'city',
     dates: null,
   }

@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react'
 import { ArrowRight, ChevronLeft, ChevronRight } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
+import { useSearchContext } from '../../hooks/useSearchContext'
 
 const DESTINATION_CARD_ITEM_CLASS =
   'shrink-0 snap-start basis-[82%] sm:basis-[calc((100%-1.25rem)/2)] lg:basis-[calc((100%-2.5rem)/3)] 2xl:basis-[calc((100%-5rem)/5)]'
@@ -124,6 +125,7 @@ export default function PopularDestinations() {
   const [activeTab, setActiveTab] = useState('cities')
   const trackRef = useRef(null)
   const navigate = useNavigate()
+  const { updateSearchDraft } = useSearchContext()
   const destinations =
     activeTab === 'cities' ? cityDestinations : regionalDestinations
 
@@ -180,7 +182,10 @@ export default function PopularDestinations() {
             key={destination.name}
             type="button"
             data-destination-carousel-item
-            onClick={() => navigate('/search')}
+            onClick={() => {
+              updateSearchDraft({ destination: destination.name })
+              navigate('/search')
+            }}
             className={`${DESTINATION_CARD_ITEM_CLASS} group overflow-hidden rounded-card border border-gray-200 bg-white text-left shadow-[0_14px_34px_rgba(15,23,42,0.08)] transition-all hover:-translate-y-0.5 hover:shadow-[0_18px_42px_rgba(15,23,42,0.12)]`}
           >
             <div className="h-44 overflow-hidden bg-gray-100">

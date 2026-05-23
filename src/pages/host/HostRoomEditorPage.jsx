@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { Link, useParams, useSearchParams } from 'react-router-dom'
+import { useEffect, useState } from 'react'
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { BedDouble } from 'lucide-react'
 import {
   HostShell,
@@ -8,31 +8,104 @@ import {
   StatusPill,
 } from '../../components/host/HostPortalUI'
 import { HostField, HostPillButton } from '../../components/host/HostFormFields'
-import { buildRoomDraft } from '../../data/mockHostPortalData'
+import { createRoom, getRoom, updateRoom } from '../../services/hostListingsApi'
 
 const roomTypes = ['Suite', 'Villa suite', 'Studio loft', 'Family room', 'Residence']
 
+const EMPTY_ROOM_DRAFT = {
+  roomId: null,
+  listingId: '',
+  listingName: '',
+  name: '',
+  type: 'Suite',
+  status: 'Ready',
+  floor: '',
+  capacity: '',
+  beds: '',
+  baths: '',
+  baseRate: '',
+  upsells: '',
+  note: '',
+}
+
+function typeEnumToLabel(type) {
+  if (!type) return 'Suite'
+  const label = type
+    .split('_')
+    .map((w, i) => (i === 0 ? w.charAt(0).toUpperCase() + w.slice(1).toLowerCase() : w.toLowerCase()))
+    .join(' ')
+  return roomTypes.find((t) => t.toLowerCase() === label.toLowerCase()) ?? 'Suite'
+}
+
 export default function HostRoomEditorPage() {
   const { id } = useParams()
+  const navigate = useNavigate()
   const [searchParams] = useSearchParams()
-  const draft = buildRoomDraft(id, searchParams.get('listingId'))
-  const [formState, setFormState] = useState(draft)
+  const [formState, setFormState] = useState({
+    ...EMPTY_ROOM_DRAFT,
+    listingId: searchParams.get('listingId') ?? '',
+  })
+  const [saving, setSaving] = useState(false)
+  const [saveError, setSaveError] = useState(null)
+
+  useEffect(() => {
+    if (!id) return
+    getRoom(id)
+      .then((r) => {
+        if (!r) return
+        setFormState((prev) => ({
+          ...prev,
+          roomId: r.id,
+          listingId: r.hotelId != null ? String(r.hotelId) : prev.listingId,
+          name: r.number ?? r.name ?? prev.name,
+          type: typeEnumToLabel(r.type),
+          status: r.available === false ? 'Blocked' : 'Ready',
+          baseRate: r.pricePerNight != null ? String(r.pricePerNight) : prev.baseRate,
+          note: r.description ?? prev.note,
+        }))
+      })
+      .catch(() => {})
+  }, [id])
 
   const updateField = (field) => (event) =>
     setFormState((current) => ({ ...current, [field]: event.target.value }))
 
+  async function handleSave() {
+    setSaving(true)
+    setSaveError(null)
+    try {
+      const payload = {
+        hotelId: Number(formState.listingId) || null,
+        type: formState.type?.toUpperCase().replace(/\s+/g, '_') ?? 'SUITE',
+        number: formState.name,
+        pricePerNight: Number(formState.baseRate) || 0,
+        available: formState.status?.toLowerCase() !== 'blocked',
+      }
+      if (id) {
+        await updateRoom(id, payload)
+      } else {
+        await createRoom(payload)
+      }
+      navigate(`/host/listings/${formState.listingId}/rooms`)
+    } catch {
+      setSaveError('Save failed. Please try again.')
+    } finally {
+      setSaving(false)
+    }
+  }
+
   return (
     <HostShell
       eyebrow={id ? 'Edit room' : 'New room'}
-      title={id ? `Edit ${draft.name}` : 'New room'}
+      title={id ? (formState.name ? `Edit ${formState.name}` : 'Edit room') : 'New room'}
       mobileTitle={id ? 'Edit room' : 'New room'}
       description="Simple room setup form."
       actions={[
         { label: 'Back to rooms', href: `/host/listings/${formState.listingId}/rooms`, secondary: true },
-        { label: 'Save room', href: `/host/listings/${formState.listingId}/rooms` },
+        { label: saving ? 'Saving…' : 'Save room', onClick: handleSave },
       ]}
-      mobileAction={{ label: 'Save', href: `/host/listings/${formState.listingId}/rooms` }}
-      mobileBottomAction={{ label: 'Save room', href: `/host/listings/${formState.listingId}/rooms` }}
+      mobileAction={{ label: 'Save', onClick: handleSave }}
+      mobileBottomAction={{ label: saving ? 'Saving…' : 'Save room', onClick: handleSave }}
     >
       <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_300px]">
         <SectionCard>
@@ -66,6 +139,12 @@ export default function HostRoomEditorPage() {
             </div>
           </div>
 
+          {saveError && (
+            <p className="mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+              {saveError}
+            </p>
+          )}
+
           <div className="mt-6">
             <HostField
               label="Room note"
@@ -85,12 +164,14 @@ export default function HostRoomEditorPage() {
               </div>
               <div>
                 <div className="flex flex-wrap items-center gap-2">
-                  <p className="text-xl font-semibold text-dark">{formState.name}</p>
+                  <p className="text-xl font-semibold text-dark">{formState.name || 'New room'}</p>
                   <StatusPill tone="sky">{formState.type}</StatusPill>
                 </div>
-                <p className="mt-2 text-sm text-muted">{draft.listingName}</p>
+                {formState.listingName && (
+                  <p className="mt-2 text-sm text-muted">{formState.listingName}</p>
+                )}
                 <p className="mt-4 text-2xl font-semibold tracking-tight text-dark">
-                  ${formState.baseRate}
+                  {formState.baseRate ? `$${formState.baseRate}` : '—'}
                 </p>
               </div>
             </div>
@@ -100,11 +181,11 @@ export default function HostRoomEditorPage() {
             <div className="grid gap-3">
               <div className="flex items-center justify-between gap-4">
                 <span className="text-sm text-muted">Capacity</span>
-                <span className="text-sm font-semibold text-dark">{formState.capacity}</span>
+                <span className="text-sm font-semibold text-dark">{formState.capacity || '—'}</span>
               </div>
               <div className="flex items-center justify-between gap-4">
                 <span className="text-sm text-muted">Beds</span>
-                <span className="text-sm font-semibold text-dark">{formState.beds}</span>
+                <span className="text-sm font-semibold text-dark">{formState.beds || '—'}</span>
               </div>
               <div className="flex items-center justify-between gap-4">
                 <span className="text-sm text-muted">Status</span>

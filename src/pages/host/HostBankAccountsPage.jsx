@@ -7,7 +7,7 @@ import {
 } from '../../components/host/HostPortalUI'
 import { HostField } from '../../components/host/HostFormFields'
 import { getBankAccounts, registerBankAccount } from '../../services/bankAccountsApi'
-import { hostBankAccounts } from '../../data/mockHostPortalData'
+import useHostContext from '../../hooks/useHostContext'
 
 function adaptAccount(a) {
   return {
@@ -22,7 +22,9 @@ function adaptAccount(a) {
 }
 
 export default function HostBankAccountsPage() {
-  const [accounts, setAccounts] = useState(hostBankAccounts)
+  const { hostId, loading: hostLoading } = useHostContext()
+  const [accounts, setAccounts] = useState([])
+  const [accountsLoading, setAccountsLoading] = useState(true)
   const [formState, setFormState] = useState({
     accountName: '',
     bankName: '',
@@ -33,13 +35,18 @@ export default function HostBankAccountsPage() {
   const [saving, setSaving] = useState(false)
 
   useEffect(() => {
-    getBankAccounts()
+    if (hostLoading || !hostId) {
+      if (!hostLoading) setAccountsLoading(false)
+      return
+    }
+    getBankAccounts(hostId)
       .then((data) => {
         const items = data?.content ?? (Array.isArray(data) ? data : null)
         if (items?.length) setAccounts(items.map(adaptAccount))
       })
       .catch(() => {})
-  }, [])
+      .finally(() => setAccountsLoading(false))
+  }, [hostId, hostLoading])
 
   const updateField = (field) => (event) =>
     setFormState((current) => ({ ...current, [field]: event.target.value }))
@@ -48,14 +55,14 @@ export default function HostBankAccountsPage() {
     if (!formState.accountName || !formState.accountNumber) return
     setSaving(true)
     try {
-      await registerBankAccount({
+      await registerBankAccount(hostId, {
         accountHolderName: formState.accountName,
         bankName: formState.bankName,
         routingNumber: formState.routingNumber,
         accountNumber: formState.accountNumber,
         currency: formState.currency || 'USD',
       })
-      const data = await getBankAccounts()
+      const data = await getBankAccounts(hostId)
       const items = data?.content ?? (Array.isArray(data) ? data : null)
       if (items?.length) setAccounts(items.map(adaptAccount))
       setFormState({ accountName: '', bankName: '', routingNumber: '', accountNumber: '', currency: '' })
@@ -76,12 +83,23 @@ export default function HostBankAccountsPage() {
         { label: 'Payouts', href: '/host/payouts', secondary: true },
         { label: 'KYC', href: '/host/kyc' },
       ]}
-      mobileAction={{ label: 'Save', href: '/host/bank-accounts' }}
-      mobileBottomAction={{ label: 'Save account', href: '/host/bank-accounts' }}
+      mobileAction={{ label: 'Save', onClick: handleSave }}
+      mobileBottomAction={{ label: 'Save account', onClick: handleSave }}
     >
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
         <SectionCard>
           <SectionHeading eyebrow="Accounts" title="Connected payout destinations" />
+
+          {accountsLoading && (
+            <div className="py-12 text-center text-sm text-muted">Loading accounts…</div>
+          )}
+
+          {!accountsLoading && accounts.length === 0 && (
+            <div className="py-12 text-center">
+              <p className="text-sm font-semibold text-dark">No bank accounts connected</p>
+              <p className="mt-1 text-sm text-muted">Add a payout destination using the form on the right.</p>
+            </div>
+          )}
 
           <div className="mt-6 divide-y divide-gray-200 border-y border-gray-200">
             {accounts.map((account) => (

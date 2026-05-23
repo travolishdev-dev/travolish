@@ -9,9 +9,8 @@ import {
   StatusPill,
 } from '../../components/host/HostPortalUI'
 import { getDashboardOverview } from '../../services/analyticsApi'
-import { listBookings } from '../../services/bookingsApi'
-
-const HOST_ID = 1
+import { listBookingsByHotel } from '../../services/bookingsApi'
+import useHostContext from '../../hooks/useHostContext'
 
 function fmtCheckIn(dateStr) {
   try {
@@ -142,25 +141,27 @@ function buildArrivalBoard(bookings) {
 }
 
 export default function HostDashboardPage() {
+  const { hostId, hotels, loading: hostLoading } = useHostContext()
   const [overview, setOverview] = useState(null)
   const [arrivals, setArrivals] = useState([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
+    if (hostLoading) return
     async function load() {
       try {
-        const [ov, bookings] = await Promise.all([
-          getDashboardOverview(HOST_ID).catch(() => null),
-          listBookings().catch(() => []),
+        const [ov, ...hotelBookingArrays] = await Promise.all([
+          getDashboardOverview(hostId).catch(() => null),
+          ...hotels.map((h) => listBookingsByHotel(h.id).catch(() => [])),
         ])
         setOverview(ov)
-        setArrivals(buildArrivalBoard(bookings))
+        setArrivals(buildArrivalBoard(hotelBookingArrays.flat()))
       } finally {
         setLoading(false)
       }
     }
     load()
-  }, [])
+  }, [hostId, hotels, hostLoading])
 
   const stats = buildStats(overview)
   const priorityTasks = buildPriorityTasks(overview)

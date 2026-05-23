@@ -1,9 +1,17 @@
-import { get, put } from '../lib/api'
+import { get, post, put } from '../lib/api'
 
-export async function getUser(userId = 1) {
+export async function findUserByEmail(email) {
+  return get('/api/users/by-email', { email })
+}
+
+export async function createUser(body) {
+  return post('/api/users', body)
+}
+
+export async function getUser(userId) {
   return get(`/api/users/${userId}`)
 }
 
-export async function updateUser(userId = 1, body) {
+export async function updateUser(userId, body) {
   return put(`/api/users/${userId}`, body)
 }

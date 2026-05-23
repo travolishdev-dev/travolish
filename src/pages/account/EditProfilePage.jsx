@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Camera, CheckCheck, Loader2, MapPinned, PencilLine, UserRound } from 'lucide-react'
 import {
   AccountShell,
@@ -7,9 +7,9 @@ import {
   StatusPill,
 } from '../../components/portal/PortalUI'
 import usePortalViewer from '../../hooks/usePortalViewer'
-import { getUser, updateUser } from '../../services/usersApi'
-
-const USER_ID = 1
+import { findUserByEmail, createUser, updateUser } from '../../services/usersApi'
+import { getAvatarUploadUrl, uploadToGcs } from '../../services/storageApi'
+import useAuthStore from '../../stores/useAuthStore'
 
 function Field({ label, value, onChange, placeholder, textarea = false }) {
   const Component = textarea ? 'textarea' : 'input'
@@ -33,6 +33,7 @@ function Field({ label, value, onChange, placeholder, textarea = false }) {
 
 export default function EditProfilePage() {
   const { viewer } = usePortalViewer()
+  const [backendUserId, setBackendUserId] = useState(null)
   const [formState, setFormState] = useState({
     preferredName: viewer.preferredName,
     fullName: viewer.fullName,
@@ -46,21 +47,78 @@ export default function EditProfilePage() {
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [saveError, setSaveError] = useState(null)
+  const [avatarPreview, setAvatarPreview] = useState(null)
+  const [uploadingPhoto, setUploadingPhoto] = useState(false)
+  const [photoError, setPhotoError] = useState(null)
+  const fileInputRef = useRef(null)
+  const updateAvatar = useAuthStore((state) => state.updateAvatar)
 
   useEffect(() => {
-    getUser(USER_ID)
+    const email = viewer.email
+    if (!email) return
+
+    const nameParts = viewer.fullName?.trim().split(' ') ?? []
+    const firstName = nameParts[0] ?? ''
+    const lastName = nameParts.slice(1).join(' ')
+
+    findUserByEmail(email)
+      .catch(async (err) => {
+        if (!err.message?.includes('404')) throw err
+        // User doesn't exist in backend yet — create them from auth profile
+        return createUser({ firstName, lastName, email, phone: viewer.phone ?? null })
+      })
       .then((data) => {
+        if (!data) return
+        setBackendUserId(data.id)
         const name = [data.firstName, data.lastName].filter(Boolean).join(' ')
         setFormState((prev) => ({
           ...prev,
           fullName: name || prev.fullName,
-          preferredName: data.firstName || prev.preferredName,
+          preferredName: data.preferredName || data.firstName || prev.preferredName,
           email: data.email || prev.email,
           phone: data.phone || prev.phone,
+          city: data.city || prev.city,
+          timeZone: data.timeZone || prev.timeZone,
+          travelStyle: data.travelStyle || prev.travelStyle,
+          bio: data.bio || prev.bio,
         }))
       })
       .catch(() => {})
-  }, [])
+  }, [viewer.email])
+
+  const handlePhotoSelect = async (e) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    if (!file.type.startsWith('image/')) {
+      setPhotoError('Please select an image file.')
+      return
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setPhotoError('Image must be under 5 MB.')
+      return
+    }
+
+    setUploadingPhoto(true)
+    setPhotoError(null)
+    const previewUrl = URL.createObjectURL(file)
+    setAvatarPreview(previewUrl)
+
+    try {
+      const { signedUrl, publicUrl } = await getAvatarUploadUrl(file.name, file.type)
+      await uploadToGcs(signedUrl, file)
+      await updateAvatar(publicUrl)
+      if (backendUserId) {
+        await updateUser(backendUserId, { avatarUrl: publicUrl })
+      }
+    } catch {
+      setPhotoError('Photo upload failed. Please try again.')
+      setAvatarPreview(null)
+    } finally {
+      setUploadingPhoto(false)
+      if (fileInputRef.current) fileInputRef.current.value = ''
+    }
+  }
 
   const updateField = (field) => (event) => {
     setSaved(false)
@@ -68,6 +126,10 @@ export default function EditProfilePage() {
   }
 
   const handleSave = async () => {
+    if (!backendUserId) {
+      setSaveError('User account not found. Please sign in again.')
+      return
+    }
     setSaving(true)
     setSaved(false)
     setSaveError(null)
@@ -75,11 +137,16 @@ export default function EditProfilePage() {
       const nameParts = formState.fullName.trim().split(' ')
       const firstName = nameParts[0] ?? ''
       const lastName = nameParts.slice(1).join(' ')
-      await updateUser(USER_ID, {
+      await updateUser(backendUserId, {
         firstName,
         lastName,
+        preferredName: formState.preferredName,
         email: formState.email,
         phone: formState.phone,
+        city: formState.city,
+        timeZone: formState.timeZone,
+        travelStyle: formState.travelStyle,
+        bio: formState.bio,
       })
       setSaved(true)
     } catch {
@@ -192,22 +259,44 @@ export default function EditProfilePage() {
             <SectionHeading
               eyebrow="Profile Photo"
               title="Current preview"
-              description="The upload action stays mock-only for now."
+              description="JPG or PNG, max 5 MB."
             />
 
             <div className="mt-6 flex flex-col items-center text-center">
-              <img
-                src={viewer.avatar}
-                alt={viewer.fullName}
-                className="h-32 w-32 rounded-[28px] object-cover shadow-[0_16px_40px_rgba(15,23,42,0.12)]"
+              <div className="relative">
+                <img
+                  src={avatarPreview || viewer.avatar}
+                  alt={viewer.fullName}
+                  className="h-32 w-32 rounded-[28px] object-cover shadow-[0_16px_40px_rgba(15,23,42,0.12)]"
+                />
+                {uploadingPhoto && (
+                  <div className="absolute inset-0 flex items-center justify-center rounded-[28px] bg-black/40">
+                    <Loader2 size={24} className="animate-spin text-white" />
+                  </div>
+                )}
+              </div>
+
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={handlePhotoSelect}
               />
+
               <button
                 type="button"
-                className="mt-5 inline-flex items-center gap-2 rounded-full border border-gray-200 bg-white px-4 py-2.5 text-sm font-semibold text-dark transition-colors hover:bg-gray-50"
+                disabled={uploadingPhoto}
+                onClick={() => fileInputRef.current?.click()}
+                className="mt-5 inline-flex items-center gap-2 rounded-full border border-gray-200 bg-white px-4 py-2.5 text-sm font-semibold text-dark transition-colors hover:bg-gray-50 disabled:opacity-40"
               >
                 <Camera size={16} />
-                Replace photo
+                {uploadingPhoto ? 'Uploading…' : 'Replace photo'}
               </button>
+
+              {photoError && (
+                <p className="mt-2 text-xs text-red-500">{photoError}</p>
+              )}
             </div>
           </SectionCard>
 

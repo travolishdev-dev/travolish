@@ -53,6 +53,10 @@ export async function cancelBooking(booking) {
   return put(`/api/bookings/${booking.id}`, { ...booking, status: 'CANCELLED' })
 }
 
-export async function listBookings() {
-  return get('/api/bookings')
+export async function listBookings(guestEmail) {
+  return get('/api/bookings', guestEmail ? { guestEmail } : undefined)
+}
+
+export async function listBookingsByHotel(hotelId) {
+  return get(`/api/bookings/hotel/${hotelId}`)
 }

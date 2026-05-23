@@ -10,6 +10,8 @@ import {
   getNotificationPreferences,
   updateNotificationPreferences,
 } from '../../services/notificationsApi'
+import usePortalViewer from '../../hooks/usePortalViewer'
+import { findUserByEmail, createUser } from '../../services/usersApi'
 
 const DEFAULT_PREFS = {
   emailEnabled: true,
@@ -48,6 +50,8 @@ const CHANNEL_ROWS = [
 ]
 
 export default function NotificationSettingsPage() {
+  const { viewer } = usePortalViewer()
+  const [backendUserId, setBackendUserId] = useState(null)
   const [prefs, setPrefs] = useState(DEFAULT_PREFS)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -55,11 +59,26 @@ export default function NotificationSettingsPage() {
   const [saveError, setSaveError] = useState(null)
 
   useEffect(() => {
-    getNotificationPreferences(1)
+    const email = viewer.email
+    if (!email) {
+      setLoading(false)
+      return
+    }
+
+    const nameParts = (viewer.fullName ?? '').trim().split(' ')
+    findUserByEmail(email)
+      .catch(async (err) => {
+        if (!err.message?.includes('404')) throw err
+        return createUser({ firstName: nameParts[0] ?? '', lastName: nameParts.slice(1).join(' '), email })
+      })
+      .then((user) => {
+        setBackendUserId(user.id)
+        return getNotificationPreferences(user.id)
+      })
       .then((data) => setPrefs({ ...DEFAULT_PREFS, ...data }))
-      .catch(() => {/* keep defaults */})
+      .catch(() => {/* keep defaults on any error */})
       .finally(() => setLoading(false))
-  }, [])
+  }, [viewer.email])
 
   const toggle = (key) => {
     setSaved(false)
@@ -67,14 +86,18 @@ export default function NotificationSettingsPage() {
   }
 
   const handleSave = async () => {
+    if (!backendUserId) {
+      setSaveError('User account not resolved. Please sign in again.')
+      return
+    }
     setSaving(true)
     setSaved(false)
     setSaveError(null)
     try {
-      await updateNotificationPreferences(1, prefs)
+      await updateNotificationPreferences(backendUserId, prefs)
       setSaved(true)
     } catch {
-      setSaveError('Could not save preferences. Your account may need to receive its first notification before settings can be persisted.')
+      setSaveError('Could not save preferences. Please try again.')
     } finally {
       setSaving(false)
     }
@@ -89,7 +112,7 @@ export default function NotificationSettingsPage() {
       mobileBottomAction={{ label: 'Save preferences', onClick: handleSave }}
       actions={[
         { label: 'Open notification center', href: '/notifications', secondary: true },
-        { label: 'Save preferences', href: '/account/notification-settings' },
+        { label: 'Save preferences', onClick: handleSave },
       ]}
       accent="from-violet-50 via-white to-sky-50"
     >

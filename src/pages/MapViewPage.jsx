@@ -8,7 +8,8 @@ import {
   Users,
 } from 'lucide-react'
 import 'leaflet/dist/leaflet.css'
-import { properties } from '../data/mockData'
+import { searchHotels, listRooms } from '../services/hotelsApi'
+import { adaptHotels } from '../lib/hotelAdapter'
 import useNativeAppLocationStore from '../stores/useNativeAppLocationStore'
 import {
   formatCoordinates,
@@ -25,13 +26,34 @@ export default function MapViewPage() {
   const propertyMarkersRef = useRef(new Map())
   const propertyCardRefs = useRef(new Map())
 
-  const nearbyProperties = sharedLocation.hasSharedLocation
-    ? sortPropertiesBySharedLocation(properties, sharedLocation)
-    : []
+  const [allProperties, setAllProperties] = useState([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [selectedPropertyId, setSelectedPropertyId] = useState(null)
 
-  const [selectedPropertyId, setSelectedPropertyId] = useState(
-    nearbyProperties[0]?.id ?? null,
-  )
+  useEffect(() => {
+    let cancelled = false
+    async function load() {
+      try {
+        const [searchResult, rooms] = await Promise.all([
+          searchHotels({ pageSize: 50 }),
+          listRooms(),
+        ])
+        if (!cancelled) {
+          const adapted = adaptHotels(searchResult.content ?? [], rooms)
+          setAllProperties(adapted)
+          setSelectedPropertyId(adapted[0]?.id ?? null)
+        }
+      } catch {
+        if (!cancelled) setAllProperties([])
+      } finally {
+        if (!cancelled) setIsLoading(false)
+      }
+    }
+    load()
+    return () => { cancelled = true }
+  }, [])
+
+  const nearbyProperties = sortPropertiesBySharedLocation(allProperties, sharedLocation)
 
   const selectedProperty =
     nearbyProperties.find((property) => property.id === selectedPropertyId) ||
@@ -39,7 +61,9 @@ export default function MapViewPage() {
     null
 
   useEffect(() => {
-    setSelectedPropertyId(nearbyProperties[0]?.id ?? null)
+    if (nearbyProperties.length > 0) {
+      setSelectedPropertyId(nearbyProperties[0].id)
+    }
   }, [sharedLocation.hasSharedLocation])
 
   useEffect(() => {
@@ -92,7 +116,10 @@ export default function MapViewPage() {
       propertyMarkersRef.current = new Map()
 
       nearbyProperties.forEach((property) => {
-        const marker = L.marker(property.coordinates).addTo(map)
+        const [lat, lng] = property.coordinates
+        if (!lat && !lng) return
+
+        const marker = L.marker([lat, lng]).addTo(map)
 
         marker.on('click', () => {
           setSelectedPropertyId(property.id)
@@ -108,7 +135,7 @@ export default function MapViewPage() {
         )
 
         propertyMarkersRef.current.set(property.id, marker)
-        bounds.push(property.coordinates)
+        bounds.push([lat, lng])
       })
 
       L.circleMarker(
@@ -160,7 +187,7 @@ export default function MapViewPage() {
     const card = propertyCardRefs.current.get(selectedProperty.id)
 
     if (marker && map) {
-      map.flyTo(marker.getLatLng(), Math.max(map.getZoom(), 5), {
+      map.flyTo(marker.getLatLng(), Math.max(map.getZoom(), 13), {
         duration: 0.45,
       })
       marker.openTooltip()
@@ -175,7 +202,7 @@ export default function MapViewPage() {
     }
   }, [selectedProperty])
 
-  if (!sharedLocation.hasSharedLocation || !nearbyProperties.length) {
+  if (!isLoading && !sharedLocation.hasSharedLocation) {
     return (
       <main className="min-h-screen bg-white px-6 py-10 md:px-10 xl:px-20">
         <button
@@ -198,6 +225,18 @@ export default function MapViewPage() {
     )
   }
 
+  if (isLoading) {
+    return (
+      <main className="min-h-screen bg-[#f6f5f2] px-4 py-4 md:px-8 md:py-6">
+        <div className="mx-auto max-w-[1760px] space-y-5">
+          <div className="h-20 animate-pulse rounded-[28px] bg-white" />
+          <div className="h-[52vh] min-h-[420px] animate-pulse rounded-[32px] bg-white" />
+          <div className="h-64 animate-pulse rounded-[32px] bg-white" />
+        </div>
+      </main>
+    )
+  }
+
   return (
     <main className="min-h-screen bg-[#f6f5f2] px-4 py-4 md:px-8 md:py-6">
       <div className="mx-auto max-w-[1760px] space-y-5">
@@ -211,7 +250,7 @@ export default function MapViewPage() {
               Browse nearby stays on the map
             </h1>
             <p className="mt-2 text-sm text-muted md:text-[15px]">
-              {nearbyProperties.length} properties around{' '}
+              {nearbyProperties.length} propert{nearbyProperties.length === 1 ? 'y' : 'ies'} around{' '}
               {formatCoordinates(sharedLocation.latitude, sharedLocation.longitude)}.
               Tap a marker to focus the matching card below.
             </p>
@@ -237,20 +276,26 @@ export default function MapViewPage() {
               <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted">
                 Nearby Properties
               </p>
-              <h2 className="mt-1 text-lg font-semibold text-dark">
-                {selectedProperty.title}
-              </h2>
-              <p className="mt-1 text-sm text-muted">
-                {selectedProperty.location}, {selectedProperty.country}
-              </p>
+              {selectedProperty && (
+                <>
+                  <h2 className="mt-1 text-lg font-semibold text-dark">
+                    {selectedProperty.title}
+                  </h2>
+                  <p className="mt-1 text-sm text-muted">
+                    {selectedProperty.location}, {selectedProperty.country}
+                  </p>
+                </>
+              )}
             </div>
 
-            <Link
-              to={`/property/${selectedProperty.id}`}
-              className="inline-flex items-center gap-2 self-start rounded-full bg-dark px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-gray-800"
-            >
-              Open property
-            </Link>
+            {selectedProperty && (
+              <Link
+                to={`/property/${selectedProperty.id}`}
+                className="inline-flex items-center gap-2 self-start rounded-full bg-dark px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-gray-800"
+              >
+                Open property
+              </Link>
+            )}
           </div>
 
           <div className="overflow-x-auto hide-scrollbar">

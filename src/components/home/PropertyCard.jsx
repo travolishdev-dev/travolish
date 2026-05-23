@@ -15,7 +15,7 @@ function getRatingLabel(rating) {
 
 function formatPrice(price) {
   if (price === null || price === undefined) return null
-  return Number(price).toLocaleString('en-IN')
+  return Number(price).toLocaleString('en-US')
 }
 
 function getFallbackPrice(id) {
@@ -161,7 +161,7 @@ export default function PropertyCard({ property, index = 0, variant = 'default' 
               <p className="text-xs text-muted">Travolish stay</p>
               <p className="text-xs text-muted">
                 <span className="text-lg font-semibold text-dark">
-                  Rs. {formattedPrice}
+                  ${formattedPrice}
                 </span>{' '}
                 per night
               </p>

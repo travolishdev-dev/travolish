@@ -1,4 +1,4 @@
-import { get, post } from '../lib/api'
+import { get, post, put, del } from '../lib/api'
 
 export async function getPricingSuggestions(hotelId = 1) {
   return get(`/api/pricing/suggestions/hotel/${hotelId}`)
@@ -38,4 +38,20 @@ export async function getSeasonalPricing(params = {}) {
 
 export async function getPricingRulesForHotel(hotelId = 1) {
   return get(`/api/inventory/pricing/rules/hotel/${hotelId}`)
+}
+
+export async function createPricingRule(body) {
+  return post('/api/inventory/pricing/rules', body)
+}
+
+export async function updatePricingRule(ruleId, body) {
+  return put(`/api/inventory/pricing/rules/${ruleId}`, body)
+}
+
+export async function deletePricingRule(ruleId) {
+  return del(`/api/inventory/pricing/rules/${ruleId}`)
+}
+
+export async function togglePricingRule(ruleId) {
+  return put(`/api/inventory/pricing/rules/${ruleId}/toggle`, {})
 }

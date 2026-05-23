@@ -4,11 +4,11 @@ export async function getRevenueReport(hotelId = 1) {
   const data = await get(`/api/inventory/reports/revenue/${hotelId}`)
   return {
     totalRevenue: data.totalRevenue ?? null,
-    revenueGrowth: null,
+    revenueGrowth: data.revenueGrowth ?? null,
     averageDailyRate: data.averageDailyRevenue ?? null,
-    adrChange: null,
+    adrChange: data.adrChange ?? null,
     revPar: data.estimatedRevenue ?? null,
-    revParChange: null,
+    revParChange: data.revParChange ?? null,
     revenuePeriod: `${data.startDate ?? ''} → ${data.endDate ?? ''}`.trim(),
   }
 }

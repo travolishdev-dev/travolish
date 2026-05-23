@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { ChevronLeft, ChevronRight, RefreshCw } from 'lucide-react'
 import {
   HostShell,
   SectionCard,
@@ -17,6 +18,11 @@ const statusStyles = {
   occupied: 'bg-dark text-white border-dark',
   limited: 'bg-amber-50 text-amber-700 border-amber-200',
   blocked: 'bg-rose-50 text-rose-700 border-rose-200',
+  premium: 'bg-amber-50 text-amber-800 border-amber-200',
+  turn: 'bg-sky-50 text-sky-800 border-sky-200',
+  arrival: 'bg-teal-50 text-teal-800 border-teal-200',
+}
+
 const DAY_MS = 24 * 60 * 60 * 1000
 const weekdayLabels = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 
@@ -89,6 +95,10 @@ function buildDates() {
       label: d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
       iso: d.toISOString().split('T')[0],
     })
+  }
+  return dates
+}
+
 function isSameMonth(date, monthDate) {
   return (
     date.getFullYear() === monthDate.getFullYear() &&
@@ -124,15 +134,8 @@ function buildMonthDays(monthDate) {
   }
 
   return days
-  return dates
 }
 
-function mapStatus(avail) {
-  if (!avail) return 'open'
-  const s = avail.status
-  if (s === 'BLOCKED' || s === 'CLOSED') return 'blocked'
-  if (s === 'FULL' || avail.availableRooms === 0) return 'occupied'
-  if (s === 'LIMITED') return 'limited'
 function buildCalendarGrid(monthDate) {
   const firstDay = startOfMonth(monthDate)
   const gridStart = addDays(firstDay, -firstDay.getDay())
@@ -299,6 +302,7 @@ export default function HostAvailabilityPage() {
     [availabilityByListingDate, monthDays, selectedListings],
   )
 
+  // Load 14-day room grid data
   useEffect(() => {
     if (hostLoading || !primaryHotelId) {
       if (!hostLoading) setDataLoading(false)
@@ -307,29 +311,18 @@ export default function HostAvailabilityPage() {
 
     const startDate = dates[0].iso
     const endDate = dates[dates.length - 1].iso
-    let isCurrent = true
-
-    async function loadAvailability() {
-      setIsLoadingAvailability(true)
 
     Promise.all([
       getHostRooms(primaryHotelId).catch(() => []),
       getHotelAvailabilityRange(primaryHotelId, startDate, endDate).catch(() => []),
     ]).then(([roomsData, availData]) => {
-      const rooms = Array.isArray(roomsData) ? roomsData
+      const rooms = Array.isArray(roomsData)
+        ? roomsData
         : roomsData?.content ?? roomsData?.rooms ?? []
-      const results = await Promise.allSettled(
-        hostListings.map(async (listing) => {
-          const data = await getHotelAvailabilityRange(
-            listing.id,
-            monthStartKey,
-            monthEndKey,
-          )
-
-      const items = Array.isArray(availData) ? availData
+      const items = Array.isArray(availData)
+        ? availData
         : availData?.availabilityList ?? availData?.content ?? []
 
-      // roomId → iso-date → AvailabilityCheckDTO
       const byRoomDate = {}
       items.forEach((item) => {
         const rid = item.roomId
@@ -339,7 +332,6 @@ export default function HostAvailabilityPage() {
         byRoomDate[rid][iso] = item
       })
 
-      // Build one row per room that has availability data, fall back to all fetched rooms
       const roomsWithData = rooms.filter((r) => byRoomDate[r.id])
       const sourceRooms = roomsWithData.length > 0 ? roomsWithData : rooms
 
@@ -353,6 +345,24 @@ export default function HostAvailabilityPage() {
       if (newRows.length) setRows(newRows)
     }).finally(() => setDataLoading(false))
   }, [primaryHotelId, hostLoading, dates])
+
+  // Load monthly calendar availability per listing
+  useEffect(() => {
+    if (!primaryHotelId) return
+
+    let isCurrent = true
+
+    async function loadAvailability() {
+      setIsLoadingAvailability(true)
+
+      const results = await Promise.allSettled(
+        hostListings.map(async (listing) => {
+          const data = await getHotelAvailabilityRange(
+            listing.id,
+            monthStartKey,
+            monthEndKey,
+          )
+
           return {
             listingId: listing.id,
             items: getAvailabilityItems(data),
@@ -397,14 +407,10 @@ export default function HostAvailabilityPage() {
       }
     })
 
-  const openCount = rows.flatMap((r) => r.pattern).filter((s) => s === 'open').length
-  const occupiedCount = rows.flatMap((r) => r.pattern).filter((s) => s === 'occupied').length
-  const blockedCount = rows.flatMap((r) => r.pattern).filter((s) => s === 'blocked').length
-  const limitedCount = rows.flatMap((r) => r.pattern).filter((s) => s === 'limited').length
     return () => {
       isCurrent = false
     }
-  }, [monthEndKey, monthStartKey])
+  }, [monthEndKey, monthStartKey, primaryHotelId])
 
   function handleMonthInputChange(event) {
     const [year, month] = event.target.value.split('-').map(Number)
@@ -445,17 +451,10 @@ export default function HostAvailabilityPage() {
       eyebrow="Availability"
       title="Property booking calendar"
       mobileTitle="Calendar"
-      description="14-day room availability calendar."
       description="Event-style host calendar showing booked, blocked, and free property days."
       actions={[
         { label: 'Inventory', href: '/host/inventory', secondary: true },
         { label: 'Pricing rules', href: '/host/pricing' },
-      ]}
-      stats={[
-        { label: 'Open nights', value: String(openCount), note: 'Next 14 days' },
-        { label: 'Occupied', value: String(occupiedCount), note: 'Fully booked' },
-        { label: 'Blocked', value: String(blockedCount), note: 'Maintenance / hold' },
-        { label: 'Limited', value: String(limitedCount), note: 'Low availability' },
       ]}
       stats={stats}
     >
@@ -564,12 +563,6 @@ export default function HostAvailabilityPage() {
                 </span>
               </button>
 
-        <div className="mt-6 overflow-x-auto">
-          <div className="min-w-[880px]">
-            {/* Header row */}
-            <div className="grid grid-cols-[200px_repeat(14,minmax(0,1fr))] gap-2">
-              <div />
-              {dates.map((d) => (
               {hostListings.map((listing) => {
                 const isSelected = String(selectedListingId) === String(listing.id)
                 const listingCounts = countStatuses(
@@ -612,66 +605,12 @@ export default function HostAvailabilityPage() {
             <div className="grid grid-cols-7 overflow-hidden rounded-2xl border border-gray-200 bg-white">
               {weekdayLabels.map((day) => (
                 <div
-                  key={d.iso}
-                  className="text-center text-xs font-semibold uppercase tracking-[0.14em] text-muted"
                   key={day}
                   className="border-b border-gray-200 bg-[#fcfbf8] px-2 py-3 text-center text-xs font-semibold uppercase tracking-[0.18em] text-muted"
                 >
-                  {d.label}
+                  {day}
                 </div>
               ))}
-
-            {/* Room rows */}
-            <div className="mt-4 space-y-3">
-              {dataLoading && (
-                <div className="py-12 text-center text-sm text-muted">Loading calendar…</div>
-              )}
-              {!dataLoading && rows.length === 0 && (
-                <div className="py-12 text-center text-sm text-muted">
-                  No availability data for this period.
-                </div>
-              )}
-              {rows.map((row) => (
-                <div
-                  key={row.roomId}
-                  className="grid grid-cols-[200px_repeat(14,minmax(0,1fr))] gap-2"
-                >
-                  <div className="border-r border-gray-200 pr-4">
-                    <p className="text-sm font-semibold text-dark">{row.label}</p>
-                    {row.sub && <p className="mt-0.5 text-xs text-muted">{row.sub}</p>}
-                  </div>
-                  {row.pattern.map((status, idx) => (
-                    <div
-                      key={`${row.roomId}-${dates[idx].iso}`}
-                      className={`flex min-h-[52px] items-center justify-center rounded-xl border text-[11px] font-semibold uppercase tracking-[0.08em] ${statusStyles[status] ?? statusStyles.open}`}
-                    >
-                      {statusLabel(status)}
-                    </div>
-                  ))}
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        {/* Legend */}
-        <div className="mt-6 flex flex-wrap gap-3">
-          <div className="flex items-center gap-1.5">
-            <div className="h-3 w-3 rounded-sm border border-gray-200 bg-white" />
-            <span className="text-xs text-muted">Open</span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <div className="h-3 w-3 rounded-sm border border-dark bg-dark" />
-            <span className="text-xs text-muted">Occupied</span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <div className="h-3 w-3 rounded-sm border border-amber-200 bg-amber-50" />
-            <span className="text-xs text-muted">Limited</span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <div className="h-3 w-3 rounded-sm border border-rose-200 bg-rose-50" />
-            <span className="text-xs text-muted">Blocked</span>
-          </div>
               {calendarDays.map((date) => {
                 const dateKey = toDateKey(date)
                 const isToday = dateKey === toDateKey(today)
@@ -735,6 +674,71 @@ export default function HostAvailabilityPage() {
                 )
               })}
             </div>
+          </div>
+        </div>
+
+        <div className="mt-6 overflow-x-auto">
+          <div className="min-w-[880px]">
+            <div className="grid grid-cols-[200px_repeat(14,minmax(0,1fr))] gap-2">
+              <div />
+              {dates.map((d) => (
+                <div
+                  key={d.iso}
+                  className="text-center text-xs font-semibold uppercase tracking-[0.14em] text-muted"
+                >
+                  {d.label}
+                </div>
+              ))}
+            </div>
+
+            <div className="mt-4 space-y-3">
+              {dataLoading && (
+                <div className="py-12 text-center text-sm text-muted">Loading calendar…</div>
+              )}
+              {!dataLoading && rows.length === 0 && (
+                <div className="py-12 text-center text-sm text-muted">
+                  No availability data for this period.
+                </div>
+              )}
+              {rows.map((row) => (
+                <div
+                  key={row.roomId}
+                  className="grid grid-cols-[200px_repeat(14,minmax(0,1fr))] gap-2"
+                >
+                  <div className="border-r border-gray-200 pr-4">
+                    <p className="text-sm font-semibold text-dark">{row.label}</p>
+                    {row.sub && <p className="mt-0.5 text-xs text-muted">{row.sub}</p>}
+                  </div>
+                  {row.pattern.map((status, idx) => (
+                    <div
+                      key={`${row.roomId}-${dates[idx].iso}`}
+                      className={`flex min-h-[52px] items-center justify-center rounded-xl border text-[11px] font-semibold uppercase tracking-[0.08em] ${statusStyles[status] ?? statusStyles.open}`}
+                    >
+                      {statusLabel(status)}
+                    </div>
+                  ))}
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-6 flex flex-wrap gap-3">
+          <div className="flex items-center gap-1.5">
+            <div className="h-3 w-3 rounded-sm border border-gray-200 bg-white" />
+            <span className="text-xs text-muted">Open</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <div className="h-3 w-3 rounded-sm border border-dark bg-dark" />
+            <span className="text-xs text-muted">Occupied</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <div className="h-3 w-3 rounded-sm border border-amber-200 bg-amber-50" />
+            <span className="text-xs text-muted">Limited</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <div className="h-3 w-3 rounded-sm border border-rose-200 bg-rose-50" />
+            <span className="text-xs text-muted">Blocked</span>
           </div>
         </div>
 

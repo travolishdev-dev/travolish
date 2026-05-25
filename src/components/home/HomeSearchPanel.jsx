@@ -17,6 +17,7 @@ import {
 } from '../../lib/searchFormatting'
 import { indianDestinations } from '../../data/indianDestinations'
 import HomeDateRangePicker from './HomeDateRangePicker'
+import TravolishWordmark from '../common/TravolishWordmark'
 import { saveSearch } from '../../lib/searchHistory'
 
 function CounterControl({ label, value, min = 0, onChange }) {
@@ -88,6 +89,7 @@ export default function HomeSearchPanel() {
     <section className="home-search-hero border-b border-gray-100 pt-24">
       <div className="relative z-10 mx-auto max-w-[1760px] px-6 pb-12 pt-10 md:px-10 md:pb-16 md:pt-14 xl:px-20">
         <div className="mx-auto max-w-4xl text-center">
+            <TravolishWordmark className="text-[72px] text-brand md:text-[104px]" />
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted">
             {t('homeSearch.eyebrow')}
           </p>

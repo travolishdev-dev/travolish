@@ -17,6 +17,7 @@ import {
 } from 'lucide-react'
 import { AnimatePresence, motion as Motion } from 'framer-motion'
 import { useTranslation } from 'react-i18next'
+import TravolishWordmark from '../common/TravolishWordmark'
 import useAuthStore from '../../stores/useAuthStore'
 
 const countryOptions = [
@@ -206,13 +207,8 @@ export default function Navbar() {
       <div className="max-w-[1760px] mx-auto px-6 md:px-10 xl:px-20">
         <div className="flex items-center justify-between h-20">
           {/* Logo */}
-          <Link to="/" className="flex items-center gap-1.5 flex-shrink-0">
-            <div className="w-8 h-8 bg-gradient-to-br from-brand to-pink-400 rounded-lg flex items-center justify-center">
-              <span className="text-white text-sm font-bold">T</span>
-            </div>
-            <span className="text-brand text-[22px] font-extrabold tracking-tight hidden sm:block">
-              travolish
-            </span>
+          <Link to="/" className="flex flex-shrink-0 items-center">
+            <TravolishWordmark className="text-[50px] text-brand sm:text-[62px]" />
           </Link>
 
          

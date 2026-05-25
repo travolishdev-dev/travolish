@@ -41,6 +41,13 @@ import HostKycPage from './pages/host/HostKycPage'
 import HostBankAccountsPage from './pages/host/HostBankAccountsPage'
 import HostAutoRepliesPage from './pages/host/HostAutoRepliesPage'
 import HostEmergencyPage from './pages/host/HostEmergencyPage'
+import AdminDashboardPage from './pages/admin/AdminDashboardPage'
+import AdminUsersPage from './pages/admin/AdminUsersPage'
+import AdminVerificationPage from './pages/admin/AdminVerificationPage'
+import AdminListingApprovalsPage from './pages/admin/AdminListingApprovalsPage'
+import AdminModerationPage from './pages/admin/AdminModerationPage'
+import AdminCategoriesAmenitiesPage from './pages/admin/AdminCategoriesAmenitiesPage'
+import AdminPricingRulesPage from './pages/admin/AdminPricingRulesPage'
 import useAuthStore from './stores/useAuthStore'
 import useNativeAppLocationStore from './stores/useNativeAppLocationStore'
 
@@ -60,6 +67,7 @@ function isPortalRoute(pathname) {
     pathname.startsWith('/checkout') ||
     pathname.startsWith('/messages') ||
     pathname.startsWith('/reviews') ||
+    pathname.startsWith('/admin') ||
     (pathname.startsWith('/host') && pathname !== '/host/onboarding')
   )
 }
@@ -67,16 +75,21 @@ function isPortalRoute(pathname) {
 function AppLayout({ children }) {
   const { pathname } = useLocation()
   const portalRoute = isPortalRoute(pathname)
+  const adminRoute = pathname.startsWith('/admin')
 
   return (
     <div className="min-h-screen flex flex-col">
-      <div className={portalRoute ? 'hidden md:block' : ''}>
-        <Navbar />
-      </div>
+      {!adminRoute ? (
+        <div className={portalRoute ? 'hidden md:block' : ''}>
+          <Navbar />
+        </div>
+      ) : null}
       <div className="flex-1">{children}</div>
-      <div className={portalRoute ? 'hidden md:block' : ''}>
-        <Footer />
-      </div>
+      {!adminRoute ? (
+        <div className={portalRoute ? 'hidden md:block' : ''}>
+          <Footer />
+        </div>
+      ) : null}
     </div>
   )
 }
@@ -415,6 +428,62 @@ export default function App() {
           element={
             <AppLayout>
               <HostEmergencyPage />
+            </AppLayout>
+          }
+        />
+        <Route
+          path="/admin"
+          element={
+            <AppLayout>
+              <AdminDashboardPage />
+            </AppLayout>
+          }
+        />
+        <Route
+          path="/admin/users"
+          element={
+            <AppLayout>
+              <AdminUsersPage />
+            </AppLayout>
+          }
+        />
+        <Route
+          path="/admin/verification"
+          element={
+            <AppLayout>
+              <AdminVerificationPage />
+            </AppLayout>
+          }
+        />
+        <Route
+          path="/admin/listing-approvals"
+          element={
+            <AppLayout>
+              <AdminListingApprovalsPage />
+            </AppLayout>
+          }
+        />
+        <Route
+          path="/admin/moderation"
+          element={
+            <AppLayout>
+              <AdminModerationPage />
+            </AppLayout>
+          }
+        />
+        <Route
+          path="/admin/categories-amenities"
+          element={
+            <AppLayout>
+              <AdminCategoriesAmenitiesPage />
+            </AppLayout>
+          }
+        />
+        <Route
+          path="/admin/pricing-rules"
+          element={
+            <AppLayout>
+              <AdminPricingRulesPage />
             </AppLayout>
           }
         />

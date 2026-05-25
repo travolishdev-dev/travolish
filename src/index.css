@@ -1,5 +1,15 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
 
+@font-face {
+  font-family: 'Fake Serif';
+  src:
+    url('./assets/fonts/fake_serif/Fake Serif.otf') format('opentype'),
+    url('./assets/fonts/fake_serif/Fake Serif.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -84,6 +94,20 @@ body {
 /* ── Transition Utility ── */
 .transition-default {
   @apply transition-all duration-200 ease-in-out;
+}
+
+/* ── Brand Wordmark ── */
+.travolish-wordmark {
+  display: inline-flex;
+  font-family: 'Fake Serif', Georgia, 'Times New Roman', serif;
+  font-weight: 400;
+  line-height: 1;
+  letter-spacing: 0;
+  white-space: nowrap;
+}
+
+.travolish-wordmark-letter {
+  display: inline-block;
 }
 
 /* ── Home Search Hero ── */

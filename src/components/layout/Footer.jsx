@@ -1,5 +1,6 @@
 import { Globe, ChevronUp } from 'lucide-react'
 import { Link } from 'react-router-dom'
+import TravolishWordmark from '../common/TravolishWordmark'
 
 const footerLinks = {
   support: {
@@ -33,13 +34,8 @@ export default function Footer() {
     <footer className="footer-pink-grid relative overflow-hidden border-t border-rose-100">
       {/* Links Grid */}
       <div className="relative z-10 max-w-[1760px] mx-auto px-6 md:px-10 xl:px-20 py-7">
-        <Link to="/" className="mb-6 inline-flex items-center gap-1.5">
-          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-brand to-pink-400 shadow-sm">
-            <span className="text-xs font-bold text-white">T</span>
-          </div>
-          <span className="text-[18px] font-extrabold tracking-tight text-brand">
-            travolish
-          </span>
+        <Link to="/" className="mb-6 inline-flex items-center">
+          <TravolishWordmark className="text-[50px] text-brand sm:text-[62px]" />
         </Link>
 
         <div className="grid grid-cols-1 gap-6 sm:grid-cols-3 sm:gap-4">

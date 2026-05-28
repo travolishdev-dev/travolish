@@ -10,11 +10,13 @@ import {
   AdminWorkflowPanel,
 } from './AdminPortalUI'
 
-export default function AdminManagementPage({ pageKey }) {
+export default function AdminManagementPage({ pageKey, rows: rowsProp, loading = false, onRowAction, detailContent }) {
   const config = adminScreenConfigs[pageKey]
+  const baseRows = rowsProp ?? config.rows
+
   const [searchQuery, setSearchQuery] = useState('')
   const [activeFilters, setActiveFilters] = useState({})
-  const [selectedRowKey, setSelectedRowKey] = useState(config.rows[0]?.[0] ?? '')
+  const [selectedRowKey, setSelectedRowKey] = useState('')
   const [actionNotice, setActionNotice] = useState('')
 
   const filtersWithOptions = useMemo(
@@ -24,33 +26,26 @@ export default function AdminManagementPage({ pageKey }) {
         const options =
           columnIndex === -1
             ? []
-            : [...new Set(config.rows.map((row) => row[columnIndex]).filter(Boolean))]
-
-        return {
-          ...filter,
-          options,
-        }
+            : [...new Set(baseRows.map((row) => row[columnIndex]).filter(Boolean))]
+        return { ...filter, options }
       }),
-    [config],
+    [config, baseRows],
   )
 
   const filteredRows = useMemo(() => {
     const normalizedQuery = searchQuery.trim().toLowerCase()
-
-    return config.rows.filter((row) => {
+    return baseRows.filter((row) => {
       const matchesSearch =
         !normalizedQuery ||
         row.some((cell) => String(cell).toLowerCase().includes(normalizedQuery))
-
       const matchesFilters = Object.entries(activeFilters).every(([field, value]) => {
         if (!value) return true
         const columnIndex = config.columns.indexOf(field)
         return columnIndex === -1 || row[columnIndex] === value
       })
-
       return matchesSearch && matchesFilters
     })
-  }, [activeFilters, config, searchQuery])
+  }, [activeFilters, config, searchQuery, baseRows])
 
   const selectedRecord = useMemo(
     () => filteredRows.find((row) => row[0] === selectedRowKey) ?? filteredRows[0] ?? null,
@@ -65,10 +60,7 @@ export default function AdminManagementPage({ pageKey }) {
   }
 
   function handleFilterChange(field, value) {
-    setActiveFilters((current) => ({
-      ...current,
-      [field]: value,
-    }))
+    setActiveFilters((current) => ({ ...current, [field]: value }))
     setActionNotice(value ? `${field} filter set to ${value}.` : `${field} filter cleared.`)
   }
 
@@ -90,7 +82,11 @@ export default function AdminManagementPage({ pageKey }) {
 
   function handleRowAction(row, action) {
     setSelectedRowKey(row[0])
-    setActionNotice(`${action} selected for ${row[0]}. Add confirmation and reason capture before saving.`)
+    if (onRowAction) {
+      onRowAction(row, action, setActionNotice)
+    } else {
+      setActionNotice(`${action} selected for ${row[0]}. Add confirmation and reason capture before saving.`)
+    }
   }
 
   function handleExport() {
@@ -121,19 +117,29 @@ export default function AdminManagementPage({ pageKey }) {
       />
 
       <div className="grid gap-6 2xl:grid-cols-[minmax(0,1.35fr)_minmax(380px,0.65fr)]">
-        <AdminDataTable
-          columns={config.columns}
-          rows={filteredRows}
-          selectedRowKey={selectedRecord?.[0]}
-          onRowSelect={handleRowSelect}
-          onRowAction={handleRowAction}
-          onExport={handleExport}
-        />
-        <AdminWorkflowPanel
-          config={config}
-          selectedRecord={selectedRecord}
-          actionNotice={actionNotice}
-        />
+        {loading && baseRows.length === 0 ? (
+          <div className="flex items-center justify-center rounded-card border border-gray-200 bg-white p-12 text-sm font-semibold text-muted shadow-[0_14px_34px_rgba(15,23,42,0.05)]">
+            Loading records…
+          </div>
+        ) : (
+          <AdminDataTable
+            columns={config.columns}
+            rows={filteredRows}
+            selectedRowKey={selectedRecord?.[0]}
+            onRowSelect={handleRowSelect}
+            onRowAction={handleRowAction}
+            onExport={handleExport}
+          />
+        )}
+        {detailContent
+          ? detailContent({ record: selectedRecord, setNotice: setActionNotice })
+          : (
+            <AdminWorkflowPanel
+              config={config}
+              selectedRecord={selectedRecord}
+              actionNotice={actionNotice}
+            />
+          )}
       </div>
 
       <AdminStatesPanel states={config.states} validations={config.validations} />

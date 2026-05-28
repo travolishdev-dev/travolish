@@ -66,7 +66,7 @@ export default function HostPricingAIPage() {
       })
       .catch(() => {})
 
-    getPendingSuggestions()
+    getPendingSuggestions(primaryHotelId)
       .then((data) => {
         const items = data?.content ?? (Array.isArray(data) ? data : null)
         if (items?.length) setSuggestions((prev) => {
@@ -77,7 +77,7 @@ export default function HostPricingAIPage() {
       })
       .catch(() => {})
 
-    getSeasonalPricing()
+    getSeasonalPricing(primaryHotelId)
       .then((data) => { if (data) setSeasonalData(data) })
       .catch(() => {})
 
@@ -87,7 +87,7 @@ export default function HostPricingAIPage() {
 
   function loadDemandAnalysis() {
     setDemandLoading(true)
-    analyzeDemand()
+    analyzeDemand(primaryHotelId)
       .then((data) => { if (data) setDemandData(data) })
       .catch(() => {})
       .finally(() => setDemandLoading(false))
@@ -95,7 +95,7 @@ export default function HostPricingAIPage() {
 
   function loadCompetitorAnalysis() {
     setCompetitorLoading(true)
-    analyzeCompetitors()
+    analyzeCompetitors(primaryHotelId)
       .then((data) => { if (data) setCompetitorData(data) })
       .catch(() => {})
       .finally(() => setCompetitorLoading(false))

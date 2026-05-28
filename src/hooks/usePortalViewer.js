@@ -3,26 +3,25 @@ import { format, parseISO } from 'date-fns'
 import useAuthStore from '../stores/useAuthStore'
 import { listBookings } from '../services/bookingsApi'
 import { getUserReviews } from '../services/reviewsApi'
-import { findUserByEmail } from '../services/usersApi'
 
 export default function usePortalViewer() {
   const user = useAuthStore((state) => state.user)
   const profile = useAuthStore((state) => state.profile)
+  const backendUserId = useAuthStore((state) => state.backendUserId)
   const [tripCount, setTripCount] = useState(null)
   const [reviewCount, setReviewCount] = useState(null)
 
   useEffect(() => {
-    if (!user?.email) return
+    if (!backendUserId) return
     let cancelled = false
 
-    listBookings(user.email)
+    listBookings(user?.email)
       .then((data) => {
         if (!cancelled) setTripCount(Array.isArray(data) ? data.length : 0)
       })
       .catch(() => { if (!cancelled) setTripCount(0) })
 
-    findUserByEmail(user.email)
-      .then((u) => getUserReviews(u.id))
+    getUserReviews(backendUserId)
       .then((data) => {
         if (!cancelled) {
           const list = Array.isArray(data) ? data : (data?.content ?? [])
@@ -32,7 +31,7 @@ export default function usePortalViewer() {
       .catch(() => { if (!cancelled) setReviewCount(0) })
 
     return () => { cancelled = true }
-  }, [user?.email])
+  }, [backendUserId, user?.email])
 
   const fullName =
     profile?.full_name?.trim() ||

@@ -16,7 +16,7 @@ import {
 } from 'lucide-react'
 import { AnimatePresence, motion } from 'framer-motion'
 import usePortalViewer from '../../hooks/usePortalViewer'
-import { accountInsights } from '../../data/mockPortalData'
+import useAccountInsights from '../../hooks/useAccountInsights'
 
 const accountNavGroups = [
   {
@@ -460,6 +460,7 @@ export function AccountShell({
 }) {
   const { pathname } = useLocation()
   const { viewer } = usePortalViewer()
+  const insights = useAccountInsights()
   const mobilePadding = mobileBottomAction
     ? 'pb-[calc(10.5rem+env(safe-area-inset-bottom))]'
     : 'pb-[calc(5.75rem+env(safe-area-inset-bottom))]'
@@ -511,7 +512,7 @@ export function AccountShell({
             </div>
 
             <div className="grid gap-0 divide-y divide-gray-200/80 border-t border-gray-200/80 lg:grid-cols-3 lg:divide-x lg:divide-y-0 lg:border-b-0">
-              {accountInsights.map((insight) => (
+              {insights.map((insight) => (
                 <div key={insight.label} className="py-3 lg:px-4">
                   <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted">
                     {insight.label}
@@ -519,7 +520,9 @@ export function AccountShell({
                   <p className="mt-1 text-base font-semibold tracking-tight text-dark lg:text-lg">
                     {insight.value}
                   </p>
-                  <p className="mt-1 text-[11px] leading-5 text-muted">{insight.note}</p>
+                  {insight.note ? (
+                    <p className="mt-1 text-[11px] leading-5 text-muted">{insight.note}</p>
+                  ) : null}
                 </div>
               ))}
             </div>

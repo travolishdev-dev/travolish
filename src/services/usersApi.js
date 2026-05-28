@@ -1,5 +1,9 @@
 import { get, post, put } from '../lib/api'
 
+export async function getMe() {
+  return get('/api/users/me')
+}
+
 export async function findUserByEmail(email) {
   return get('/api/users/by-email', { email })
 }

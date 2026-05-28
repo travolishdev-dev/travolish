@@ -134,14 +134,16 @@ export default function HostPricingRulesPage() {
   }
 
   function handleToggle(ruleId) {
+    const rule = rules.find((r) => r.id === ruleId)
+    const nextActive = rule ? rule.status !== 'Active' : true
     setRules((prev) =>
       prev.map((r) =>
         r.id === ruleId
-          ? { ...r, status: r.status === 'Active' ? 'Inactive' : 'Active' }
+          ? { ...r, status: nextActive ? 'Active' : 'Inactive' }
           : r,
       ),
     )
-    togglePricingRule(ruleId).catch(refreshRules)
+    togglePricingRule(ruleId, nextActive).catch(refreshRules)
   }
 
   const updateNewRule = (field) => (e) =>

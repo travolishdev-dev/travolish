@@ -147,7 +147,7 @@ export default function HostDashboardPage() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    if (hostLoading) return
+    if (hostLoading || !hostId) return
     async function load() {
       try {
         const [ov, ...hotelBookingArrays] = await Promise.all([

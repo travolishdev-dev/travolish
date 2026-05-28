@@ -1,41 +1,29 @@
 import { useEffect, useState } from 'react'
-import usePortalViewer from './usePortalViewer'
-import { findUserByEmail, createUser } from '../services/usersApi'
+import useAuthStore from '../stores/useAuthStore'
 import { getHostListings } from '../services/hostListingsApi'
 
 export default function useHostContext() {
-  const { viewer } = usePortalViewer()
-  const [hostId, setHostId] = useState(null)
+  const backendUserId = useAuthStore((state) => state.backendUserId)
   const [hotels, setHotels] = useState([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    const email = viewer.email
-    if (!email) {
+    if (!backendUserId) {
       setLoading(false)
       return
     }
 
-    const nameParts = (viewer.fullName ?? '').trim().split(' ')
-    findUserByEmail(email)
-      .catch(async (err) => {
-        if (!err.message?.includes('404')) throw err
-        return createUser({ firstName: nameParts[0] ?? '', lastName: nameParts.slice(1).join(' '), email })
-      })
-      .then((user) => {
-        setHostId(user.id)
-        return getHostListings(user.id)
-      })
+    getHostListings(backendUserId)
       .then((data) => {
         const items = data?.content ?? (Array.isArray(data) ? data : [])
         setHotels(items)
       })
       .catch(() => {})
       .finally(() => setLoading(false))
-  }, [viewer.email])
+  }, [backendUserId])
 
   return {
-    hostId,
+    hostId: backendUserId,
     hotels,
     primaryHotelId: hotels[0]?.id ?? null,
     loading,

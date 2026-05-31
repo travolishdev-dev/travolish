@@ -601,4 +601,3 @@ export function AccountShell({
     </main>
   )
 }
-P

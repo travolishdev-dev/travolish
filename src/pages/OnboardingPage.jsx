@@ -1,13 +1,17 @@
+import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   Home, Building2, Hotel, TreePine, Tent, Castle, Warehouse,
-  ChevronLeft, ChevronRight, Minus, Plus, Upload, X,
+  Minus, Plus, Upload, X,
   Wifi, Waves, Utensils, Car, AirVent, WashingMachine,
-  Tv, Dumbbell, Coffee, Flame, PawPrint, Snowflake
+  Tv, Dumbbell, Coffee, Flame, PawPrint, Snowflake,
+  Loader2, CheckCircle2, AlertCircle,
 } from 'lucide-react'
-import { motion, AnimatePresence } from 'framer-motion'
+import { AnimatePresence, motion as Motion } from 'framer-motion'
 import { useDropzone } from 'react-dropzone'
 import useOnboardingStore from '../stores/useOnboardingStore'
+import { publishListing } from '../services/listingsApi'
+import useCurrency from '../hooks/useCurrency'
 
 const propertyTypes = [
   { id: 'house', label: 'House', icon: Home },
@@ -43,6 +47,11 @@ export default function OnboardingPage() {
     updateDraft, updateBasics, updatePricing, resetDraft
   } = useOnboardingStore()
 
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [submitError, setSubmitError] = useState(null)
+  const [published, setPublished] = useState(null) // { hotel, room }
+  const { formatCurrency } = useCurrency()
+
   const canProceed = () => {
     switch (currentStep) {
       case 1: return !!draftData.propertyType
@@ -55,14 +64,21 @@ export default function OnboardingPage() {
     }
   }
 
-  const handleNext = () => {
+  const handleNext = async () => {
     if (currentStep < TOTAL_STEPS) {
       setStep(currentStep + 1)
-    } else {
-      // Submit
-      alert('Your listing has been submitted! 🎉')
+      return
+    }
+    setIsSubmitting(true)
+    setSubmitError(null)
+    try {
+      const result = await publishListing(draftData)
+      setPublished(result)
       resetDraft()
-      navigate('/')
+    } catch {
+      setSubmitError('Failed to publish your listing. Please try again.')
+    } finally {
+      setIsSubmitting(false)
     }
   }
 
@@ -72,6 +88,45 @@ export default function OnboardingPage() {
     } else {
       navigate('/')
     }
+  }
+
+  // ── Success screen ──────────────────────────────────────────────────────────
+  if (published) {
+    return (
+      <div className="min-h-screen bg-white flex flex-col items-center justify-center px-6">
+        <Motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="max-w-md w-full text-center"
+        >
+          <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-emerald-50 mb-6">
+            <CheckCircle2 size={40} className="text-emerald-600" />
+          </div>
+          <h1 className="text-[28px] font-bold text-dark mb-3">Your listing is live!</h1>
+          <p className="text-muted mb-2">
+            <span className="font-semibold text-dark">{published.hotel.name}</span> has been
+            published with listing ID #{published.hotel.id}.
+          </p>
+          <p className="text-sm text-muted mb-8">
+            Room #{published.room.number} · {published.room.type} · {formatCurrency(published.room.pricePerNight)}/night
+          </p>
+          <div className="flex flex-col sm:flex-row gap-3 justify-center">
+            <button
+              onClick={() => navigate(`/property/${published.hotel.id}`)}
+              className="px-6 py-3 bg-dark text-white text-sm font-bold rounded-xl hover:opacity-90 transition-all"
+            >
+              View your listing
+            </button>
+            <button
+              onClick={() => navigate('/')}
+              className="px-6 py-3 border border-gray-200 text-dark text-sm font-semibold rounded-xl hover:bg-gray-50 transition-all"
+            >
+              Back to home
+            </button>
+          </div>
+        </Motion.div>
+      </div>
+    )
   }
 
   return (
@@ -96,7 +151,7 @@ export default function OnboardingPage() {
 
       {/* Progress Bar */}
       <div className="w-full bg-gray-100 h-1 flex-shrink-0">
-        <motion.div
+        <Motion.div
           className="h-full bg-dark"
           initial={{ width: 0 }}
           animate={{ width: `${(currentStep / TOTAL_STEPS) * 100}%` }}
@@ -108,7 +163,7 @@ export default function OnboardingPage() {
       <div className="flex-1 overflow-y-auto">
         <div className="max-w-2xl mx-auto px-6 py-10 md:py-16">
           <AnimatePresence mode="wait">
-            <motion.div
+            <Motion.div
               key={currentStep}
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
@@ -125,8 +180,10 @@ export default function OnboardingPage() {
                 <StepTitleDescription
                   title={draftData.title}
                   description={draftData.description}
+                  location={draftData.location}
                   onTitleChange={(v) => updateDraft('title', v)}
                   onDescriptionChange={(v) => updateDraft('description', v)}
+                  onLocationChange={(v) => updateDraft('location', { ...draftData.location, ...v })}
                 />
               )}
               {currentStep === 3 && (
@@ -158,27 +215,42 @@ export default function OnboardingPage() {
                   onUpdate={updatePricing}
                 />
               )}
-            </motion.div>
+            </Motion.div>
           </AnimatePresence>
         </div>
       </div>
 
       {/* Footer Navigation */}
       <footer className="border-t border-gray-200 px-6 py-4 flex-shrink-0">
-        <div className="max-w-4xl mx-auto flex items-center justify-between">
-          <button
-            onClick={handleBack}
-            className="flex items-center gap-1 text-sm font-semibold text-dark underline hover:text-muted transition-colors"
-          >
-            Back
-          </button>
-          <button
-            onClick={handleNext}
-            disabled={!canProceed()}
-            className="px-8 py-3 bg-gradient-to-r from-dark to-gray-800 text-white text-sm font-bold rounded-xl hover:opacity-90 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
-          >
-            {currentStep === TOTAL_STEPS ? 'Publish listing' : 'Next'}
-          </button>
+        <div className="max-w-4xl mx-auto space-y-3">
+          {submitError && (
+            <div className="flex items-center gap-2 rounded-xl bg-red-50 px-4 py-3 text-sm font-medium text-red-600">
+              <AlertCircle size={14} />
+              {submitError}
+            </div>
+          )}
+          <div className="flex items-center justify-between">
+            <button
+              onClick={handleBack}
+              disabled={isSubmitting}
+              className="flex items-center gap-1 text-sm font-semibold text-dark underline hover:text-muted disabled:opacity-40 transition-colors"
+            >
+              Back
+            </button>
+            <button
+              onClick={handleNext}
+              disabled={!canProceed() || isSubmitting}
+              className="inline-flex items-center gap-2 px-8 py-3 bg-gradient-to-r from-dark to-gray-800 text-white text-sm font-bold rounded-xl hover:opacity-90 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+            >
+              {isSubmitting ? (
+                <><Loader2 size={15} className="animate-spin" /> Publishing…</>
+              ) : currentStep === TOTAL_STEPS ? (
+                'Publish listing'
+              ) : (
+                'Next'
+              )}
+            </button>
+          </div>
         </div>
       </footer>
     </div>
@@ -220,7 +292,7 @@ function StepPropertyType({ selected, onSelect }) {
   )
 }
 
-function StepTitleDescription({ title, description, onTitleChange, onDescriptionChange }) {
+function StepTitleDescription({ title, description, location, onTitleChange, onDescriptionChange, onLocationChange }) {
   return (
     <div>
       <h1 className="text-[28px] md:text-[32px] font-bold text-dark mb-2">
@@ -253,6 +325,28 @@ function StepTitleDescription({ title, description, onTitleChange, onDescription
             className="w-full px-4 py-3.5 border border-gray-300 rounded-xl text-sm resize-none focus:outline-none focus:border-dark focus:ring-1 focus:ring-dark transition-all"
           />
           <p className="text-xs text-muted mt-1.5">{description.length}/500</p>
+        </div>
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-semibold text-dark mb-2">City</label>
+            <input
+              type="text"
+              value={location?.city || ''}
+              onChange={(e) => onLocationChange({ city: e.target.value })}
+              placeholder="e.g., Paris"
+              className="w-full px-4 py-3.5 border border-gray-300 rounded-xl text-sm focus:outline-none focus:border-dark focus:ring-1 focus:ring-dark transition-all"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-semibold text-dark mb-2">Country</label>
+            <input
+              type="text"
+              value={location?.country || ''}
+              onChange={(e) => onLocationChange({ country: e.target.value })}
+              placeholder="e.g., France"
+              className="w-full px-4 py-3.5 border border-gray-300 rounded-xl text-sm focus:outline-none focus:border-dark focus:ring-1 focus:ring-dark transition-all"
+            />
+          </div>
         </div>
       </div>
     </div>
@@ -407,6 +501,11 @@ function StepPhotos({ photos, onPhotos }) {
 }
 
 function StepPricing({ pricing, onUpdate }) {
+  const { currency, formatCurrency } = useCurrency()
+  const estimatedWeeklyEarnings = Math.round(
+    pricing.weekday * 5 * 0.97 + (pricing.weekend || pricing.weekday) * 2 * 0.97,
+  )
+
   return (
     <div>
       <h1 className="text-[28px] md:text-[32px] font-bold text-dark mb-2">
@@ -417,26 +516,26 @@ function StepPricing({ pricing, onUpdate }) {
         <div>
           <label className="block text-sm font-semibold text-dark mb-2">Weekday price (per night)</label>
           <div className="relative">
-            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-xl font-bold text-dark">$</span>
+            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm font-bold text-dark">{currency}</span>
             <input
               type="number"
               value={pricing.weekday}
               onChange={(e) => onUpdate('weekday', e.target.value)}
               placeholder="100"
-              className="w-full pl-10 pr-4 py-4 border-2 border-gray-300 rounded-xl text-2xl font-bold text-center focus:outline-none focus:border-dark transition-all"
+              className="w-full pl-16 pr-4 py-4 border-2 border-gray-300 rounded-xl text-2xl font-bold text-center focus:outline-none focus:border-dark transition-all"
             />
           </div>
         </div>
         <div>
           <label className="block text-sm font-semibold text-dark mb-2">Weekend price (per night)</label>
           <div className="relative">
-            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-xl font-bold text-dark">$</span>
+            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm font-bold text-dark">{currency}</span>
             <input
               type="number"
               value={pricing.weekend}
               onChange={(e) => onUpdate('weekend', e.target.value)}
               placeholder="120"
-              className="w-full pl-10 pr-4 py-4 border-2 border-gray-300 rounded-xl text-2xl font-bold text-center focus:outline-none focus:border-dark transition-all"
+              className="w-full pl-16 pr-4 py-4 border-2 border-gray-300 rounded-xl text-2xl font-bold text-center focus:outline-none focus:border-dark transition-all"
             />
           </div>
         </div>
@@ -446,7 +545,7 @@ function StepPricing({ pricing, onUpdate }) {
             <h3 className="text-sm font-bold text-dark mb-3">Estimated earnings</h3>
             <div className="flex items-baseline gap-1">
               <span className="text-3xl font-bold text-dark">
-                ${Math.round(pricing.weekday * 5 * 0.97 + (pricing.weekend || pricing.weekday) * 2 * 0.97)}
+                {formatCurrency(estimatedWeeklyEarnings)}
               </span>
               <span className="text-muted text-sm">per week (after fees)</span>
             </div>

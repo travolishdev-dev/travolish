@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react'
 import { CreditCard, ShieldEllipsis, WalletCards } from 'lucide-react'
 import {
   AccountShell,
@@ -5,14 +6,59 @@ import {
   SectionHeading,
   StatusPill,
 } from '../../components/portal/PortalUI'
-import { paymentMethods, transactionSummary } from '../../data/mockPortalData'
+import { paymentMethods as mockPaymentMethods, transactionSummary } from '../../data/mockPortalData'
+import { getUserPaymentMethods } from '../../services/paymentMethodsApi'
+
+const NETWORK_COLORS = {
+  VISA: 'from-slate-900 via-slate-800 to-slate-700',
+  MASTERCARD: 'from-rose-600 via-orange-500 to-amber-400',
+  AMEX: 'from-cyan-700 via-sky-600 to-blue-500',
+  AMERICAN_EXPRESS: 'from-cyan-700 via-sky-600 to-blue-500',
+  RUPAY: 'from-violet-700 via-purple-600 to-indigo-500',
+  UPI: 'from-emerald-700 via-teal-600 to-cyan-500',
+}
+
+function adaptMethod(m) {
+  const network = (m.cardNetwork ?? '').toUpperCase().replace(/\s+/g, '_')
+  const color = NETWORK_COLORS[network] ?? 'from-slate-700 via-slate-600 to-slate-500'
+  const expiry =
+    m.cardExpiryMonth && m.cardExpiryYear
+      ? `${String(m.cardExpiryMonth).padStart(2, '0')}/${String(m.cardExpiryYear).slice(-2)}`
+      : '—'
+  const type = m.cardType
+    ? `${m.cardType.charAt(0)}${m.cardType.slice(1).toLowerCase()} card`
+    : m.methodType ?? 'Card'
+
+  return {
+    id: m.id,
+    type,
+    brand: m.cardNetwork ?? m.methodName ?? m.methodType ?? 'Card',
+    primary: m.isDefault ?? false,
+    last4: m.cardLast4 ?? '••••',
+    expiry,
+    color,
+  }
+}
 
 export default function PaymentMethodsPage() {
+  const [methods, setMethods] = useState(mockPaymentMethods)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    getUserPaymentMethods()
+      .then((data) => {
+        const items = Array.isArray(data) ? data : (data?.content ?? [])
+        if (items.length > 0) setMethods(items.map(adaptMethod))
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false))
+  }, [])
+
   return (
     <AccountShell
       title="Wallet and payment methods."
       mobileTitle="Wallet"
-      description="This mock screen focuses on the visual hierarchy for saved cards, billing readiness, and security reassurance. The later payment API integration can plug directly into this structure."
+      description="Saved cards, billing readiness, and security reassurance."
       mobileBottomAction={{ label: 'Save billing', href: '/account/payments' }}
       actions={[
         { label: 'See transactions', href: '/account/transactions', secondary: true },
@@ -25,65 +71,69 @@ export default function PaymentMethodsPage() {
           <SectionHeading
             eyebrow="Wallet"
             title="Saved cards"
-            description="Designed so the primary card is obvious, backups are easy to scan, and security status stays visible without adding friction."
+            description="Primary card is highlighted; backups are easy to scan."
           />
 
-          <div className="mt-6 grid gap-4 lg:grid-cols-2">
-            {paymentMethods.map((method) => (
-              <div
-                key={method.id}
-                className={`overflow-hidden rounded-[28px] bg-gradient-to-br ${method.color} p-[1px] shadow-[0_18px_45px_rgba(15,23,42,0.18)]`}
-              >
-                <div className="h-full rounded-[27px] bg-black/10 p-5 text-white backdrop-blur">
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-white/70">
-                        {method.type}
-                      </p>
-                      <p className="mt-4 text-2xl font-semibold tracking-tight">
-                        {method.brand}
-                      </p>
+          {loading ? (
+            <div className="mt-6 py-10 text-center text-sm text-muted">Loading payment methods…</div>
+          ) : (
+            <div className="mt-6 grid gap-4 lg:grid-cols-2">
+              {methods.map((method) => (
+                <div
+                  key={method.id}
+                  className={`overflow-hidden rounded-[28px] bg-gradient-to-br ${method.color} p-[1px] shadow-[0_18px_45px_rgba(15,23,42,0.18)]`}
+                >
+                  <div className="h-full rounded-[27px] bg-black/10 p-5 text-white backdrop-blur">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-white/70">
+                          {method.type}
+                        </p>
+                        <p className="mt-4 text-2xl font-semibold tracking-tight">
+                          {method.brand}
+                        </p>
+                      </div>
+                      {method.primary ? (
+                        <StatusPill tone="success">Primary</StatusPill>
+                      ) : (
+                        <StatusPill tone="sky">Backup</StatusPill>
+                      )}
                     </div>
-                    {method.primary ? (
-                      <StatusPill tone="success">Primary</StatusPill>
-                    ) : (
-                      <StatusPill tone="sky">Backup</StatusPill>
-                    )}
-                  </div>
 
-                  <div className="mt-10 flex items-center justify-between gap-4">
-                    <div>
-                      <p className="text-xs uppercase tracking-[0.16em] text-white/60">
-                        Card ending
-                      </p>
-                      <p className="mt-1 text-lg font-semibold">•••• {method.last4}</p>
+                    <div className="mt-10 flex items-center justify-between gap-4">
+                      <div>
+                        <p className="text-xs uppercase tracking-[0.16em] text-white/60">
+                          Card ending
+                        </p>
+                        <p className="mt-1 text-lg font-semibold">•••• {method.last4}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs uppercase tracking-[0.16em] text-white/60">
+                          Expires
+                        </p>
+                        <p className="mt-1 text-lg font-semibold">{method.expiry}</p>
+                      </div>
                     </div>
-                    <div>
-                      <p className="text-xs uppercase tracking-[0.16em] text-white/60">
-                        Expires
-                      </p>
-                      <p className="mt-1 text-lg font-semibold">{method.expiry}</p>
-                    </div>
-                  </div>
 
-                  <div className="mt-8 grid gap-2 sm:flex sm:flex-wrap sm:gap-3">
-                    <button
-                      type="button"
-                      className="rounded-full border border-white/20 bg-white/10 px-4 py-2 text-sm font-semibold transition-colors hover:bg-white/15"
-                    >
-                      {method.primary ? 'Edit card' : 'Set as primary'}
-                    </button>
-                    <button
-                      type="button"
-                      className="rounded-full border border-white/20 bg-transparent px-4 py-2 text-sm font-semibold transition-colors hover:bg-white/10"
-                    >
-                      Remove
-                    </button>
+                    <div className="mt-8 grid gap-2 sm:flex sm:flex-wrap sm:gap-3">
+                      <button
+                        type="button"
+                        className="rounded-full border border-white/20 bg-white/10 px-4 py-2 text-sm font-semibold transition-colors hover:bg-white/15"
+                      >
+                        {method.primary ? 'Edit card' : 'Set as primary'}
+                      </button>
+                      <button
+                        type="button"
+                        className="rounded-full border border-white/20 bg-transparent px-4 py-2 text-sm font-semibold transition-colors hover:bg-white/10"
+                      >
+                        Remove
+                      </button>
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </SectionCard>
 
         <div className="space-y-6">
@@ -91,7 +141,7 @@ export default function PaymentMethodsPage() {
             <SectionHeading
               eyebrow="Snapshot"
               title="Wallet health"
-              description="A compact financial summary that works well on mobile."
+              description="A compact financial summary."
             />
 
             <div className="mt-6 divide-y divide-gray-200 border-y border-gray-200">
@@ -124,8 +174,7 @@ export default function PaymentMethodsPage() {
                 </div>
               </div>
               <p className="mt-4 text-sm leading-6 text-white/80">
-                Card details never need to be fully exposed in the UI. This layout is
-                already compatible with masked backend responses.
+                Card details are masked in transit. This layout is compatible with masked backend responses.
               </p>
             </div>
 
@@ -135,8 +184,7 @@ export default function PaymentMethodsPage() {
                   <WalletCards size={20} />
                 </div>
                 <p className="text-sm leading-6 text-muted">
-                  Gift cards, travel credits, and future wallet instruments can stack
-                  into this same area without changing page composition.
+                  Gift cards, travel credits, and future wallet instruments can stack into this same area.
                 </p>
               </div>
             </div>
@@ -148,7 +196,7 @@ export default function PaymentMethodsPage() {
         <SectionHeading
           eyebrow="Billing Details"
           title="Reusable billing form"
-          description="This gives us the future integration target for add-card and update-card endpoints."
+          description="Integration target for add-card and update-card endpoints."
         />
 
         <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">

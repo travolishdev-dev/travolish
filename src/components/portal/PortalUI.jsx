@@ -5,18 +5,20 @@ import {
   CalendarRange,
   CreditCard,
   Home,
+  LifeBuoy,
   Menu,
   MessageCircleMore,
   Receipt,
   ShieldCheck,
   Sparkles,
   Star,
+  TicketPercent,
   UserRound,
   X,
 } from 'lucide-react'
-import { AnimatePresence, motion } from 'framer-motion'
+import { AnimatePresence, motion as Motion } from 'framer-motion'
 import usePortalViewer from '../../hooks/usePortalViewer'
-import { accountInsights } from '../../data/mockPortalData'
+import useAccountInsights from '../../hooks/useAccountInsights'
 
 const accountNavGroups = [
   {
@@ -38,6 +40,8 @@ const accountNavGroups = [
     title: 'Travel',
     items: [
       { label: 'Trips', href: '/trips', icon: CalendarRange },
+      { label: 'Offers', href: '/offers', icon: TicketPercent },
+      { label: 'Emergency', href: '/emergency', icon: LifeBuoy },
       { label: 'Messages', href: '/messages', icon: MessageCircleMore },
       { label: 'Reviews', href: '/reviews/me', icon: Star },
     ],
@@ -59,8 +63,8 @@ const toneClasses = {
 const mobileBottomNav = [
   { label: 'Home', href: '/', icon: Home },
   { label: 'Trips', href: '/trips', icon: CalendarRange },
+  { label: 'Offers', href: '/offers', icon: TicketPercent },
   { label: 'Messages', href: '/messages', icon: MessageCircleMore },
-  { label: 'Reviews', href: '/reviews/me', icon: Star },
   { label: 'Account', href: '/account', icon: UserRound },
 ]
 
@@ -70,6 +74,8 @@ const mobileDrawerSections = [
     items: [
       { label: 'Home', href: '/', icon: Home },
       { label: 'Trips', href: '/trips', icon: CalendarRange },
+      { label: 'Offers', href: '/offers', icon: TicketPercent },
+      { label: 'Emergency', href: '/emergency', icon: LifeBuoy },
       { label: 'Messages', href: '/messages', icon: MessageCircleMore },
       { label: 'Reviews', href: '/reviews/me', icon: Star },
       { label: 'Notifications', href: '/notifications', icon: BellRing },
@@ -216,7 +222,7 @@ function PortalMobileChrome({ title, mobileAction }) {
       <AnimatePresence>
         {isDrawerOpen && (
           <>
-            <motion.button
+            <Motion.button
               type="button"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
@@ -224,7 +230,7 @@ function PortalMobileChrome({ title, mobileAction }) {
               onClick={() => setIsDrawerOpen(false)}
               className="fixed inset-0 z-40 bg-black/35 md:hidden"
             />
-            <motion.aside
+            <Motion.aside
               initial={{ x: '-100%' }}
               animate={{ x: 0 }}
               exit={{ x: '-100%' }}
@@ -287,7 +293,7 @@ function PortalMobileChrome({ title, mobileAction }) {
                   </div>
                 ))}
               </div>
-            </motion.aside>
+            </Motion.aside>
           </>
         )}
       </AnimatePresence>
@@ -398,7 +404,7 @@ export function PortalShell({
       <div className="mx-auto flex max-w-[1760px] flex-col gap-4 px-4 pt-4 md:gap-6 md:px-10 md:pt-0 xl:px-20">
         <PortalMobileChrome title={mobileTitle} mobileAction={mobileAction} />
         <MobileBottomAction action={mobileBottomAction} />
-        <motion.section
+        <Motion.section
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.28, ease: 'easeOut' }}
@@ -438,7 +444,7 @@ export function PortalShell({
               </div>
             ) : null}
           </div>
-        </motion.section>
+        </Motion.section>
 
         <PreviewModeNotice />
         {children}
@@ -460,6 +466,7 @@ export function AccountShell({
 }) {
   const { pathname } = useLocation()
   const { viewer } = usePortalViewer()
+  const insights = useAccountInsights()
   const mobilePadding = mobileBottomAction
     ? 'pb-[calc(10.5rem+env(safe-area-inset-bottom))]'
     : 'pb-[calc(5.75rem+env(safe-area-inset-bottom))]'
@@ -469,7 +476,7 @@ export function AccountShell({
       <div className="mx-auto flex max-w-[1760px] flex-col gap-4 px-4 pt-4 md:gap-6 md:px-10 md:pt-0 xl:px-20">
         <PortalMobileChrome title={mobileTitle} mobileAction={mobileAction} />
         <MobileBottomAction action={mobileBottomAction} />
-        <motion.section
+        <Motion.section
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.28, ease: 'easeOut' }}
@@ -511,7 +518,7 @@ export function AccountShell({
             </div>
 
             <div className="grid gap-0 divide-y divide-gray-200/80 border-t border-gray-200/80 lg:grid-cols-3 lg:divide-x lg:divide-y-0 lg:border-b-0">
-              {accountInsights.map((insight) => (
+              {insights.map((insight) => (
                 <div key={insight.label} className="py-3 lg:px-4">
                   <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted">
                     {insight.label}
@@ -519,12 +526,14 @@ export function AccountShell({
                   <p className="mt-1 text-base font-semibold tracking-tight text-dark lg:text-lg">
                     {insight.value}
                   </p>
-                  <p className="mt-1 text-[11px] leading-5 text-muted">{insight.note}</p>
+                  {insight.note ? (
+                    <p className="mt-1 text-[11px] leading-5 text-muted">{insight.note}</p>
+                  ) : null}
                 </div>
               ))}
             </div>
           </div>
-        </motion.section>
+        </Motion.section>
 
         <PreviewModeNotice />
 

@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { Camera, MapPinned, PencilLine, UserRound } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
+import { Camera, CheckCheck, Loader2, MapPinned, PencilLine, UserRound } from 'lucide-react'
 import {
   AccountShell,
   SectionCard,
@@ -7,6 +7,9 @@ import {
   StatusPill,
 } from '../../components/portal/PortalUI'
 import usePortalViewer from '../../hooks/usePortalViewer'
+import { findUserByEmail, createUser, updateUser } from '../../services/usersApi'
+import { getAvatarUploadUrl, uploadToGcs } from '../../services/storageApi'
+import useAuthStore from '../../stores/useAuthStore'
 
 function Field({ label, value, onChange, placeholder, textarea = false }) {
   const Component = textarea ? 'textarea' : 'input'
@@ -30,6 +33,7 @@ function Field({ label, value, onChange, placeholder, textarea = false }) {
 
 export default function EditProfilePage() {
   const { viewer } = usePortalViewer()
+  const [backendUserId, setBackendUserId] = useState(null)
   const [formState, setFormState] = useState({
     preferredName: viewer.preferredName,
     fullName: viewer.fullName,
@@ -40,17 +44,125 @@ export default function EditProfilePage() {
     travelStyle: viewer.travelStyle,
     bio: viewer.bio,
   })
+  const [saving, setSaving] = useState(false)
+  const [saved, setSaved] = useState(false)
+  const [saveError, setSaveError] = useState(null)
+  const [avatarPreview, setAvatarPreview] = useState(null)
+  const [uploadingPhoto, setUploadingPhoto] = useState(false)
+  const [photoError, setPhotoError] = useState(null)
+  const fileInputRef = useRef(null)
+  const updateAvatar = useAuthStore((state) => state.updateAvatar)
 
-  const updateField = (field) => (event) =>
+  useEffect(() => {
+    const email = viewer.email
+    if (!email) return
+
+    const nameParts = viewer.fullName?.trim().split(' ') ?? []
+    const firstName = nameParts[0] ?? ''
+    const lastName = nameParts.slice(1).join(' ')
+
+    findUserByEmail(email)
+      .catch(async (err) => {
+        if (!err.message?.includes('404')) throw err
+        // User doesn't exist in backend yet — create them from auth profile
+        return createUser({ firstName, lastName, email, phone: viewer.phone ?? null })
+      })
+      .then((data) => {
+        if (!data) return
+        setBackendUserId(data.id)
+        const name = [data.firstName, data.lastName].filter(Boolean).join(' ')
+        setFormState((prev) => ({
+          ...prev,
+          fullName: name || prev.fullName,
+          preferredName: data.preferredName || data.firstName || prev.preferredName,
+          email: data.email || prev.email,
+          phone: data.phone || prev.phone,
+          city: data.city || prev.city,
+          timeZone: data.timeZone || prev.timeZone,
+          travelStyle: data.travelStyle || prev.travelStyle,
+          bio: data.bio || prev.bio,
+        }))
+      })
+      .catch(() => {})
+  }, [viewer.email])
+
+  const handlePhotoSelect = async (e) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    if (!file.type.startsWith('image/')) {
+      setPhotoError('Please select an image file.')
+      return
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setPhotoError('Image must be under 5 MB.')
+      return
+    }
+
+    setUploadingPhoto(true)
+    setPhotoError(null)
+    const previewUrl = URL.createObjectURL(file)
+    setAvatarPreview(previewUrl)
+
+    try {
+      const { signedUrl, publicUrl } = await getAvatarUploadUrl(file.name, file.type)
+      await uploadToGcs(signedUrl, file)
+      await updateAvatar(publicUrl)
+      if (backendUserId) {
+        await updateUser(backendUserId, { avatarUrl: publicUrl })
+      }
+    } catch {
+      setPhotoError('Photo upload failed. Please try again.')
+      setAvatarPreview(null)
+    } finally {
+      setUploadingPhoto(false)
+      if (fileInputRef.current) fileInputRef.current.value = ''
+    }
+  }
+
+  const updateField = (field) => (event) => {
+    setSaved(false)
     setFormState((current) => ({ ...current, [field]: event.target.value }))
+  }
+
+  const handleSave = async () => {
+    if (!backendUserId) {
+      setSaveError('User account not found. Please sign in again.')
+      return
+    }
+    setSaving(true)
+    setSaved(false)
+    setSaveError(null)
+    try {
+      const nameParts = formState.fullName.trim().split(' ')
+      const firstName = nameParts[0] ?? ''
+      const lastName = nameParts.slice(1).join(' ')
+      await updateUser(backendUserId, {
+        firstName,
+        lastName,
+        preferredName: formState.preferredName,
+        email: formState.email,
+        phone: formState.phone,
+        city: formState.city,
+        timeZone: formState.timeZone,
+        travelStyle: formState.travelStyle,
+        bio: formState.bio,
+      })
+      setSaved(true)
+    } catch {
+      setSaveError('Could not save profile. Please try again.')
+    } finally {
+      setSaving(false)
+    }
+  }
 
   return (
     <AccountShell
       title="Edit your traveler profile."
       mobileTitle="Edit profile"
-      description="This form is intentionally polished but still mock-only. It is ready to connect later to user profile and avatar upload endpoints without changing the interaction model."
-      mobileAction={{ label: 'Save', href: '/account' }}
-      mobileBottomAction={{ label: 'Save profile', href: '/account' }}
+      description="Update your name, email, phone, and travel details."
+      mobileAction={{ label: 'Save', onClick: handleSave }}
+      mobileBottomAction={{ label: 'Save profile', onClick: handleSave }}
       actions={[
         { label: 'Preview profile', href: '/account', secondary: true },
         { label: 'Save profile', href: '/account' },
@@ -62,7 +174,7 @@ export default function EditProfilePage() {
           <SectionHeading
             eyebrow="Profile Details"
             title="Edit the story travelers and hosts see"
-            description="The goal is a calm, premium form: strong spacing, low visual noise, and just enough context to make the preview believable."
+            description="Strong spacing, low visual noise, and just enough context to make the preview believable."
           />
 
           <div className="mt-6 grid gap-5 md:grid-cols-2">
@@ -119,6 +231,27 @@ export default function EditProfilePage() {
               textarea
             />
           </div>
+
+          {/* Save bar */}
+          <div className="mt-6 flex items-center justify-between gap-4 rounded-[24px] border border-gray-200 bg-[#fcfcfb] px-5 py-4">
+            {saved ? (
+              <p className="inline-flex items-center gap-2 text-sm font-semibold text-emerald-600">
+                <CheckCheck size={15} /> Profile saved
+              </p>
+            ) : saveError ? (
+              <p className="text-sm text-red-600">{saveError}</p>
+            ) : (
+              <p className="text-sm text-muted">Changes are not saved until you click below.</p>
+            )}
+            <button
+              type="button"
+              onClick={handleSave}
+              disabled={saving}
+              className="inline-flex items-center gap-2 rounded-full bg-dark px-6 py-2.5 text-sm font-bold text-white hover:opacity-90 disabled:opacity-40 transition-all"
+            >
+              {saving ? <><Loader2 size={14} className="animate-spin" /> Saving…</> : 'Save profile'}
+            </button>
+          </div>
         </SectionCard>
 
         <div className="space-y-6">
@@ -126,22 +259,44 @@ export default function EditProfilePage() {
             <SectionHeading
               eyebrow="Profile Photo"
               title="Current preview"
-              description="The upload action stays mock-only for now."
+              description="JPG or PNG, max 5 MB."
             />
 
             <div className="mt-6 flex flex-col items-center text-center">
-              <img
-                src={viewer.avatar}
-                alt={viewer.fullName}
-                className="h-32 w-32 rounded-[28px] object-cover shadow-[0_16px_40px_rgba(15,23,42,0.12)]"
+              <div className="relative">
+                <img
+                  src={avatarPreview || viewer.avatar}
+                  alt={viewer.fullName}
+                  className="h-32 w-32 rounded-[28px] object-cover shadow-[0_16px_40px_rgba(15,23,42,0.12)]"
+                />
+                {uploadingPhoto && (
+                  <div className="absolute inset-0 flex items-center justify-center rounded-[28px] bg-black/40">
+                    <Loader2 size={24} className="animate-spin text-white" />
+                  </div>
+                )}
+              </div>
+
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={handlePhotoSelect}
               />
+
               <button
                 type="button"
-                className="mt-5 inline-flex items-center gap-2 rounded-full border border-gray-200 bg-white px-4 py-2.5 text-sm font-semibold text-dark transition-colors hover:bg-gray-50"
+                disabled={uploadingPhoto}
+                onClick={() => fileInputRef.current?.click()}
+                className="mt-5 inline-flex items-center gap-2 rounded-full border border-gray-200 bg-white px-4 py-2.5 text-sm font-semibold text-dark transition-colors hover:bg-gray-50 disabled:opacity-40"
               >
                 <Camera size={16} />
-                Replace photo
+                {uploadingPhoto ? 'Uploading…' : 'Replace photo'}
               </button>
+
+              {photoError && (
+                <p className="mt-2 text-xs text-red-500">{photoError}</p>
+              )}
             </div>
           </SectionCard>
 
@@ -149,7 +304,7 @@ export default function EditProfilePage() {
             <SectionHeading
               eyebrow="Live Preview"
               title="How this profile reads"
-              description="Useful later when public profile rendering and account APIs are wired in."
+              description="Updates as you type."
             />
 
             <div className="mt-6 space-y-4">
@@ -176,8 +331,7 @@ export default function EditProfilePage() {
                     <MapPinned size={18} />
                   </div>
                   <p className="text-sm leading-6 text-muted">
-                    Location, profile completeness, and image upload controls can all
-                    connect later without reshaping the card hierarchy here.
+                    Location, profile completeness, and image upload controls can all connect later without reshaping the card hierarchy here.
                   </p>
                 </div>
               </div>

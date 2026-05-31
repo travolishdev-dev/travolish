@@ -1,5 +1,15 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
 
+@font-face {
+  font-family: 'Fake Serif';
+  src:
+    url('./assets/fonts/fake_serif/Fake Serif.otf') format('opentype'),
+    url('./assets/fonts/fake_serif/Fake Serif.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -72,6 +82,10 @@ body {
   border-radius: 12px;
 }
 
+.classic-search-map.leaflet-container {
+  border-radius: 0;
+}
+
 /* ── Focus Ring Utility ── */
 .focus-ring {
   @apply focus:outline-none focus:ring-2 focus:ring-brand focus:ring-offset-1;
@@ -80,4 +94,194 @@ body {
 /* ── Transition Utility ── */
 .transition-default {
   @apply transition-all duration-200 ease-in-out;
+}
+
+/* ── Brand Wordmark ── */
+.travolish-wordmark {
+  display: inline-flex;
+  font-family: 'Fake Serif', Georgia, 'Times New Roman', serif;
+  font-weight: 400;
+  line-height: 1;
+  letter-spacing: 0;
+  white-space: nowrap;
+}
+
+.travolish-wordmark-letter {
+  display: inline-block;
+}
+
+/* ── Traveller Assistant Bubble ── */
+.traveller-assistant-cloud {
+  padding: 0.82rem 1rem;
+  border: 1px solid rgba(255, 56, 92, 0.16);
+  border-radius: 16px;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(255, 241, 245, 0.98));
+  box-shadow:
+    0 16px 34px rgba(255, 56, 92, 0.16),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.74);
+  animation: traveller-assistant-cloud-float 3.4s ease-in-out infinite;
+}
+
+.traveller-assistant-cloud::after {
+  content: '';
+  position: absolute;
+  right: 1.35rem;
+  bottom: -0.42rem;
+  width: 0.78rem;
+  height: 0.78rem;
+  border-right: 1px solid rgba(255, 56, 92, 0.16);
+  border-bottom: 1px solid rgba(255, 56, 92, 0.16);
+  background: rgba(255, 246, 249, 0.98);
+  transform: rotate(45deg);
+}
+
+@keyframes traveller-assistant-cloud-float {
+  0%,
+  100% {
+    transform: translateY(0) scale(1);
+  }
+  50% {
+    transform: translateY(-6px) scale(1.02);
+  }
+}
+
+/* ── Home Search Hero ── */
+.home-search-hero {
+  position: relative;
+  z-index: 10;
+  overflow: visible;
+  isolation: isolate;
+  background:
+    radial-gradient(circle at 18% 18%, rgba(255, 56, 92, 0.08), transparent 26%),
+    radial-gradient(circle at 82% 12%, rgba(34, 34, 34, 0.06), transparent 24%),
+    linear-gradient(180deg, #fffdfb 0%, #fafafa 54%, #ffffff 100%);
+}
+
+.home-search-hero::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background-image:
+    linear-gradient(rgba(34, 34, 34, 0.055) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(34, 34, 34, 0.055) 1px, transparent 1px);
+  background-size: 44px 44px;
+  mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 0.82), transparent 82%);
+  pointer-events: none;
+}
+
+.home-search-hero::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  bottom: -46px;
+  z-index: 0;
+  width: min(960px, 82vw);
+  height: 260px;
+  transform: translateX(-50%);
+  border-radius: 50%;
+  background: rgba(255, 56, 92, 0.06);
+  filter: blur(12px);
+  pointer-events: none;
+}
+
+/* ── Footer Gradient ── */
+.footer-pink-grid {
+  isolation: isolate;
+  background:
+    radial-gradient(circle at 16% 12%, rgba(255, 56, 92, 0.025), transparent 24%),
+    radial-gradient(circle at 84% 8%, rgba(255, 182, 193, 0.07), transparent 26%),
+    linear-gradient(180deg, #ffffff 0%, #ffffff 58%, #fffbfc 100%);
+}
+
+.footer-pink-grid::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background-image:
+    linear-gradient(rgba(34, 34, 34, 0.06) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(34, 34, 34, 0.06) 1px, transparent 1px);
+  background-size: 42px 42px;
+  mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 0.55), transparent 86%);
+  pointer-events: none;
+}
+
+/* ── Home Date Picker ── */
+.travolish-calendar {
+  --rdp-accent-color: #FF385C;
+  --rdp-background-color: #fff1f3;
+  --rdp-outline: 2px solid #FF385C;
+  margin: 0;
+  width: 100%;
+}
+
+.travolish-calendar .rdp-months,
+.travolish-calendar .rdp-month {
+  width: 100%;
+}
+
+.travolish-calendar .rdp-months {
+  display: flex;
+  gap: 20px;
+}
+
+.travolish-calendar .rdp-month {
+  flex: 1 1 0;
+}
+
+.travolish-calendar .rdp-table {
+  width: 100%;
+  max-width: none;
+}
+
+.travolish-calendar .rdp-caption_label {
+  font-size: 14px;
+  font-weight: 700;
+  color: #222222;
+}
+
+.travolish-calendar .rdp-head_cell {
+  font-size: 11px;
+  font-weight: 700;
+  color: #717171;
+  text-transform: uppercase;
+}
+
+.travolish-calendar .rdp-cell {
+  height: 38px;
+}
+
+.travolish-calendar .rdp-button {
+  width: 36px;
+  height: 36px;
+  border-radius: 9999px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.travolish-calendar .rdp-button:hover:not([disabled]):not(.rdp-day_selected) {
+  background: #f7f7f7;
+}
+
+.travolish-calendar .rdp-day_disabled {
+  opacity: 0.28;
+}
+
+.travolish-calendar .rdp-day_selected,
+.travolish-calendar .rdp-day_range_start,
+.travolish-calendar .rdp-day_range_end {
+  background: #FF385C;
+  color: #ffffff;
+}
+
+.travolish-calendar .rdp-day_range_middle {
+  background: #fff1f3;
+  color: #222222;
+}
+
+@media (max-width: 899px) {
+  .travolish-calendar .rdp-months {
+    display: block;
+  }
 }

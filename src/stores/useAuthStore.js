@@ -1,68 +1,98 @@
 import { create } from 'zustand'
-import { supabase } from '../lib/supabase'
-import useNativeAppLocationStore from './useNativeAppLocationStore'
+import {
+  setAuthToken,
+  setRefreshToken,
+  clearTokens,
+  loadRefreshToken,
+  refreshAccessToken,
+} from '../lib/api'
+import { getMe } from '../services/usersApi'
+import useWishlistStore from './useWishlistStore'
 
-const useAuthStore = create((set) => ({
+const BASE_URL = import.meta.env.VITE_API_BASE_URL || ''
+
+// Build a Supabase-compatible profile shape from the backend user so existing
+// components that read `profile.avatar_url` / `profile.full_name` keep working.
+function deriveProfile(user) {
+  if (!user) return null
+  return {
+    id: user.id,
+    avatar_url: user.avatarUrl || user.imageKey || null,
+    full_name: [user.firstName, user.lastName].filter(Boolean).join(' '),
+    email: user.email,
+    role: 'guest',
+  }
+}
+
+const useAuthStore = create((set, get) => ({
   user: null,
-  profile: null,
-  session: null,
+  profile: null,       // derived from user — kept for backward compat
+  backendUserId: null,
   isLoading: true,
   isAuthModalOpen: false,
 
-  setUser: (user) => set({ user }),
-  setProfile: (profile) => set({ profile }),
-  setSession: (session) => set({ session }),
-  setIsLoading: (isLoading) => set({ isLoading }),
   openAuthModal: () => set({ isAuthModalOpen: true }),
   closeAuthModal: () => set({ isAuthModalOpen: false }),
 
+  // Restore session on page load using stored refresh token
   initialize: async () => {
+    const refreshToken = loadRefreshToken()
+    if (!refreshToken) {
+      set({ isLoading: false })
+      return
+    }
     try {
-      const { data: { session } } = await supabase.auth.getSession()
-      if (session) {
-        set({ user: session.user, session, isLoading: false })
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', session.user.id)
-          .single()
-        if (profile) {
-          set({ profile })
-        }
-
-        await useNativeAppLocationStore.getState().syncDetails()
-      } else {
-        set({ isLoading: false })
-      }
-    } catch (error) {
-      console.error('Auth initialization error:', error)
+      const accessToken = await refreshAccessToken()
+      setAuthToken(accessToken)
+      const backendUser = await getMe()
+      set({
+        user: backendUser,
+        profile: deriveProfile(backendUser),
+        backendUserId: backendUser.id,
+        isLoading: false,
+      })
+      useWishlistStore.getState().initialize(backendUser.id)
+    } catch {
+      clearTokens()
       set({ isLoading: false })
     }
   },
 
-  signInWithGoogle: async () => {
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: {
-        redirectTo: `${window.location.origin}/auth/callback`,
-      },
+  // Called by AuthModal with the Google credential (id_token) from @react-oauth/google
+  signInWithGoogle: async (credential) => {
+    const res = await fetch(`${BASE_URL}/api/auth/google/callback`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ idToken: credential }),
     })
-    if (error) throw error
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}))
+      throw new Error(err.error || err.message || 'Google sign-in failed')
+    }
+    const data = await res.json()
+    setAuthToken(data.accessToken)
+    setRefreshToken(data.refreshToken)
+    const backendUser = await getMe()
+    set({
+      user: backendUser,
+      profile: deriveProfile(backendUser),
+      backendUserId: backendUser.id,
+    })
+    useWishlistStore.getState().initialize(backendUser.id)
+    return data
   },
 
-  signInWithEmail: async (email) => {
-    const { error } = await supabase.auth.signInWithOtp({
-      email,
-      options: {
-        emailRedirectTo: `${window.location.origin}/auth/callback`,
-      },
-    })
-    if (error) throw error
+  signOut: () => {
+    clearTokens()
+    set({ user: null, profile: null, backendUserId: null })
+    useWishlistStore.getState().clearWishlists()
   },
 
-  signOut: async () => {
-    await supabase.auth.signOut()
-    set({ user: null, profile: null, session: null })
+  updateAvatar: (avatarUrl) => {
+    set((state) => {
+      const user = state.user ? { ...state.user, avatarUrl } : null
+      return { user, profile: deriveProfile(user) }
+    })
   },
 }))
 

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Plus, Power, Trash2 } from 'lucide-react'
+import { BellRing, CalendarCheck, Clock3, Plus, Power, Trash2 } from 'lucide-react'
 import {
   HostShell,
   SectionCard,
@@ -38,6 +38,30 @@ const EMPTY_TEMPLATE = {
   language: 'en',
 }
 
+const guestReminders = [
+  {
+    id: 'pre-arrival',
+    title: 'Pre-arrival reminder',
+    timing: '48 hours before check-in',
+    channel: 'Email + app',
+    message: 'Share arrival timing, address, parking notes, and host contact.',
+  },
+  {
+    id: 'check-in',
+    title: 'Check-in day note',
+    timing: '8:00 AM on arrival day',
+    channel: 'App notification',
+    message: 'Send check-in steps, Wi-Fi, house rules, and key collection details.',
+  },
+  {
+    id: 'checkout',
+    title: 'Checkout and review nudge',
+    timing: 'Evening before checkout',
+    channel: 'Email',
+    message: 'Remind checkout time, pending dues, damage notes, and review request.',
+  },
+]
+
 function adaptTemplate(t) {
   return {
     id: t.id,
@@ -54,17 +78,21 @@ function adaptTemplate(t) {
 export default function HostAutoRepliesPage() {
   const { hostId, loading: hostLoading } = useHostContext()
   const [templates, setTemplates] = useState([])
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(false)
   const [showForm, setShowForm] = useState(false)
   const [newTemplate, setNewTemplate] = useState(EMPTY_TEMPLATE)
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState(null)
+  const [enabledReminders, setEnabledReminders] = useState(() =>
+    guestReminders.reduce((acc, reminder) => ({ ...acc, [reminder.id]: true }), {}),
+  )
+  const [reminderNotice, setReminderNotice] = useState(null)
 
   useEffect(() => {
     if (hostLoading || !hostId) {
-      if (!hostLoading) setLoading(false)
       return
     }
+    setLoading(true)
     getTemplatesForHost(hostId)
       .then((data) => {
         const items = Array.isArray(data) ? data : (data?.content ?? [])
@@ -129,6 +157,14 @@ export default function HostAutoRepliesPage() {
   const updateField = (field) => (e) =>
     setNewTemplate((prev) => ({ ...prev, [field]: e.target.value }))
 
+  function toggleReminder(reminder) {
+    setEnabledReminders((prev) => {
+      const nextEnabled = !prev[reminder.id]
+      setReminderNotice(`${reminder.title} ${nextEnabled ? 'enabled' : 'paused'} for upcoming bookings.`)
+      return { ...prev, [reminder.id]: nextEnabled }
+    })
+  }
+
   return (
     <HostShell
       eyebrow="Auto replies"
@@ -143,8 +179,76 @@ export default function HostAutoRepliesPage() {
       stats={[
         { label: 'Templates', value: String(templates.length), note: 'Saved in library' },
         { label: 'Active', value: String(templates.filter((t) => t.isActive !== false).length), note: 'Currently enabled' },
+        { label: 'Reminders', value: String(Object.values(enabledReminders).filter(Boolean).length), note: 'Guest schedules active' },
       ]}
     >
+      <SectionCard>
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+          <SectionHeading
+            eyebrow="Guest reminders"
+            title="Automated stay timeline"
+            description="Prepare check-in, checkout, and review reminders for every confirmed booking."
+          />
+          <div className="inline-flex items-center gap-2 rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-2 text-sm font-semibold text-emerald-700">
+            <BellRing size={16} />
+            UI schedule preview
+          </div>
+        </div>
+
+        {reminderNotice ? (
+          <div className="mt-5 rounded-2xl border border-rose-100 bg-rose-50 px-4 py-3 text-sm font-semibold text-brand">
+            {reminderNotice}
+          </div>
+        ) : null}
+
+        <div className="mt-6 grid gap-4 lg:grid-cols-3">
+          {guestReminders.map((reminder) => {
+            const isEnabled = enabledReminders[reminder.id]
+
+            return (
+              <div
+                key={reminder.id}
+                className="rounded-[24px] border border-gray-200 bg-[#fcfbf8] p-5"
+              >
+                <div className="flex items-start justify-between gap-4">
+                  <div className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-white text-brand shadow-sm">
+                    <CalendarCheck size={19} />
+                  </div>
+                  <StatusPill tone={isEnabled ? 'success' : 'slate'}>
+                    {isEnabled ? 'Active' : 'Paused'}
+                  </StatusPill>
+                </div>
+                <h2 className="mt-4 text-lg font-semibold tracking-tight text-dark">
+                  {reminder.title}
+                </h2>
+                <p className="mt-2 flex items-center gap-2 text-sm text-muted">
+                  <Clock3 size={15} />
+                  {reminder.timing}
+                </p>
+                <p className="mt-3 text-sm leading-6 text-muted">{reminder.message}</p>
+                <div className="mt-5 flex items-center justify-between gap-3 border-t border-gray-200 pt-4">
+                  <span className="text-xs font-semibold uppercase tracking-[0.16em] text-muted">
+                    {reminder.channel}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => toggleReminder(reminder)}
+                    className={`inline-flex items-center gap-2 rounded-xl px-3 py-2 text-xs font-semibold transition-colors ${
+                      isEnabled
+                        ? 'border border-gray-200 bg-white text-dark hover:bg-gray-50'
+                        : 'bg-dark text-white hover:bg-gray-800'
+                    }`}
+                  >
+                    <Power size={13} />
+                    {isEnabled ? 'Pause' : 'Enable'}
+                  </button>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      </SectionCard>
+
       <SectionCard>
         <div className="flex items-start justify-between gap-4">
           <SectionHeading eyebrow="Templates" title="Message library" />

@@ -273,8 +273,16 @@ export default function HostAvailabilityPage() {
   const { primaryHotelId, loading: hostLoading } = useHostContext()
   const [dates] = useState(buildDates)
   const [rows, setRows] = useState([])
-  const [dataLoading, setDataLoading] = useState(true)
+  const [dataLoading, setDataLoading] = useState(false)
   const today = useMemo(() => startOfDay(new Date()), [])
+  const [availabilityAction, setAvailabilityAction] = useState(() => ({
+    start: toDateKey(today),
+    end: toDateKey(addDays(today, 2)),
+    action: 'Block dates',
+    minimumStay: '2',
+    rateOverride: '',
+  }))
+  const [availabilityNotice, setAvailabilityNotice] = useState('')
   const [currentMonth, setCurrentMonth] = useState(() => startOfMonth(new Date()))
   const [selectedListingId, setSelectedListingId] = useState('all')
   const [availabilityByListingDate, setAvailabilityByListingDate] = useState({})
@@ -304,10 +312,7 @@ export default function HostAvailabilityPage() {
 
   // Load 14-day room grid data
   useEffect(() => {
-    if (hostLoading || !primaryHotelId) {
-      if (!hostLoading) setDataLoading(false)
-      return
-    }
+    if (hostLoading || !primaryHotelId) return
 
     const startDate = dates[0].iso
     const endDate = dates[dates.length - 1].iso
@@ -423,6 +428,25 @@ export default function HostAvailabilityPage() {
     setCurrentMonth(startOfMonth(today))
   }
 
+  function updateAvailabilityAction(field) {
+    return (event) => {
+      setAvailabilityAction((current) => ({
+        ...current,
+        [field]: event.target.value,
+      }))
+    }
+  }
+
+  function handleApplyAvailabilityAction() {
+    const scope = selectedListingId === 'all' ? 'all properties' : selectedScopeLabel
+    const rateCopy = availabilityAction.rateOverride
+      ? ` with $${availabilityAction.rateOverride} rate override`
+      : ''
+    setAvailabilityNotice(
+      `${availabilityAction.action} prepared for ${scope}, ${availabilityAction.start} to ${availabilityAction.end}, ${availabilityAction.minimumStay || 1}-night minimum${rateCopy}. UI only; no inventory API write was sent.`,
+    )
+  }
+
   const stats = [
     {
       label: 'Booked nights',
@@ -525,6 +549,84 @@ export default function HostAvailabilityPage() {
                 : 'Preview data shown until inventory API returns data.'}
           </span>
         </div>
+      </SectionCard>
+
+      <SectionCard>
+        <SectionHeading
+          eyebrow="Bulk controls"
+          title="Date range actions"
+          description="UI-only controls for blocking dates, setting minimum stay, and overriding rates across a selected range."
+        />
+
+        <div className="mt-6 grid gap-4 xl:grid-cols-[1fr_1fr_1fr_1fr_auto]">
+          <label>
+            <span className="mb-2 block text-sm font-semibold text-dark">Start date</span>
+            <input
+              type="date"
+              value={availabilityAction.start}
+              onChange={updateAvailabilityAction('start')}
+              className="h-12 w-full rounded-xl border border-gray-300 bg-white px-3 text-sm font-semibold text-dark outline-none focus:border-dark"
+            />
+          </label>
+          <label>
+            <span className="mb-2 block text-sm font-semibold text-dark">End date</span>
+            <input
+              type="date"
+              value={availabilityAction.end}
+              onChange={updateAvailabilityAction('end')}
+              className="h-12 w-full rounded-xl border border-gray-300 bg-white px-3 text-sm font-semibold text-dark outline-none focus:border-dark"
+            />
+          </label>
+          <label>
+            <span className="mb-2 block text-sm font-semibold text-dark">Action</span>
+            <select
+              value={availabilityAction.action}
+              onChange={updateAvailabilityAction('action')}
+              className="h-12 w-full rounded-xl border border-gray-300 bg-white px-3 text-sm font-semibold text-dark outline-none focus:border-dark"
+            >
+              <option>Block dates</option>
+              <option>Open dates</option>
+              <option>Set minimum stay</option>
+              <option>Set rate override</option>
+            </select>
+          </label>
+          <div className="grid grid-cols-2 gap-3">
+            <label>
+              <span className="mb-2 block text-sm font-semibold text-dark">Min nights</span>
+              <input
+                type="number"
+                min="1"
+                value={availabilityAction.minimumStay}
+                onChange={updateAvailabilityAction('minimumStay')}
+                className="h-12 w-full rounded-xl border border-gray-300 bg-white px-3 text-sm font-semibold text-dark outline-none focus:border-dark"
+              />
+            </label>
+            <label>
+              <span className="mb-2 block text-sm font-semibold text-dark">Rate</span>
+              <input
+                type="number"
+                min="0"
+                value={availabilityAction.rateOverride}
+                onChange={updateAvailabilityAction('rateOverride')}
+                placeholder="Optional"
+                className="h-12 w-full rounded-xl border border-gray-300 bg-white px-3 text-sm font-semibold text-dark outline-none focus:border-dark"
+              />
+            </label>
+          </div>
+          <button
+            type="button"
+            onClick={handleApplyAvailabilityAction}
+            className="h-12 self-end rounded-xl bg-dark px-5 text-sm font-semibold text-white transition-colors hover:bg-gray-800"
+          >
+            Preview action
+          </button>
+        </div>
+
+        {availabilityNotice ? (
+          <div className="mt-5 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-800">
+            {availabilityNotice}
+          </div>
+        ) : null}
       </SectionCard>
 
       <SectionCard>

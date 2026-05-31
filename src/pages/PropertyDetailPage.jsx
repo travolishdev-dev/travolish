@@ -4,9 +4,11 @@ import {
   Star, Heart, Share2, ChevronLeft, Users, BedDouble, Bath, Home,
   Wifi, Waves, Utensils, Car, AirVent, WashingMachine, Wind, Flame,
   Eye, Tv, Dumbbell, Coffee, MapPin, DoorOpen, Mountain, Sailboat,
-  Snowflake, Thermometer, Monitor, Zap, PawPrint,
+  Snowflake, Thermometer, Monitor, Zap, PawPrint, ShieldCheck,
+  BadgeCheck, Clock3, FileText, PlayCircle, ReceiptText, TrainFront,
+  UserRound,
 } from 'lucide-react'
-import { motion } from 'framer-motion'
+import { motion as Motion } from 'framer-motion'
 import { format, parseISO } from 'date-fns'
 import { getHotel, listRooms, getHotelReviews } from '../services/hotelsApi'
 import { getHotelRatingStats } from '../services/reviewsApi'
@@ -15,6 +17,7 @@ import useWishlistStore from '../stores/useWishlistStore'
 import ImageGallery from '../components/property/ImageGallery'
 import BookingWidget from '../components/property/BookingWidget'
 import LocationMap from '../components/property/LocationMap'
+import useCurrency from '../hooks/useCurrency'
 
 const amenityIconMap = {
   'Wifi': Wifi, 'Pool': Waves, 'Kitchen': Utensils, 'Free parking': Car,
@@ -25,6 +28,19 @@ const amenityIconMap = {
   'Ski-in/ski-out': Snowflake, 'Heating': Thermometer, 'Workspace': Monitor,
   'EV charger': Zap, 'Pet friendly': PawPrint,
 }
+
+const HOUSE_RULES = [
+  'Quiet hours after 10:00 PM',
+  'No smoking inside rooms or shared indoor areas',
+  'Visitors must be registered with the front desk',
+  'Pets allowed only where the room policy confirms it',
+]
+
+const NEARBY_ATTRACTIONS = [
+  { title: 'Central market and cafes', detail: '8 min walk', icon: Coffee },
+  { title: 'Metro or local transit stop', detail: '6 min drive', icon: TrainFront },
+  { title: 'Waterfront or old-town walk', detail: '12 min away', icon: MapPin },
+]
 
 function formatReviewDate(iso) {
   try {
@@ -55,6 +71,47 @@ function buildPriceMap(rooms) {
     }
   })
   return map
+}
+
+function buildHostProfile(property) {
+  const hostName = property.host?.name && property.host.name !== 'Host'
+    ? property.host.name
+    : `${property.title.split(' ')[0]} host`
+
+  return {
+    name: hostName,
+    joined: 'Hosting since 2021',
+    rating: property.rating || 'New',
+    reviews: property.reviewCount || 0,
+    responseRate: '97%',
+    responseTime: 'Usually replies within 1 hour',
+    bio: 'Local hospitality team focused on clean arrivals, fast replies, and practical neighborhood guidance.',
+    superhost: property.host?.superhost || Number(property.id) % 2 === 0,
+  }
+}
+
+function buildPricePreview(property, rooms) {
+  const nightly = Math.round(
+    Number(
+      rooms.find((room) => room.available)?.pricePerNight ??
+        rooms[0]?.pricePerNight ??
+        property.price ??
+        0,
+    ),
+  )
+  const nights = 3
+  const base = nightly * nights
+  const serviceFee = Math.round(base * 0.1)
+  const taxes = Math.round(base * 0.08)
+
+  return {
+    nightly,
+    nights,
+    base,
+    serviceFee,
+    taxes,
+    total: base + serviceFee + taxes,
+  }
 }
 
 function DetailSkeleton() {
@@ -89,6 +146,7 @@ export default function PropertyDetailPage() {
 
   const toggleWishlist = useWishlistStore((s) => s.toggleWishlist)
   const isWishlisted = useWishlistStore((s) => s.isWishlisted(id))
+  const { formatCurrency } = useCurrency()
 
   useEffect(() => {
     let cancelled = false
@@ -154,13 +212,15 @@ export default function PropertyDetailPage() {
   }
 
   const roomSummary = buildRoomSummary(rooms)
+  const hostProfile = buildHostProfile(property)
+  const pricePreview = buildPricePreview(property, rooms)
   const hasAmenities = property.amenities?.length > 0
   const hasCoordinates =
     property.coordinates &&
     (property.coordinates.lat !== 0 || property.coordinates.lng !== 0)
 
   return (
-    <motion.main
+    <Motion.main
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ duration: 0.3 }}
@@ -232,13 +292,48 @@ export default function PropertyDetailPage() {
               <p className="text-muted mt-1 text-sm md:text-base">
                 {property.guests} guests
                 {rooms.length > 0 && ` · ${rooms.length} room${rooms.length !== 1 ? 's' : ''}`}
-                {roomSummary && ` · from $${roomSummary.cheapestPrice}/night`}
+                {roomSummary && ` · from ${formatCurrency(roomSummary.cheapestPrice)}/night`}
               </p>
             </div>
             <div className="w-14 h-14 rounded-full bg-gradient-to-br from-gray-700 to-gray-900 flex items-center justify-center flex-shrink-0 ml-4">
               <span className="text-white font-semibold text-lg">
                 {property.title[0]}
               </span>
+            </div>
+          </div>
+
+          <div className="py-8 border-b border-gray-200">
+            <div className="grid gap-4 rounded-[24px] border border-gray-200 bg-[#fcfcfb] p-5 sm:grid-cols-[auto_minmax(0,1fr)]">
+              <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-dark text-white">
+                <UserRound size={24} />
+              </div>
+              <div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <h2 className="text-xl font-semibold text-dark">Hosted by {hostProfile.name}</h2>
+                  {hostProfile.superhost ? (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">
+                      <BadgeCheck size={13} />
+                      Verified host
+                    </span>
+                  ) : null}
+                </div>
+                <p className="mt-2 text-sm leading-6 text-muted">{hostProfile.bio}</p>
+                <div className="mt-4 grid gap-3 sm:grid-cols-3">
+                  {[
+                    { label: 'Host rating', value: hostProfile.rating },
+                    { label: 'Response rate', value: hostProfile.responseRate },
+                    { label: 'Response time', value: hostProfile.responseTime },
+                  ].map((item) => (
+                    <div key={item.label} className="rounded-2xl border border-gray-200 bg-white px-4 py-3">
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted">{item.label}</p>
+                      <p className="mt-1 text-sm font-semibold text-dark">{item.value}</p>
+                    </div>
+                  ))}
+                </div>
+                <p className="mt-3 text-xs text-muted">
+                  {hostProfile.joined} · {hostProfile.reviews} traveller review{hostProfile.reviews === 1 ? '' : 's'}
+                </p>
+              </div>
             </div>
           </div>
 
@@ -270,6 +365,27 @@ export default function PropertyDetailPage() {
               <p className="text-dark leading-[1.7] text-[15px]">{property.description}</p>
             </div>
           )}
+
+          <div className="py-8 border-b border-gray-200">
+            <div className="flex items-center gap-3">
+              <PlayCircle size={24} className="text-dark" />
+              <h2 className="text-xl font-semibold text-dark">Video walkthrough</h2>
+            </div>
+            <div className="mt-5 overflow-hidden rounded-[24px] border border-gray-200 bg-black">
+              <video
+                controls
+                preload="metadata"
+                poster={property.images?.[0]}
+                className="aspect-video w-full bg-black object-cover"
+              >
+                {property.videoUrl ? <source src={property.videoUrl} /> : null}
+                Video walkthrough will appear here when the host uploads one.
+              </video>
+            </div>
+            <p className="mt-3 text-sm text-muted">
+              Hosts can attach a walkthrough video; this player keeps the display side ready.
+            </p>
+          </div>
 
           {/* Amenities — only shown when the hotel has them */}
           {hasAmenities && (
@@ -311,13 +427,94 @@ export default function PropertyDetailPage() {
                       </div>
                     </div>
                     <p className="text-sm font-bold text-dark">
-                      ${Math.round(room.pricePerNight)}<span className="text-muted font-normal">/night</span>
+                      {formatCurrency(room.pricePerNight)}<span className="text-muted font-normal">/night</span>
                     </p>
                   </div>
                 ))}
               </div>
             </div>
           )}
+
+          <div className="py-8 border-b border-gray-200">
+            <div className="flex items-center gap-3">
+              <ReceiptText size={24} className="text-dark" />
+              <h2 className="text-xl font-semibold text-dark">Price preview</h2>
+            </div>
+            <div className="mt-5 rounded-[24px] border border-gray-200 bg-[#fcfcfb] p-5">
+              <div className="space-y-3 text-sm">
+                <div className="flex items-center justify-between gap-4">
+                  <span className="text-muted">{formatCurrency(pricePreview.nightly)} x {pricePreview.nights} nights</span>
+                  <span className="font-semibold text-dark">{formatCurrency(pricePreview.base)}</span>
+                </div>
+                <div className="flex items-center justify-between gap-4">
+                  <span className="text-muted">Service fee</span>
+                  <span className="font-semibold text-dark">{formatCurrency(pricePreview.serviceFee)}</span>
+                </div>
+                <div className="flex items-center justify-between gap-4">
+                  <span className="text-muted">Taxes</span>
+                  <span className="font-semibold text-dark">{formatCurrency(pricePreview.taxes)}</span>
+                </div>
+                <div className="flex items-center justify-between border-t border-gray-200 pt-3 text-base">
+                  <span className="font-semibold text-dark">Estimated total</span>
+                  <span className="font-bold text-dark">{formatCurrency(pricePreview.total)}</span>
+                </div>
+              </div>
+              <p className="mt-3 text-xs text-muted">
+                Final pricing is calculated again at checkout for exact dates, selected room, discounts, and live tax rules.
+              </p>
+            </div>
+          </div>
+
+          <div className="py-8 border-b border-gray-200">
+            <div className="grid gap-5 md:grid-cols-2">
+              <div>
+                <div className="flex items-center gap-3">
+                  <FileText size={23} className="text-dark" />
+                  <h2 className="text-xl font-semibold text-dark">House rules</h2>
+                </div>
+                <div className="mt-4 space-y-3">
+                  {HOUSE_RULES.map((rule) => (
+                    <div key={rule} className="flex items-start gap-3 rounded-2xl border border-gray-200 bg-[#fcfcfb] px-4 py-3">
+                      <ShieldCheck size={16} className="mt-0.5 text-emerald-700" />
+                      <p className="text-sm leading-6 text-dark">{rule}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <div className="flex items-center gap-3">
+                  <Clock3 size={23} className="text-dark" />
+                  <h2 className="text-xl font-semibold text-dark">Cancellation policy</h2>
+                </div>
+                <div className="mt-4 rounded-[24px] border border-gray-200 bg-[#fcfcfb] p-5">
+                  <p className="text-sm font-semibold text-dark">Free cancellation for 48 hours</p>
+                  <p className="mt-2 text-sm leading-6 text-muted">
+                    Cancel at least 48 hours before check-in for a strong refund estimate. Later cancellations may include host and service-fee deductions.
+                  </p>
+                  <p className="mt-3 text-xs font-semibold uppercase tracking-[0.16em] text-muted">
+                    Refund terms shown before final confirmation
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="py-8 border-b border-gray-200">
+            <h2 className="text-xl font-semibold text-dark">Nearby attractions</h2>
+            <div className="mt-5 grid gap-3 sm:grid-cols-3">
+              {NEARBY_ATTRACTIONS.map((item) => {
+                const Icon = item.icon
+                return (
+                  <div key={item.title} className="rounded-[22px] border border-gray-200 bg-[#fcfcfb] p-4">
+                    <Icon size={22} className="text-brand" />
+                    <p className="mt-3 text-sm font-semibold text-dark">{item.title}</p>
+                    <p className="mt-1 text-xs text-muted">{item.detail}</p>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
 
           {/* Reviews */}
           <div className="py-8 border-b border-gray-200">
@@ -405,7 +602,7 @@ export default function PropertyDetailPage() {
 
         {/* Right Column - Booking Widget */}
         <div className="hidden lg:block">
-          <BookingWidget property={property} />
+          <BookingWidget property={property} rooms={rooms} />
         </div>
       </div>
 
@@ -414,7 +611,7 @@ export default function PropertyDetailPage() {
         <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 px-6 py-4 flex items-center justify-between lg:hidden z-50">
           <div>
             <p className="text-[15px]">
-              <span className="font-bold">${property.price}</span>
+              <span className="font-bold">{formatCurrency(property.price)}</span>
               <span className="text-muted"> night</span>
             </p>
           </div>
@@ -423,6 +620,6 @@ export default function PropertyDetailPage() {
           </button>
         </div>
       )}
-    </motion.main>
+    </Motion.main>
   )
 }

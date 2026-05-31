@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { ArrowRight, ChevronLeft, ChevronRight, Heart, Star } from 'lucide-react'
 import useWishlistStore from '../../stores/useWishlistStore'
+import useCurrency from '../../hooks/useCurrency'
 
 const fallbackImage =
   'https://images.unsplash.com/photo-1566073771259-6a8506099945?w=800&auto=format&fit=crop'
@@ -11,11 +12,6 @@ function getRatingLabel(rating) {
   if (rating >= 4.4) return 'Very good'
   if (rating >= 4) return 'Good'
   return 'Guest rated'
-}
-
-function formatPrice(price) {
-  if (price === null || price === undefined) return null
-  return Number(price).toLocaleString('en-US')
 }
 
 function getFallbackPrice(id) {
@@ -40,6 +36,7 @@ export default function PropertyCard({ property, index = 0, variant = 'default' 
   const [imageLoaded, setImageLoaded] = useState(false)
   const toggleWishlist = useWishlistStore((s) => s.toggleWishlist)
   const isWishlisted = useWishlistStore((s) => s.isWishlisted(property.id))
+  const { formatCurrency } = useCurrency()
   const images = property.images?.length ? property.images : [fallbackImage]
   const revealDelay = `${Math.min(index, 8) * 35}ms`
 
@@ -62,7 +59,7 @@ export default function PropertyCard({ property, index = 0, variant = 'default' 
   }
 
   if (variant === 'deal') {
-    const formattedPrice = formatPrice(getDisplayPrice(property))
+    const formattedPrice = formatCurrency(getDisplayPrice(property))
 
     return (
       <div
@@ -161,7 +158,7 @@ export default function PropertyCard({ property, index = 0, variant = 'default' 
               <p className="text-xs text-muted">Travolish stay</p>
               <p className="text-xs text-muted">
                 <span className="text-lg font-semibold text-dark">
-                  ${formattedPrice}
+                  {formattedPrice}
                 </span>{' '}
                 per night
               </p>
@@ -279,7 +276,7 @@ export default function PropertyCard({ property, index = 0, variant = 'default' 
           <p className="text-muted text-sm truncate">{property.title}</p>
           <p className="text-muted text-sm">{property.dates}</p>
           <p className="text-[15px] mt-1">
-            <span className="font-semibold">${property.price}</span>
+            <span className="font-semibold">{formatCurrency(getDisplayPrice(property))}</span>
             <span className="text-muted font-normal"> night</span>
           </p>
         </div>

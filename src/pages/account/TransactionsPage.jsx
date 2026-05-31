@@ -10,6 +10,7 @@ import {
 import { listBookings } from '../../services/bookingsApi'
 import { getReceipt } from '../../services/paymentsApi'
 import usePortalViewer from '../../hooks/usePortalViewer'
+import useCurrency from '../../hooks/useCurrency'
 
 const STATUS_TONE = {
   CONFIRMED: 'success',
@@ -32,7 +33,6 @@ function adaptBooking(b) {
     note: `Booking #${b.id} · Room ${b.roomId}`,
     date: fmt(b.checkInDate),
     method: 'Card on file',
-    amount: `$${Number(b.totalPrice ?? 0).toFixed(2)}`,
     rawAmount: Number(b.totalPrice ?? 0),
   }
 }
@@ -43,6 +43,7 @@ export default function TransactionsPage() {
   const [loading, setLoading] = useState(true)
   const [query, setQuery] = useState('')
   const [receiptError, setReceiptError] = useState(null)
+  const { formatCurrency } = useCurrency()
 
   useEffect(() => {
     listBookings(viewer.email || undefined)
@@ -67,7 +68,14 @@ export default function TransactionsPage() {
     }
   }
 
-  const transactions = useMemo(() => bookings.map(adaptBooking), [bookings])
+  const transactions = useMemo(
+    () =>
+      bookings.map(adaptBooking).map((transaction) => ({
+        ...transaction,
+        amount: formatCurrency(transaction.rawAmount),
+      })),
+    [bookings, formatCurrency],
+  )
 
   const visible = useMemo(() => {
     if (!query.trim()) return transactions
@@ -81,11 +89,11 @@ export default function TransactionsPage() {
     const spent = transactions.filter((t) => t.direction === 'debit').reduce((s, t) => s + t.rawAmount, 0)
     const refunds = transactions.filter((t) => t.direction === 'credit').reduce((s, t) => s + t.rawAmount, 0)
     return [
-      { label: 'Total spent', value: `$${spent.toFixed(2)}` },
+      { label: 'Total spent', value: formatCurrency(spent) },
       { label: 'Total bookings', value: String(transactions.length) },
-      { label: 'Refunds / credits', value: refunds > 0 ? `$${refunds.toFixed(2)}` : '$0.00' },
+      { label: 'Refunds / credits', value: refunds > 0 ? formatCurrency(refunds) : formatCurrency(0) },
     ]
-  }, [transactions])
+  }, [formatCurrency, transactions])
 
   return (
     <AccountShell

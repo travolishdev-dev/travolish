@@ -2,10 +2,12 @@ import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import {
   AirVent,
+  BedDouble,
   Bot,
   Building2,
   Car,
   Castle,
+  Clock3,
   Coffee,
   Dumbbell,
   Film,
@@ -40,11 +42,19 @@ import useHostContext from '../../hooks/useHostContext'
 const EMPTY_LISTING_DRAFT = {
   title: '',
   description: '',
+  houseRules: '',
   propertyType: 'house',
   basics: { guests: 1, bedrooms: 1, beds: 1, bathrooms: 1 },
+  bedDetails: { primary: 'King bed', secondary: 'Sofa bed' },
   amenities: [],
   photos: [],
   pricing: { weekday: '100', weekend: '120' },
+  bookingSettings: {
+    instantBooking: true,
+    minimumStay: '1',
+    checkInTime: '15:00',
+    checkOutTime: '11:00',
+  },
   location: '',
   country: '',
 }
@@ -116,6 +126,24 @@ export default function HostListingEditorPage() {
       ...current,
       pricing: {
         ...current.pricing,
+        [field]: event.target.value,
+      },
+    }))
+
+  const updateBookingSetting = (field) => (event) =>
+    setFormState((current) => ({
+      ...current,
+      bookingSettings: {
+        ...current.bookingSettings,
+        [field]: event.target.type === 'checkbox' ? event.target.checked : event.target.value,
+      },
+    }))
+
+  const updateBedDetail = (field) => (event) =>
+    setFormState((current) => ({
+      ...current,
+      bedDetails: {
+        ...current.bedDetails,
         [field]: event.target.value,
       },
     }))
@@ -294,7 +322,7 @@ export default function HostListingEditorPage() {
             <SectionHeading
               eyebrow="Step 2"
               title="Title and description"
-              description="Keep the guest-facing story aligned with onboarding."
+              description="Keep the guest-facing story, location, and rules aligned with onboarding."
             />
 
             <div className="mt-6 space-y-6">
@@ -309,6 +337,29 @@ export default function HostListingEditorPage() {
                   className="w-full rounded-xl border border-gray-300 px-4 py-3.5 text-sm text-dark outline-none transition-all focus:border-dark focus:ring-1 focus:ring-dark"
                 />
                 <p className="mt-1.5 text-xs text-muted">{formState.title.length}/80</p>
+              </div>
+
+              <div className="grid gap-4 md:grid-cols-2">
+                <div>
+                  <label className="mb-2 block text-sm font-semibold text-dark">City</label>
+                  <input
+                    type="text"
+                    value={formState.location}
+                    onChange={updateField('location')}
+                    placeholder="e.g., Lisbon"
+                    className="w-full rounded-xl border border-gray-300 px-4 py-3.5 text-sm text-dark outline-none transition-all focus:border-dark focus:ring-1 focus:ring-dark"
+                  />
+                </div>
+                <div>
+                  <label className="mb-2 block text-sm font-semibold text-dark">Country</label>
+                  <input
+                    type="text"
+                    value={formState.country}
+                    onChange={updateField('country')}
+                    placeholder="e.g., Portugal"
+                    className="w-full rounded-xl border border-gray-300 px-4 py-3.5 text-sm text-dark outline-none transition-all focus:border-dark focus:ring-1 focus:ring-dark"
+                  />
+                </div>
               </div>
 
               <div>
@@ -334,6 +385,21 @@ export default function HostListingEditorPage() {
                 />
                 <p className="mt-1.5 text-xs text-muted">
                   {formState.description.length}/500
+                </p>
+              </div>
+
+              <div>
+                <label className="mb-2 block text-sm font-semibold text-dark">House rules</label>
+                <textarea
+                  value={formState.houseRules}
+                  onChange={updateField('houseRules')}
+                  placeholder="Quiet hours, pet policy, visitor rules, smoking policy, and any arrival notes guests should know."
+                  rows={4}
+                  maxLength={500}
+                  className="w-full resize-none rounded-xl border border-gray-300 px-4 py-3.5 text-sm text-dark outline-none transition-all focus:border-dark focus:ring-1 focus:ring-dark"
+                />
+                <p className="mt-1.5 text-xs text-muted">
+                  {formState.houseRules.length}/500 · UI only until house-rules persistence is wired.
                 </p>
               </div>
             </div>
@@ -386,6 +452,40 @@ export default function HostListingEditorPage() {
                   </div>
                 </div>
               ))}
+            </div>
+
+            <div className="mt-6 rounded-2xl border border-gray-200 bg-[#fcfbf8] p-4">
+              <div className="flex items-start gap-3">
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-white text-brand">
+                  <BedDouble size={20} />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-semibold text-dark">Bed type details</p>
+                  <p className="mt-1 text-sm leading-6 text-muted">
+                    These labels are displayed in the editor preview for now and can map to room-level bed inventory later.
+                  </p>
+                </div>
+              </div>
+              <div className="mt-4 grid gap-4 md:grid-cols-2">
+                <div>
+                  <label className="mb-2 block text-sm font-semibold text-dark">Primary bed</label>
+                  <input
+                    value={formState.bedDetails.primary}
+                    onChange={updateBedDetail('primary')}
+                    placeholder="King bed"
+                    className="w-full rounded-xl border border-gray-300 bg-white px-4 py-3.5 text-sm text-dark outline-none transition-all focus:border-dark focus:ring-1 focus:ring-dark"
+                  />
+                </div>
+                <div>
+                  <label className="mb-2 block text-sm font-semibold text-dark">Additional beds</label>
+                  <input
+                    value={formState.bedDetails.secondary}
+                    onChange={updateBedDetail('secondary')}
+                    placeholder="Sofa bed, twin beds"
+                    className="w-full rounded-xl border border-gray-300 bg-white px-4 py-3.5 text-sm text-dark outline-none transition-all focus:border-dark focus:ring-1 focus:ring-dark"
+                  />
+                </div>
+              </div>
             </div>
           </SectionCard>
 
@@ -578,6 +678,68 @@ export default function HostListingEditorPage() {
             </div>
           </SectionCard>
 
+          <SectionCard>
+            <SectionHeading
+              eyebrow="Step 7"
+              title="Booking rules"
+              description="UI controls for instant booking, request-to-book, minimum stay, and check-in windows."
+            />
+
+            <div className="mt-6 grid gap-4">
+              <label className="flex items-start justify-between gap-4 rounded-2xl border border-gray-200 bg-[#fcfbf8] p-4">
+                <span>
+                  <span className="block text-sm font-semibold text-dark">
+                    Enable instant booking
+                  </span>
+                  <span className="mt-1 block text-sm leading-6 text-muted">
+                    Guests can confirm immediately. Turn off to use booking requests that require host approval.
+                  </span>
+                </span>
+                <input
+                  type="checkbox"
+                  checked={formState.bookingSettings.instantBooking}
+                  onChange={updateBookingSetting('instantBooking')}
+                  className="mt-1 h-5 w-5 accent-brand"
+                />
+              </label>
+
+              <div className="grid gap-4 md:grid-cols-3">
+                <div>
+                  <label className="mb-2 block text-sm font-semibold text-dark">Minimum stay</label>
+                  <input
+                    type="number"
+                    min="1"
+                    value={formState.bookingSettings.minimumStay}
+                    onChange={updateBookingSetting('minimumStay')}
+                    className="w-full rounded-xl border border-gray-300 px-4 py-3.5 text-sm text-dark outline-none transition-all focus:border-dark focus:ring-1 focus:ring-dark"
+                  />
+                </div>
+                <div>
+                  <label className="mb-2 block text-sm font-semibold text-dark">Check-in time</label>
+                  <input
+                    type="time"
+                    value={formState.bookingSettings.checkInTime}
+                    onChange={updateBookingSetting('checkInTime')}
+                    className="w-full rounded-xl border border-gray-300 px-4 py-3.5 text-sm text-dark outline-none transition-all focus:border-dark focus:ring-1 focus:ring-dark"
+                  />
+                </div>
+                <div>
+                  <label className="mb-2 block text-sm font-semibold text-dark">Check-out time</label>
+                  <input
+                    type="time"
+                    value={formState.bookingSettings.checkOutTime}
+                    onChange={updateBookingSetting('checkOutTime')}
+                    className="w-full rounded-xl border border-gray-300 px-4 py-3.5 text-sm text-dark outline-none transition-all focus:border-dark focus:ring-1 focus:ring-dark"
+                  />
+                </div>
+              </div>
+
+              <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-800">
+                UI only: these fields are intentionally not added to the save payload yet, so existing listing create/update behavior remains unchanged.
+              </div>
+            </div>
+          </SectionCard>
+
           {saveError && (
             <p className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
               {saveError}
@@ -615,7 +777,32 @@ export default function HostListingEditorPage() {
               <div className="flex items-center justify-between gap-4">
                 <span className="text-sm text-muted">Location</span>
                 <span className="text-right text-sm font-semibold text-dark">
-                  {formState.location}
+                  {[formState.location, formState.country].filter(Boolean).join(', ') || 'Not set'}
+                </span>
+              </div>
+              <div className="flex items-center justify-between gap-4">
+                <span className="text-sm text-muted">Booking mode</span>
+                <span className="text-right text-sm font-semibold text-dark">
+                  {formState.bookingSettings.instantBooking ? 'Instant booking' : 'Request to book'}
+                </span>
+              </div>
+              <div className="flex items-center justify-between gap-4">
+                <span className="text-sm text-muted">Minimum stay</span>
+                <span className="text-right text-sm font-semibold text-dark">
+                  {formState.bookingSettings.minimumStay || 1} night(s)
+                </span>
+              </div>
+              <div className="flex items-center justify-between gap-4">
+                <span className="text-sm text-muted">Check-in window</span>
+                <span className="text-right text-sm font-semibold text-dark">
+                  <Clock3 size={14} className="mr-1 inline" />
+                  {formState.bookingSettings.checkInTime} → {formState.bookingSettings.checkOutTime}
+                </span>
+              </div>
+              <div className="flex items-center justify-between gap-4">
+                <span className="text-sm text-muted">Beds</span>
+                <span className="text-right text-sm font-semibold text-dark">
+                  {[formState.bedDetails.primary, formState.bedDetails.secondary].filter(Boolean).join(' + ')}
                 </span>
               </div>
               <div className="flex items-center justify-between gap-4">

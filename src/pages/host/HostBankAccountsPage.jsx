@@ -24,6 +24,8 @@ function adaptAccount(a) {
 export default function HostBankAccountsPage() {
   const { hostId, loading: hostLoading } = useHostContext()
   const [accounts, setAccounts] = useState([])
+  const [defaultAccountId, setDefaultAccountId] = useState(null)
+  const [bankNotice, setBankNotice] = useState('')
   const [accountsLoading, setAccountsLoading] = useState(true)
   const [formState, setFormState] = useState({
     accountName: '',
@@ -42,7 +44,11 @@ export default function HostBankAccountsPage() {
     getBankAccounts(hostId)
       .then((data) => {
         const items = data?.content ?? (Array.isArray(data) ? data : null)
-        if (items?.length) setAccounts(items.map(adaptAccount))
+        if (items?.length) {
+          const nextAccounts = items.map(adaptAccount)
+          setAccounts(nextAccounts)
+          setDefaultAccountId((current) => current ?? nextAccounts[0]?.id ?? null)
+        }
       })
       .catch(() => {})
       .finally(() => setAccountsLoading(false))
@@ -64,7 +70,11 @@ export default function HostBankAccountsPage() {
       })
       const data = await getBankAccounts(hostId)
       const items = data?.content ?? (Array.isArray(data) ? data : null)
-      if (items?.length) setAccounts(items.map(adaptAccount))
+      if (items?.length) {
+        const nextAccounts = items.map(adaptAccount)
+        setAccounts(nextAccounts)
+        setDefaultAccountId((current) => current ?? nextAccounts[0]?.id ?? null)
+      }
       setFormState({ accountName: '', bankName: '', routingNumber: '', accountNumber: '', currency: '' })
     } catch {
       // keep current state
@@ -90,6 +100,12 @@ export default function HostBankAccountsPage() {
         <SectionCard>
           <SectionHeading eyebrow="Accounts" title="Connected payout destinations" />
 
+          {bankNotice ? (
+            <div className="mt-5 rounded-2xl border border-brand/20 bg-rose-50 px-4 py-3 text-sm font-semibold text-brand">
+              {bankNotice}
+            </div>
+          ) : null}
+
           {accountsLoading && (
             <div className="py-12 text-center text-sm text-muted">Loading accounts…</div>
           )}
@@ -111,6 +127,9 @@ export default function HostBankAccountsPage() {
                       <StatusPill tone={account.status === 'Verified' ? 'success' : 'warning'}>
                         {account.status}
                       </StatusPill>
+                      {defaultAccountId === account.id ? (
+                        <StatusPill tone="sky">Default</StatusPill>
+                      ) : null}
                     </div>
                     <p className="mt-2 text-sm text-muted">
                       {account.type} · {account.currency} · •••• {account.last4}
@@ -118,6 +137,25 @@ export default function HostBankAccountsPage() {
                     <p className="mt-3 text-sm leading-6 text-dark">
                       Typical transfer speed: {account.transferSpeed}
                     </p>
+                  </div>
+                  <div className="grid gap-2 sm:flex sm:flex-wrap lg:justify-end">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setDefaultAccountId(account.id)
+                        setBankNotice(`${account.label} set as default payout destination in this UI view.`)
+                      }}
+                      className="inline-flex items-center justify-center rounded-2xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-semibold text-dark transition-colors hover:bg-gray-50"
+                    >
+                      Set default
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setBankNotice(`Delete requested for ${account.label}. Backend delete is not called in this UI pass.`)}
+                      className="inline-flex items-center justify-center rounded-2xl border border-rose-200 bg-rose-50 px-4 py-2.5 text-sm font-semibold text-rose-700 transition-colors hover:bg-rose-100"
+                    >
+                      Delete
+                    </button>
                   </div>
                 </div>
               </div>

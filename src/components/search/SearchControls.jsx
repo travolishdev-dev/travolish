@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   CalendarDays,
+  Check,
   MapPin,
   Minus,
   Plus,
@@ -15,6 +16,16 @@ import {
   formatDateRange,
   formatGuestSummary,
 } from '../../lib/searchFormatting'
+
+const PROPERTY_TYPES = ['Any', 'Hotel', 'Apartment', 'Villa', 'Homestay', 'Resort', 'Guest house']
+const AMENITY_FILTERS = ['Wifi', 'Pool', 'Kitchen', 'Free parking', 'Workspace', 'Breakfast', 'Pet friendly', 'Gym']
+const SORT_OPTIONS = [
+  { value: 'recommended', label: 'Recommended' },
+  { value: 'price-low', label: 'Price low to high' },
+  { value: 'price-high', label: 'Price high to low' },
+  { value: 'rating', label: 'Highest rated' },
+  { value: 'newest', label: 'Newest' },
+]
 
 function CounterControl({ label, value, min = 0, onChange }) {
   return (
@@ -55,6 +66,16 @@ export default function SearchControls({
   onMinPriceChange,
   onMaxPriceChange,
   onMinRatingChange,
+  propertyType,
+  onPropertyTypeChange,
+  selectedAmenities,
+  onSelectedAmenitiesChange,
+  instantBookOnly,
+  onInstantBookOnlyChange,
+  freeCancellationOnly,
+  onFreeCancellationOnlyChange,
+  sortOption,
+  onSortOptionChange,
   onClearFilters,
 }) {
   const [activePanel, setActivePanel] = useState(null)
@@ -82,7 +103,23 @@ export default function SearchControls({
       .slice(0, 7)
   }, [searchDraft.destination])
 
-  const hasFilters = minPrice || maxPrice || minRating
+  const hasFilters =
+    minPrice ||
+    maxPrice ||
+    minRating ||
+    propertyType !== 'Any' ||
+    selectedAmenities.length > 0 ||
+    instantBookOnly ||
+    freeCancellationOnly ||
+    sortOption !== 'recommended'
+
+  const toggleAmenity = (amenity) => {
+    onSelectedAmenitiesChange(
+      selectedAmenities.includes(amenity)
+        ? selectedAmenities.filter((item) => item !== amenity)
+        : [...selectedAmenities, amenity],
+    )
+  }
 
   return (
     <section className="sticky top-20 z-40 border-b border-rose-100/70 bg-gradient-to-b from-white via-[#fffafb] to-[#fff4f6]/95 backdrop-blur">
@@ -248,62 +285,170 @@ export default function SearchControls({
           </div>
 
           {showFilters && (
-            <div className="mt-2 grid gap-3 rounded-[22px] bg-gray-50 p-4 md:grid-cols-[1fr_1fr_1.4fr_auto] md:items-end">
-              <label className="block">
-                <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted">
-                  Min price
-                </span>
-                <input
-                  type="number"
-                  value={minPrice}
-                  onChange={(event) => onMinPriceChange(event.target.value)}
-                  placeholder="0"
-                  className="mt-1 w-full rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm text-dark outline-none transition-colors focus:border-dark"
-                />
-              </label>
+            <div className="mt-2 grid gap-4 rounded-[22px] bg-gray-50 p-4">
+              <div className="grid gap-3 md:grid-cols-4">
+                <label className="block">
+                  <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted">
+                    Property type
+                  </span>
+                  <select
+                    value={propertyType}
+                    onChange={(event) => onPropertyTypeChange(event.target.value)}
+                    className="mt-1 w-full rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm font-semibold text-dark outline-none transition-colors focus:border-dark"
+                  >
+                    {PROPERTY_TYPES.map((type) => (
+                      <option key={type} value={type}>{type}</option>
+                    ))}
+                  </select>
+                </label>
 
-              <label className="block">
-                <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted">
-                  Max price
-                </span>
-                <input
-                  type="number"
-                  value={maxPrice}
-                  onChange={(event) => onMaxPriceChange(event.target.value)}
-                  placeholder="Any"
-                  className="mt-1 w-full rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm text-dark outline-none transition-colors focus:border-dark"
-                />
-              </label>
+                <label className="block">
+                  <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted">
+                    Sort by
+                  </span>
+                  <select
+                    value={sortOption}
+                    onChange={(event) => onSortOptionChange(event.target.value)}
+                    className="mt-1 w-full rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm font-semibold text-dark outline-none transition-colors focus:border-dark"
+                  >
+                    {SORT_OPTIONS.map((option) => (
+                      <option key={option.value} value={option.value}>{option.label}</option>
+                    ))}
+                  </select>
+                </label>
 
-              <div>
-                <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted">
-                  Guest rating
-                </span>
-                <div className="mt-1 flex flex-wrap gap-2">
-                  {[0, 4, 4.5].map((rating) => (
-                    <button
-                      key={rating}
-                      type="button"
-                      onClick={() => onMinRatingChange(rating)}
-                      className={`rounded-full border px-3 py-2 text-xs font-semibold transition-colors ${
-                        Number(minRating) === rating
-                          ? 'border-dark bg-white text-dark'
-                          : 'border-gray-200 bg-white text-muted hover:border-gray-300'
-                      }`}
-                    >
-                      {rating === 0 ? 'Any rating' : `${rating}+`}
-                    </button>
-                  ))}
+                <label className="block">
+                  <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted">
+                    Min price
+                  </span>
+                  <input
+                    type="number"
+                    value={minPrice}
+                    onChange={(event) => onMinPriceChange(event.target.value)}
+                    placeholder="0"
+                    className="mt-1 w-full rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm text-dark outline-none transition-colors focus:border-dark"
+                  />
+                </label>
+
+                <label className="block">
+                  <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted">
+                    Max price
+                  </span>
+                  <input
+                    type="number"
+                    value={maxPrice}
+                    onChange={(event) => onMaxPriceChange(event.target.value)}
+                    placeholder="Any"
+                    className="mt-1 w-full rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm text-dark outline-none transition-colors focus:border-dark"
+                  />
+                </label>
+              </div>
+
+              <div className="grid gap-4 lg:grid-cols-[1.2fr_1fr_1fr]">
+                <div>
+                  <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted">
+                    Amenities
+                  </span>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {AMENITY_FILTERS.map((amenity) => {
+                      const active = selectedAmenities.includes(amenity)
+                      return (
+                        <button
+                          key={amenity}
+                          type="button"
+                          onClick={() => toggleAmenity(amenity)}
+                          className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-2 text-xs font-semibold transition-colors ${
+                            active
+                              ? 'border-dark bg-dark text-white'
+                              : 'border-gray-200 bg-white text-dark hover:border-gray-300'
+                          }`}
+                        >
+                          {active ? <Check size={12} /> : null}
+                          {amenity}
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+
+                <div>
+                  <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted">
+                    Booking options
+                  </span>
+                  <div className="mt-2 grid gap-2">
+                    <label className="flex cursor-pointer items-center justify-between gap-3 rounded-2xl border border-gray-200 bg-white px-4 py-3">
+                      <span className="text-sm font-semibold text-dark">Instant booking only</span>
+                      <input
+                        type="checkbox"
+                        checked={instantBookOnly}
+                        onChange={(event) => onInstantBookOnlyChange(event.target.checked)}
+                        className="h-4 w-4 accent-[#ff385c]"
+                      />
+                    </label>
+                    <label className="flex cursor-pointer items-center justify-between gap-3 rounded-2xl border border-gray-200 bg-white px-4 py-3">
+                      <span className="text-sm font-semibold text-dark">Free cancellation</span>
+                      <input
+                        type="checkbox"
+                        checked={freeCancellationOnly}
+                        onChange={(event) => onFreeCancellationOnlyChange(event.target.checked)}
+                        className="h-4 w-4 accent-[#ff385c]"
+                      />
+                    </label>
+                  </div>
+                </div>
+
+                <div>
+                  <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted">
+                    Guests
+                  </span>
+                  <div className="mt-2 rounded-2xl border border-gray-200 bg-white px-4 py-2">
+                    <CounterControl
+                      label="Adults"
+                      value={searchDraft.adults}
+                      min={1}
+                      onChange={(adults) => updateSearchDraft({ adults })}
+                    />
+                    <div className="my-2 border-t border-gray-100" />
+                    <CounterControl
+                      label="Children"
+                      value={searchDraft.children}
+                      onChange={(children) => updateSearchDraft({ children })}
+                    />
+                  </div>
                 </div>
               </div>
 
-              <button
-                type="button"
-                onClick={onClearFilters}
-                className="rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-semibold text-dark transition-colors hover:bg-gray-100"
-              >
-                Clear
-              </button>
+              <div className="grid gap-3 md:grid-cols-[1fr_auto] md:items-end">
+                <div>
+                  <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted">
+                    Guest rating
+                  </span>
+                  <div className="mt-1 flex flex-wrap gap-2">
+                    {[0, 4, 4.5].map((rating) => (
+                      <button
+                        key={rating}
+                        type="button"
+                        onClick={() => onMinRatingChange(rating)}
+                        className={`rounded-full border px-3 py-2 text-xs font-semibold transition-colors ${
+                          Number(minRating) === rating
+                            ? 'border-dark bg-white text-dark'
+                            : 'border-gray-200 bg-white text-muted hover:border-gray-300'
+                        }`}
+                      >
+                        {rating === 0 ? 'Any rating' : `${rating}+`}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={onClearFilters}
+                  className="rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-semibold text-dark transition-colors hover:bg-gray-100"
+                >
+                  Clear filters
+                </button>
+              </div>
             </div>
           )}
         </div>

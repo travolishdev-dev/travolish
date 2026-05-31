@@ -4,10 +4,13 @@ import { Toaster } from 'react-hot-toast'
 import Navbar from './components/layout/Navbar'
 import Footer from './components/layout/Footer'
 import AuthModal from './components/auth/AuthModal'
+import TravellerAssistantWidget from './components/traveller/TravellerAssistantWidget'
 import HomePage from './pages/HomePage'
 import PropertyDetailPage from './pages/PropertyDetailPage'
 import WishlistPage from './pages/WishlistPage'
 import SearchPage from './pages/SearchPage'
+import OffersPage from './pages/OffersPage'
+import TravellerEmergencyPage from './pages/TravellerEmergencyPage'
 import MapViewPage from './pages/MapViewPage'
 import AuthCallbackPage from './pages/AuthCallbackPage'
 import OnboardingPage from './pages/OnboardingPage'
@@ -26,6 +29,7 @@ import ConversationPage from './pages/messages/ConversationPage'
 import MyReviewsPage from './pages/reviews/MyReviewsPage'
 import ReviewEditorPage from './pages/reviews/ReviewEditorPage'
 import HostDashboardPage from './pages/host/HostDashboardPage'
+import HostBookingsPage from './pages/host/HostBookingsPage'
 import HostListingsPage from './pages/host/HostListingsPage'
 import HostListingEditorPage from './pages/host/HostListingEditorPage'
 import HostRoomsPage from './pages/host/HostRoomsPage'
@@ -67,6 +71,8 @@ function isPortalRoute(pathname) {
     pathname.startsWith('/checkout') ||
     pathname.startsWith('/messages') ||
     pathname.startsWith('/reviews') ||
+    pathname.startsWith('/offers') ||
+    pathname.startsWith('/emergency') ||
     pathname.startsWith('/admin') ||
     (pathname.startsWith('/host') && pathname !== '/host/onboarding')
   )
@@ -76,6 +82,8 @@ function AppLayout({ children }) {
   const { pathname } = useLocation()
   const portalRoute = isPortalRoute(pathname)
   const adminRoute = pathname.startsWith('/admin')
+  const hostRoute = pathname.startsWith('/host')
+  const showTravellerAssistant = !adminRoute && !hostRoute
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -85,6 +93,7 @@ function AppLayout({ children }) {
         </div>
       ) : null}
       <div className="flex-1">{children}</div>
+      {showTravellerAssistant ? <TravellerAssistantWidget /> : null}
       {!adminRoute ? (
         <div className={portalRoute ? 'hidden md:block' : ''}>
           <Footer />
@@ -164,6 +173,22 @@ export default function App() {
           element={
             <AppLayout>
               <SearchPage />
+            </AppLayout>
+          }
+        />
+        <Route
+          path="/offers"
+          element={
+            <AppLayout>
+              <OffersPage />
+            </AppLayout>
+          }
+        />
+        <Route
+          path="/emergency"
+          element={
+            <AppLayout>
+              <TravellerEmergencyPage />
             </AppLayout>
           }
         />
@@ -300,6 +325,14 @@ export default function App() {
           element={
             <AppLayout>
               <HostListingsPage />
+            </AppLayout>
+          }
+        />
+        <Route
+          path="/host/bookings"
+          element={
+            <AppLayout>
+              <HostBookingsPage />
             </AppLayout>
           }
         />

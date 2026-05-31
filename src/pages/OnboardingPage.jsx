@@ -7,10 +7,11 @@ import {
   Tv, Dumbbell, Coffee, Flame, PawPrint, Snowflake,
   Loader2, CheckCircle2, AlertCircle,
 } from 'lucide-react'
-import { motion, AnimatePresence } from 'framer-motion'
+import { AnimatePresence, motion as Motion } from 'framer-motion'
 import { useDropzone } from 'react-dropzone'
 import useOnboardingStore from '../stores/useOnboardingStore'
 import { publishListing } from '../services/listingsApi'
+import useCurrency from '../hooks/useCurrency'
 
 const propertyTypes = [
   { id: 'house', label: 'House', icon: Home },
@@ -49,6 +50,7 @@ export default function OnboardingPage() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState(null)
   const [published, setPublished] = useState(null) // { hotel, room }
+  const { formatCurrency } = useCurrency()
 
   const canProceed = () => {
     switch (currentStep) {
@@ -92,7 +94,7 @@ export default function OnboardingPage() {
   if (published) {
     return (
       <div className="min-h-screen bg-white flex flex-col items-center justify-center px-6">
-        <motion.div
+        <Motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           className="max-w-md w-full text-center"
@@ -106,7 +108,7 @@ export default function OnboardingPage() {
             published with listing ID #{published.hotel.id}.
           </p>
           <p className="text-sm text-muted mb-8">
-            Room #{published.room.number} · {published.room.type} · ${published.room.pricePerNight}/night
+            Room #{published.room.number} · {published.room.type} · {formatCurrency(published.room.pricePerNight)}/night
           </p>
           <div className="flex flex-col sm:flex-row gap-3 justify-center">
             <button
@@ -122,7 +124,7 @@ export default function OnboardingPage() {
               Back to home
             </button>
           </div>
-        </motion.div>
+        </Motion.div>
       </div>
     )
   }
@@ -149,7 +151,7 @@ export default function OnboardingPage() {
 
       {/* Progress Bar */}
       <div className="w-full bg-gray-100 h-1 flex-shrink-0">
-        <motion.div
+        <Motion.div
           className="h-full bg-dark"
           initial={{ width: 0 }}
           animate={{ width: `${(currentStep / TOTAL_STEPS) * 100}%` }}
@@ -161,7 +163,7 @@ export default function OnboardingPage() {
       <div className="flex-1 overflow-y-auto">
         <div className="max-w-2xl mx-auto px-6 py-10 md:py-16">
           <AnimatePresence mode="wait">
-            <motion.div
+            <Motion.div
               key={currentStep}
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
@@ -213,7 +215,7 @@ export default function OnboardingPage() {
                   onUpdate={updatePricing}
                 />
               )}
-            </motion.div>
+            </Motion.div>
           </AnimatePresence>
         </div>
       </div>
@@ -499,6 +501,11 @@ function StepPhotos({ photos, onPhotos }) {
 }
 
 function StepPricing({ pricing, onUpdate }) {
+  const { currency, formatCurrency } = useCurrency()
+  const estimatedWeeklyEarnings = Math.round(
+    pricing.weekday * 5 * 0.97 + (pricing.weekend || pricing.weekday) * 2 * 0.97,
+  )
+
   return (
     <div>
       <h1 className="text-[28px] md:text-[32px] font-bold text-dark mb-2">
@@ -509,26 +516,26 @@ function StepPricing({ pricing, onUpdate }) {
         <div>
           <label className="block text-sm font-semibold text-dark mb-2">Weekday price (per night)</label>
           <div className="relative">
-            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-xl font-bold text-dark">$</span>
+            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm font-bold text-dark">{currency}</span>
             <input
               type="number"
               value={pricing.weekday}
               onChange={(e) => onUpdate('weekday', e.target.value)}
               placeholder="100"
-              className="w-full pl-10 pr-4 py-4 border-2 border-gray-300 rounded-xl text-2xl font-bold text-center focus:outline-none focus:border-dark transition-all"
+              className="w-full pl-16 pr-4 py-4 border-2 border-gray-300 rounded-xl text-2xl font-bold text-center focus:outline-none focus:border-dark transition-all"
             />
           </div>
         </div>
         <div>
           <label className="block text-sm font-semibold text-dark mb-2">Weekend price (per night)</label>
           <div className="relative">
-            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-xl font-bold text-dark">$</span>
+            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm font-bold text-dark">{currency}</span>
             <input
               type="number"
               value={pricing.weekend}
               onChange={(e) => onUpdate('weekend', e.target.value)}
               placeholder="120"
-              className="w-full pl-10 pr-4 py-4 border-2 border-gray-300 rounded-xl text-2xl font-bold text-center focus:outline-none focus:border-dark transition-all"
+              className="w-full pl-16 pr-4 py-4 border-2 border-gray-300 rounded-xl text-2xl font-bold text-center focus:outline-none focus:border-dark transition-all"
             />
           </div>
         </div>
@@ -538,7 +545,7 @@ function StepPricing({ pricing, onUpdate }) {
             <h3 className="text-sm font-bold text-dark mb-3">Estimated earnings</h3>
             <div className="flex items-baseline gap-1">
               <span className="text-3xl font-bold text-dark">
-                ${Math.round(pricing.weekday * 5 * 0.97 + (pricing.weekend || pricing.weekday) * 2 * 0.97)}
+                {formatCurrency(estimatedWeeklyEarnings)}
               </span>
               <span className="text-muted text-sm">per week (after fees)</span>
             </div>

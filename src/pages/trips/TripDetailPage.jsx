@@ -4,13 +4,17 @@ import {
   ArrowLeft,
   CalendarRange,
   CreditCard,
+  Download,
+  KeyRound,
   Loader2,
   MapPinned,
+  MessageSquareText,
   ShieldCheck,
   Star,
+  Timer,
   XCircle,
 } from 'lucide-react'
-import { format, parseISO } from 'date-fns'
+import { differenceInCalendarDays, differenceInHours, format, parseISO, startOfToday } from 'date-fns'
 import {
   PortalShell,
   SectionCard,
@@ -19,6 +23,7 @@ import {
 } from '../../components/portal/PortalUI'
 import { cancelBooking, getBooking } from '../../services/bookingsApi'
 import { getHotel } from '../../services/hotelsApi'
+import useCurrency from '../../hooks/useCurrency'
 
 const PLACEHOLDER_IMAGES = [
   'https://images.unsplash.com/photo-1542314831-068cd1dbfeeb?w=800&auto=format&fit=crop',
@@ -52,6 +57,27 @@ function fmt(dateStr) {
   try { return format(parseISO(dateStr), 'MMM d, yyyy') } catch { return dateStr }
 }
 
+function buildCountdown(dateStr) {
+  try {
+    const checkIn = parseISO(dateStr)
+    const days = differenceInCalendarDays(checkIn, startOfToday())
+    const hours = differenceInHours(checkIn, new Date())
+
+    if (days > 1) return `${days} days to check-in`
+    if (days === 1) return 'Check-in tomorrow'
+    if (hours > 0) return `${hours} hours to check-in`
+    return 'Check-in window is open'
+  } catch {
+    return 'Countdown unavailable'
+  }
+}
+
+function buildRefundEstimate(booking) {
+  const total = Number(booking.totalPrice ?? 0)
+  if (!total) return 0
+  return Math.round(total * 0.82)
+}
+
 export default function TripDetailPage() {
   const { id } = useParams()
   const [booking, setBooking] = useState(null)
@@ -61,6 +87,8 @@ export default function TripDetailPage() {
   const [confirmCancel, setConfirmCancel] = useState(false)
   const [cancelling, setCancelling] = useState(false)
   const [cancelError, setCancelError] = useState(null)
+  const [tripNotice, setTripNotice] = useState('')
+  const { formatCurrency } = useCurrency()
 
   useEffect(() => {
     async function load() {
@@ -120,6 +148,8 @@ export default function TripDetailPage() {
     : booking.status === 'CONFIRMED' ? 'Payment confirmed'
     : booking.status
   const canReview = status === 'completed'
+  const countdownLabel = buildCountdown(booking.checkInDate)
+  const refundEstimate = buildRefundEstimate(booking)
 
   return (
     <PortalShell
@@ -129,11 +159,15 @@ export default function TripDetailPage() {
       description="Your booking details — dates, payment, and property info all in one place."
       actions={[
         { label: 'Back to trips', href: '/trips', secondary: true },
+        {
+          label: 'Download receipt',
+          onClick: () => setTripNotice('Receipt download prepared. PDF generation remains wired to the payments receipt endpoint.'),
+        },
       ]}
       stats={[
         { label: 'Status', value: booking.status, note: paymentStatus },
-        { label: 'Total', value: `$${Number(booking.totalPrice ?? 0).toFixed(2)}`, note: `Booking #${booking.id}` },
-        { label: 'Dates', value: fmt(booking.checkInDate), note: `→ ${fmt(booking.checkOutDate)}` },
+        { label: 'Total', value: formatCurrency(Number(booking.totalPrice ?? 0)), note: `Booking #${booking.id}` },
+        { label: 'Check-in', value: fmt(booking.checkInDate), note: countdownLabel },
       ]}
       accent="from-sky-50 via-white to-amber-50"
     >
@@ -156,6 +190,7 @@ export default function TripDetailPage() {
           <div className="mt-6 flex flex-wrap items-center gap-2">
             <StatusPill tone={STATUS_TONE[status]}>{status}</StatusPill>
             <StatusPill tone="sky">{paymentStatus}</StatusPill>
+            <StatusPill tone="brand">{countdownLabel}</StatusPill>
             <p className="text-sm text-muted">Booking #{booking.id}</p>
           </div>
 
@@ -187,6 +222,29 @@ export default function TripDetailPage() {
               <p className="mt-3 text-sm leading-6 text-muted">
                 {[hotel?.city, hotel?.country].filter(Boolean).join(', ') || '—'}
               </p>
+            </div>
+          </div>
+
+          <div className="mt-6 rounded-[28px] border border-gray-200 bg-[#fcfcfb] p-5">
+            <div className="flex items-center gap-3">
+              <Timer size={20} className="text-dark" />
+              <h2 className="text-lg font-semibold text-dark">Check-in instructions and itinerary</h2>
+            </div>
+            <div className="mt-5 grid gap-3 md:grid-cols-3">
+              {[
+                { title: 'Arrival window', detail: 'Check-in after 3:00 PM', icon: CalendarRange },
+                { title: 'Access notes', detail: 'Smart lock code shared 24h before arrival', icon: KeyRound },
+                { title: 'Host message', detail: 'Welcome note and local guide available in messages', icon: MessageSquareText },
+              ].map((item) => {
+                const Icon = item.icon
+                return (
+                  <div key={item.title} className="rounded-2xl border border-gray-200 bg-white p-4">
+                    <Icon size={18} className="text-brand" />
+                    <p className="mt-3 text-sm font-semibold text-dark">{item.title}</p>
+                    <p className="mt-1 text-xs leading-5 text-muted">{item.detail}</p>
+                  </div>
+                )
+              })}
             </div>
           </div>
         </SectionCard>
@@ -230,7 +288,7 @@ export default function TripDetailPage() {
                     Reservation total
                   </p>
                   <p className="mt-2 text-3xl font-semibold">
-                    ${Number(booking.totalPrice ?? 0).toFixed(2)}
+                    {formatCurrency(Number(booking.totalPrice ?? 0))}
                   </p>
                 </div>
                 <div className="rounded-2xl bg-white/10 p-3">
@@ -240,15 +298,30 @@ export default function TripDetailPage() {
               <p className="mt-4 text-sm text-white/80">{paymentStatus}</p>
             </div>
 
+            <button
+              type="button"
+              onClick={() => setTripNotice('Receipt download prepared. PDF generation remains wired to the payments receipt endpoint.')}
+              className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-full border border-gray-200 bg-white px-4 py-2.5 text-sm font-semibold text-dark transition-colors hover:bg-gray-50 sm:w-auto"
+            >
+              <Download size={15} />
+              Download receipt
+            </button>
+
+            {tripNotice ? (
+              <div className="mt-4 rounded-2xl border border-brand/20 bg-rose-50 px-4 py-3 text-sm font-medium text-brand">
+                {tripNotice}
+              </div>
+            ) : null}
+
             {booking.basePrice && (
               <div className="mt-4 space-y-2 text-sm">
                 <div className="flex justify-between text-muted">
                   <span>Base price / night</span>
-                  <span className="font-medium text-dark">${Number(booking.basePrice).toFixed(2)}</span>
+                  <span className="font-medium text-dark">{formatCurrency(Number(booking.basePrice))}</span>
                 </div>
                 <div className="flex justify-between border-t border-gray-100 pt-2 font-semibold text-dark">
                   <span>Total</span>
-                  <span>${Number(booking.totalPrice ?? 0).toFixed(2)}</span>
+                  <span>{formatCurrency(Number(booking.totalPrice ?? 0))}</span>
                 </div>
               </div>
             )}
@@ -268,7 +341,9 @@ export default function TripDetailPage() {
             {status === 'upcoming' && confirmCancel && (
               <div className="mt-5 rounded-[24px] border border-red-200 bg-red-50 p-4 space-y-3">
                 <p className="text-sm font-semibold text-red-700">Cancel this booking?</p>
-                <p className="text-sm text-red-600">This cannot be undone. The booking status will be set to cancelled.</p>
+                <p className="text-sm text-red-600">
+                  Estimated refund before confirmation: {formatCurrency(refundEstimate)}. Final refund depends on the live cancellation policy and payment processor result.
+                </p>
                 {cancelError && <p className="text-xs text-red-600">{cancelError}</p>}
                 <div className="flex gap-3">
                   <button

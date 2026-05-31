@@ -22,14 +22,7 @@ import {
   formatDateRange,
   formatGuestSummary,
 } from '../../lib/searchFormatting'
-
-function formatCurrency(value) {
-  return new Intl.NumberFormat('en-IN', {
-    style: 'currency',
-    currency: 'INR',
-    maximumFractionDigits: 0,
-  }).format(Math.max(0, Math.round(Number(value) || 0)))
-}
+import useCurrency from '../../hooks/useCurrency'
 
 function parseDateValue(dateValue) {
   if (!dateValue) return null
@@ -111,6 +104,7 @@ function SummaryRow({ label, value, isStrong = false }) {
 export default function BookingWidget({ property, rooms = [], sticky = true }) {
   const navigate = useNavigate()
   const { searchDraft, updateSearchDraft } = useSearchContext()
+  const { formatCurrency } = useCurrency()
   const [checkIn, setCheckIn] = useState(searchDraft.checkIn || '')
   const [checkOut, setCheckOut] = useState(searchDraft.checkOut || '')
   const [adults, setAdults] = useState(searchDraft.adults || 2)

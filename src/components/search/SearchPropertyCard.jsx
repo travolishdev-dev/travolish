@@ -8,14 +8,10 @@ import {
   UsersRound,
 } from 'lucide-react'
 import useWishlistStore from '../../stores/useWishlistStore'
+import useCurrency from '../../hooks/useCurrency'
 
 const fallbackImage =
   'https://images.unsplash.com/photo-1566073771259-6a8506099945?w=800&auto=format&fit=crop'
-
-function formatPrice(price) {
-  if (price === null || price === undefined) return 'Price on request'
-  return `Rs. ${Number(price).toLocaleString('en-IN')}`
-}
 
 function getRatingLabel(rating) {
   if (rating >= 4.8) return 'Excellent'
@@ -27,8 +23,12 @@ function getRatingLabel(rating) {
 export default function SearchPropertyCard({ property }) {
   const toggleWishlist = useWishlistStore((state) => state.toggleWishlist)
   const isWishlisted = useWishlistStore((state) => state.isWishlisted(property.id))
+  const { formatCurrency } = useCurrency()
   const image = property.images?.[0] || fallbackImage
-  const priceLabel = formatPrice(property.price)
+  const priceLabel =
+    property.price === null || property.price === undefined
+      ? 'Price on request'
+      : formatCurrency(property.price)
 
   const handleWishlist = (event) => {
     event.preventDefault()
@@ -97,7 +97,12 @@ export default function SearchPropertyCard({ property }) {
             </div>
           </div>
 
-          <div className="mt-2 flex flex-wrap gap-1.5">
+        <div className="mt-2 flex flex-wrap gap-1.5">
+            {property.propertyType && (
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-rose-50 px-2 py-0.5 text-[11px] font-semibold text-brand">
+                {property.propertyType}
+              </span>
+            )}
             <span className="inline-flex items-center gap-1.5 rounded-full bg-gray-100 px-2 py-0.5 text-[11px] font-semibold text-dark">
               {getRatingLabel(property.rating || 0)}
             </span>
@@ -107,7 +112,10 @@ export default function SearchPropertyCard({ property }) {
             </span>
             <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-700">
               <ShieldCheck size={12} />
-              Free cancellation
+              {property.freeCancellation ? 'Free cancellation' : 'Policy varies'}
+            </span>
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-sky-50 px-2 py-0.5 text-[11px] font-semibold text-sky-700">
+              {property.instantBookable ? 'Instant book' : 'Request to book'}
             </span>
           </div>
         </div>

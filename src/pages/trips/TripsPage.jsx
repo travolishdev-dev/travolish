@@ -11,6 +11,7 @@ import {
 import { listBookings } from '../../services/bookingsApi'
 import { getHotel } from '../../services/hotelsApi'
 import useAuthStore from '../../stores/useAuthStore'
+import useCurrency from '../../hooks/useCurrency'
 
 const PLACEHOLDER_IMAGES = [
   'https://images.unsplash.com/photo-1542314831-068cd1dbfeeb?w=800&auto=format&fit=crop',
@@ -63,7 +64,7 @@ function adaptBooking(booking, hotelMap) {
     status,
     confirmationCode: `#${booking.id}`,
     dateLabel: formatDateLabel(booking.checkInDate, booking.checkOutDate),
-    total: `$${Number(booking.totalPrice ?? 0).toFixed(2)}`,
+    rawTotal: Number(booking.totalPrice ?? 0),
     paymentStatus:
       booking.status === 'PENDING' ? 'Payment pending'
       : booking.status === 'CONFIRMED' ? 'Payment confirmed'
@@ -92,6 +93,7 @@ export default function TripsPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const { user } = useAuthStore()
+  const { formatCurrency } = useCurrency()
 
   useEffect(() => {
     async function load() {
@@ -113,8 +115,16 @@ export default function TripsPage() {
   }, [user])
 
   const visibleTrips = useMemo(
-    () => (activeFilter === 'all' ? bookings : bookings.filter((b) => b.status === activeFilter)),
-    [activeFilter, bookings]
+    () => {
+      const filtered = activeFilter === 'all'
+        ? bookings
+        : bookings.filter((booking) => booking.status === activeFilter)
+      return filtered.map((booking) => ({
+        ...booking,
+        total: formatCurrency(booking.rawTotal),
+      }))
+    },
+    [activeFilter, bookings, formatCurrency]
   )
 
   const tripStats = useMemo(() => {

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { ArrowLeft, SendHorizonal } from 'lucide-react'
+import { ArrowLeft, CheckCheck, ImagePlus, Paperclip, SendHorizonal, X } from 'lucide-react'
 import { format, parseISO } from 'date-fns'
 import {
   PortalShell,
@@ -23,6 +23,12 @@ function formatTime(dt) {
   try { return format(parseISO(dt), 'h:mm a · MMM d') } catch { return '' }
 }
 
+function formatFileSize(size) {
+  if (!size) return ''
+  if (size < 1024 * 1024) return `${Math.max(1, Math.round(size / 1024))} KB`
+  return `${(size / (1024 * 1024)).toFixed(1)} MB`
+}
+
 export default function ConversationPage() {
   const { id } = useParams()
   const [conversation, setConversation] = useState(null)
@@ -30,7 +36,11 @@ export default function ConversationPage() {
   const [loading, setLoading] = useState(true)
   const [text, setText] = useState('')
   const [sending, setSending] = useState(false)
+  const [attachments, setAttachments] = useState([])
+  const [attachmentNotice, setAttachmentNotice] = useState(null)
+  const [typingPulse, setTypingPulse] = useState(false)
   const bottomRef = useRef(null)
+  const fileInputRef = useRef(null)
 
   useEffect(() => {
     async function load() {
@@ -54,6 +64,23 @@ export default function ConversationPage() {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
 
+  useEffect(() => {
+    if (!conversation?.id) return undefined
+
+    const start = window.setTimeout(() => setTypingPulse(true), 1200)
+    const stop = window.setTimeout(() => setTypingPulse(false), 3800)
+    const interval = window.setInterval(() => {
+      setTypingPulse(true)
+      window.setTimeout(() => setTypingPulse(false), 2600)
+    }, 12000)
+
+    return () => {
+      window.clearTimeout(start)
+      window.clearTimeout(stop)
+      window.clearInterval(interval)
+    }
+  }, [conversation?.id])
+
   const receiverId = conversation
     ? conversation.userId1 === MY_USER_ID
       ? conversation.userId2
@@ -62,13 +89,18 @@ export default function ConversationPage() {
 
   const handleSend = async (msgText) => {
     const trimmed = (msgText ?? text).trim()
-    if (!trimmed || !receiverId) return
+    const attachedFiles = msgText ? [] : attachments
+    if ((!trimmed && attachedFiles.length === 0) || !receiverId) return
     setText('')
+    setAttachments([])
+    setAttachmentNotice(null)
     const optimistic = {
       id: `tmp-${Date.now()}`,
       senderId: MY_USER_ID,
-      messageText: trimmed,
+      messageText: trimmed || `${attachedFiles.length} attachment${attachedFiles.length === 1 ? '' : 's'}`,
       createdAt: new Date().toISOString(),
+      attachments: attachedFiles,
+      deliveryStatus: 'sending',
     }
     setMessages((prev) => [...prev, optimistic])
     setSending(true)
@@ -76,14 +108,44 @@ export default function ConversationPage() {
       const saved = await sendMessage({
         conversationId: Number(id),
         receiverId,
-        messageText: trimmed,
+        messageText: trimmed || optimistic.messageText,
       })
-      setMessages((prev) => prev.map((m) => (m.id === optimistic.id ? saved : m)))
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === optimistic.id
+            ? { ...saved, attachments: attachedFiles, deliveryStatus: 'delivered' }
+            : m,
+        ),
+      )
     } catch {
       setMessages((prev) => prev.filter((m) => m.id !== optimistic.id))
     } finally {
       setSending(false)
     }
+  }
+
+  function handleAttachFiles(event) {
+    const selected = Array.from(event.target.files ?? []).map((file) => ({
+      id: `${file.name}-${file.lastModified}`,
+      name: file.name,
+      size: file.size,
+      type: file.type,
+    }))
+    if (!selected.length) return
+
+    setAttachments((prev) => [...prev, ...selected].slice(0, 5))
+    setAttachmentNotice(`${selected.length} file${selected.length === 1 ? '' : 's'} ready to send.`)
+    event.target.value = ''
+  }
+
+  function removeAttachment(fileId) {
+    setAttachments((prev) => prev.filter((file) => file.id !== fileId))
+  }
+
+  function getReceiptLabel(message) {
+    if (message.deliveryStatus === 'sending' || String(message.id).startsWith('tmp-')) return 'Sending'
+    if (message.readAt || message.isRead || message.readByReceiver) return 'Read'
+    return 'Delivered'
   }
 
   if (loading) {
@@ -147,6 +209,7 @@ export default function ConversationPage() {
           )}
           {messages.map((message) => {
             const isMe = message.senderId === MY_USER_ID
+            const messageAttachments = Array.isArray(message.attachments) ? message.attachments : []
             return (
               <div key={message.id} className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
                 <div
@@ -155,13 +218,47 @@ export default function ConversationPage() {
                   }`}
                 >
                   <p>{message.messageText}</p>
-                  <p className={`mt-2 text-xs ${isMe ? 'text-white/65' : 'text-muted'}`}>
-                    {formatTime(message.createdAt)}
-                  </p>
+                  {messageAttachments.length > 0 && (
+                    <div className="mt-3 grid gap-2">
+                      {messageAttachments.map((file) => (
+                        <div
+                          key={file.id}
+                          className={`flex items-center gap-2 rounded-2xl px-3 py-2 text-xs ${
+                            isMe ? 'bg-white/10 text-white' : 'bg-white text-dark'
+                          }`}
+                        >
+                          <ImagePlus size={14} />
+                          <span className="min-w-0 flex-1 truncate">{file.name}</span>
+                          {file.size ? <span className={isMe ? 'text-white/60' : 'text-muted'}>{formatFileSize(file.size)}</span> : null}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  <div className={`mt-2 flex flex-wrap items-center gap-2 text-xs ${isMe ? 'text-white/65' : 'text-muted'}`}>
+                    <span>{formatTime(message.createdAt)}</span>
+                    {isMe ? (
+                      <span className="inline-flex items-center gap-1">
+                        <CheckCheck size={13} />
+                        {getReceiptLabel(message)}
+                      </span>
+                    ) : null}
+                  </div>
                 </div>
               </div>
             )
           })}
+          {typingPulse && (
+            <div className="flex justify-start">
+              <div className="inline-flex items-center gap-2 rounded-[22px] border border-gray-200 bg-[#fcfcfb] px-4 py-3 text-sm text-muted">
+                <span>User #{otherUserId} is typing</span>
+                <span className="flex gap-1">
+                  <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-gray-400" />
+                  <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-gray-400 [animation-delay:120ms]" />
+                  <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-gray-400 [animation-delay:240ms]" />
+                </span>
+              </div>
+            </div>
+          )}
           <div ref={bottomRef} />
         </div>
 
@@ -180,7 +277,34 @@ export default function ConversationPage() {
         </div>
 
         {/* Compose */}
-        <div className="mt-4 flex flex-col gap-3 rounded-[26px] border border-gray-200 bg-[#fcfcfb] p-4 sm:flex-row sm:items-end">
+        <div className="mt-4 rounded-[26px] border border-gray-200 bg-[#fcfcfb] p-4">
+          {attachmentNotice ? (
+            <p className="mb-3 rounded-2xl bg-rose-50 px-3 py-2 text-xs font-semibold text-brand">
+              {attachmentNotice}
+            </p>
+          ) : null}
+          {attachments.length > 0 && (
+            <div className="mb-3 flex flex-wrap gap-2">
+              {attachments.map((file) => (
+                <span
+                  key={file.id}
+                  className="inline-flex max-w-full items-center gap-2 rounded-2xl border border-gray-200 bg-white px-3 py-2 text-xs font-semibold text-dark"
+                >
+                  <Paperclip size={13} />
+                  <span className="max-w-[180px] truncate">{file.name}</span>
+                  <button
+                    type="button"
+                    onClick={() => removeAttachment(file.id)}
+                    className="inline-flex h-5 w-5 items-center justify-center rounded-full text-muted hover:bg-gray-100 hover:text-dark"
+                    aria-label={`Remove ${file.name}`}
+                  >
+                    <X size={12} />
+                  </button>
+                </span>
+              ))}
+            </div>
+          )}
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
           <textarea
             rows={3}
             value={text}
@@ -191,14 +315,30 @@ export default function ConversationPage() {
             placeholder="Write a message… (⌘↵ to send)"
             className="min-h-[108px] flex-1 resize-none bg-transparent text-base leading-7 text-dark outline-none placeholder:text-gray-400 md:text-sm"
           />
+          <input
+            ref={fileInputRef}
+            type="file"
+            multiple
+            className="hidden"
+            onChange={handleAttachFiles}
+          />
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            className="inline-flex h-12 w-full items-center justify-center rounded-2xl border border-gray-200 bg-white text-dark transition-colors hover:bg-gray-50 sm:w-12"
+            aria-label="Attach files"
+          >
+            <Paperclip size={16} />
+          </button>
           <button
             type="button"
             onClick={() => handleSend()}
-            disabled={!text.trim() || sending}
+            disabled={(!text.trim() && attachments.length === 0) || sending}
             className="inline-flex h-12 w-full items-center justify-center rounded-2xl bg-dark text-white transition-colors hover:bg-gray-800 disabled:opacity-40 sm:w-12"
           >
             <SendHorizonal size={16} />
           </button>
+          </div>
         </div>
       </SectionCard>
     </PortalShell>

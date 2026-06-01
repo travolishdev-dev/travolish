@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { Link, useParams, useNavigate, useLocation } from 'react-router-dom'
+import { Link, useParams, useLocation } from 'react-router-dom'
 import {
   CalendarDays,
   CreditCard,
@@ -9,6 +9,9 @@ import {
   CheckCircle2,
   AlertCircle,
   Loader2,
+  Globe2,
+  TicketPercent,
+  UsersRound,
 } from 'lucide-react'
 import { addDays, format, differenceInCalendarDays, parseISO } from 'date-fns'
 import {
@@ -19,8 +22,8 @@ import {
 } from '../../components/portal/PortalUI'
 import { getHotel, listRooms, getHotelAddOns } from '../../services/hotelsApi'
 import { checkAvailability, calculatePrice, createBooking } from '../../services/bookingsApi'
-import { adaptHotel } from '../../lib/hotelAdapter'
 import useAuthStore from '../../stores/useAuthStore'
+import useCurrency from '../../hooks/useCurrency'
 
 const CHECKOUT_ADDONS = [
   {
@@ -49,15 +52,20 @@ const SUPPORT_HIGHLIGHTS = [
   'Message your host directly through the Travolish app.',
 ]
 
-function buildPriceMap(rooms) {
-  const map = {}
-  rooms.forEach((r) => {
-    if (r.hotelId == null) return
-    if (map[r.hotelId] === undefined || r.pricePerNight < map[r.hotelId]) {
-      map[r.hotelId] = r.pricePerNight
-    }
-  })
-  return map
+const CURRENCY_OPTIONS = [
+  { code: 'USD', label: 'USD', locale: 'en-US', rate: 1 },
+  { code: 'INR', label: 'INR', locale: 'en-IN', rate: 83 },
+  { code: 'EUR', label: 'EUR', locale: 'de-DE', rate: 0.92 },
+  { code: 'GBP', label: 'GBP', locale: 'en-GB', rate: 0.79 },
+]
+
+function formatMoney(value, currencyCode) {
+  const option = CURRENCY_OPTIONS.find((item) => item.code === currencyCode) ?? CURRENCY_OPTIONS[0]
+  return new Intl.NumberFormat(option.locale, {
+    style: 'currency',
+    currency: option.code,
+    maximumFractionDigits: 0,
+  }).format(Math.max(0, Math.round(Number(value || 0) * option.rate)))
 }
 
 const DEFAULT_CHECK_IN = addDays(new Date(), 1)
@@ -65,11 +73,12 @@ const DEFAULT_CHECK_OUT = addDays(new Date(), 4)
 
 export default function CheckoutPage() {
   const { propertyId } = useParams()
-  const navigate = useNavigate()
   const location = useLocation()
   const { user, profile } = useAuthStore()
+  const { currency: profileCurrency } = useCurrency()
 
   const incomingBooking = location.state?.booking ?? null
+  const incomingRoomId = incomingBooking?.room?.id
 
   // ── Hotel / room state ──────────────────────────────────────────────────────
   const [hotel, setHotel] = useState(null)
@@ -96,6 +105,20 @@ export default function CheckoutPage() {
   const [lastName, setLastName] = useState('')
   const [email, setEmail] = useState('')
   const [phone, setPhone] = useState('')
+  const [guestCount, setGuestCount] = useState(() =>
+    Math.max(1, Number(incomingBooking?.adults || 0) + Number(incomingBooking?.children || 0) || 2),
+  )
+  const [currency, setCurrency] = useState(profileCurrency)
+  const [promoCode, setPromoCode] = useState('')
+  const [appliedPromo, setAppliedPromo] = useState('')
+  const [promoNotice, setPromoNotice] = useState('')
+  const [bookingMode] = useState(() =>
+    incomingBooking?.bookingMode || (Number(propertyId) % 2 === 0 ? 'request' : 'instant'),
+  )
+
+  useEffect(() => {
+    setCurrency(profileCurrency)
+  }, [profileCurrency])
 
   // ── Add-ons state ───────────────────────────────────────────────────────────
   const [addOns, setAddOns] = useState(CHECKOUT_ADDONS)
@@ -124,7 +147,7 @@ export default function CheckoutPage() {
           setAddOns(fetchedAddOns)
         }
         if (hotelRooms.length > 0) {
-          const targetRoomId = incomingBooking?.room?.id
+          const targetRoomId = incomingRoomId
           const match = targetRoomId ? hotelRooms.find((r) => r.id === targetRoomId) : null
           const cheapest = hotelRooms.reduce((min, r) =>
             r.pricePerNight < min.pricePerNight ? r : min,
@@ -139,7 +162,7 @@ export default function CheckoutPage() {
     }
     load()
     return () => { cancelled = true }
-  }, [propertyId])
+  }, [propertyId, incomingRoomId])
 
   // ── Pre-fill form from booking widget state, falling back to auth ───────────
   useEffect(() => {
@@ -193,11 +216,14 @@ export default function CheckoutPage() {
     .filter((a) => selectedAddOns.includes(a.id))
     .reduce((sum, a) => sum + a.price, 0)
 
-  const displayTotal = priceBreakdown
+  const grossTotal = priceBreakdown
     ? Math.round(priceBreakdown.totalPrice) + addOnTotal
     : selectedRoom
       ? Math.round(selectedRoom.pricePerNight * nights) + addOnTotal
       : addOnTotal
+  const promoDiscount = appliedPromo ? Math.min(75, Math.round(grossTotal * 0.08)) : 0
+  const displayTotal = Math.max(0, grossTotal - promoDiscount)
+  const buttonLabel = bookingMode === 'request' ? 'Send booking request' : 'Confirm and reserve'
 
   const dateLabel =
     checkIn && checkOut
@@ -259,8 +285,8 @@ export default function CheckoutPage() {
   if (confirmedBooking) {
     return (
       <PortalShell
-        eyebrow="Booking confirmed"
-        title="You're all set."
+        eyebrow={bookingMode === 'request' ? 'Booking request sent' : 'Booking confirmed'}
+        title={bookingMode === 'request' ? 'Your request is with the host.' : "You're all set."}
         description={`Booking #${confirmedBooking.id} has been created successfully.`}
         actions={[
           { label: 'View my trips', href: '/trips' },
@@ -273,7 +299,9 @@ export default function CheckoutPage() {
               <CheckCircle2 size={24} />
             </div>
             <div>
-              <h2 className="text-lg font-semibold text-dark">Booking confirmed</h2>
+              <h2 className="text-lg font-semibold text-dark">
+                {bookingMode === 'request' ? 'Request sent' : 'Booking confirmed'}
+              </h2>
               <p className="mt-1 text-sm text-muted">
                 {hotel.name} · {dateLabel} · {nights} night{nights !== 1 ? 's' : ''}
               </p>
@@ -299,7 +327,7 @@ export default function CheckoutPage() {
       eyebrow="Checkout"
       title={isLoadingHotel ? 'Loading…' : 'Review and confirm your stay.'}
       mobileTitle="Checkout"
-      mobileBottomAction={{ label: 'Confirm and reserve', onClick: handleReserve }}
+      mobileBottomAction={{ label: buttonLabel, onClick: handleReserve }}
       description={
         hotel
           ? `${hotel.name} · ${hotel.city ?? ''}${hotel.country ? `, ${hotel.country}` : ''}`
@@ -312,12 +340,12 @@ export default function CheckoutPage() {
       stats={[
         {
           label: 'Stay total',
-          value: isLoadingHotel ? '—' : `$${displayTotal}`,
+          value: isLoadingHotel ? '—' : formatMoney(displayTotal, currency),
           note: `${nights > 0 ? nights : '—'} nights`,
         },
         {
           label: 'Guests',
-          value: '2',
+          value: String(guestCount),
           note: dateLabel || 'Select dates',
         },
         {
@@ -344,7 +372,9 @@ export default function CheckoutPage() {
             )}
 
             <div className="mt-5 flex flex-wrap items-center gap-2">
-              <StatusPill tone="brand">Live booking</StatusPill>
+              <StatusPill tone="brand">
+                {bookingMode === 'request' ? 'Request to book' : 'Instant booking'}
+              </StatusPill>
               <StatusPill tone="success">Flexible policy</StatusPill>
             </div>
 
@@ -376,6 +406,20 @@ export default function CheckoutPage() {
               eyebrow="Price Summary"
               title="What you pay today"
               description="Pricing is calculated live from the booking engine."
+              action={(
+                <label className="inline-flex items-center gap-2 rounded-2xl border border-gray-200 bg-white px-3 py-2 text-sm font-semibold text-dark">
+                  <Globe2 size={15} />
+                  <select
+                    value={currency}
+                    onChange={(event) => setCurrency(event.target.value)}
+                    className="bg-transparent outline-none"
+                  >
+                    {CURRENCY_OPTIONS.map((option) => (
+                      <option key={option.code} value={option.code}>{option.label}</option>
+                    ))}
+                  </select>
+                </label>
+              )}
             />
 
             <div className="mt-6 space-y-4 text-sm text-dark">
@@ -388,46 +432,89 @@ export default function CheckoutPage() {
                 <>
                   <div className="flex items-center justify-between gap-4">
                     <span>
-                      ${Math.round(priceBreakdown.basePrice)} × {priceBreakdown.numberOfNights} night{priceBreakdown.numberOfNights !== 1 ? 's' : ''}
+                      {formatMoney(priceBreakdown.basePrice, currency)} × {priceBreakdown.numberOfNights} night{priceBreakdown.numberOfNights !== 1 ? 's' : ''}
                     </span>
-                    <span>${Math.round(priceBreakdown.basePriceTotal)}</span>
+                    <span>{formatMoney(priceBreakdown.basePriceTotal, currency)}</span>
                   </div>
                   {priceBreakdown.seasonalAdjustment !== 0 && (
                     <div className="flex items-center justify-between gap-4">
                       <span>Seasonal adjustment</span>
-                      <span>{priceBreakdown.seasonalAdjustment > 0 ? '+' : ''}${Math.round(priceBreakdown.seasonalAdjustment)}</span>
+                      <span>{priceBreakdown.seasonalAdjustment > 0 ? '+' : ''}{formatMoney(priceBreakdown.seasonalAdjustment, currency)}</span>
                     </div>
                   )}
                   {priceBreakdown.dynamicPricingAdjustment !== 0 && (
                     <div className="flex items-center justify-between gap-4">
                       <span>Dynamic pricing</span>
-                      <span>{priceBreakdown.dynamicPricingAdjustment > 0 ? '+' : ''}${Math.round(priceBreakdown.dynamicPricingAdjustment)}</span>
+                      <span>{priceBreakdown.dynamicPricingAdjustment > 0 ? '+' : ''}{formatMoney(priceBreakdown.dynamicPricingAdjustment, currency)}</span>
                     </div>
                   )}
                   {priceBreakdown.promotionalDiscount !== 0 && (
                     <div className="flex items-center justify-between gap-4 text-emerald-700">
                       <span>Promotional discount</span>
-                      <span>−${Math.abs(Math.round(priceBreakdown.promotionalDiscount))}</span>
+                      <span>−{formatMoney(Math.abs(priceBreakdown.promotionalDiscount), currency)}</span>
                     </div>
                   )}
                 </>
               ) : selectedRoom ? (
                 <div className="flex items-center justify-between gap-4">
-                  <span>${Math.round(selectedRoom.pricePerNight)} × {nights} night{nights !== 1 ? 's' : ''}</span>
-                  <span>${Math.round(selectedRoom.pricePerNight * nights)}</span>
+                  <span>{formatMoney(selectedRoom.pricePerNight, currency)} × {nights} night{nights !== 1 ? 's' : ''}</span>
+                  <span>{formatMoney(selectedRoom.pricePerNight * nights, currency)}</span>
                 </div>
               ) : null}
 
               {addOnTotal > 0 && (
                 <div className="flex items-center justify-between gap-4">
                   <span>Selected add-ons</span>
-                  <span>${addOnTotal}</span>
+                  <span>{formatMoney(addOnTotal, currency)}</span>
+                </div>
+              )}
+
+              <div className="rounded-2xl border border-gray-200 bg-[#fcfbf8] p-3">
+                <div className="flex flex-col gap-2 sm:flex-row">
+                  <span className="relative flex-1">
+                    <TicketPercent
+                      size={15}
+                      className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted"
+                    />
+                    <input
+                      value={promoCode}
+                      onChange={(event) => {
+                        setPromoCode(event.target.value)
+                        setPromoNotice('')
+                      }}
+                      placeholder="Promo code"
+                      className="w-full rounded-xl border border-gray-200 bg-white py-2.5 pl-9 pr-3 text-sm outline-none focus:border-dark"
+                    />
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const code = promoCode.trim().toUpperCase()
+                      if (!code) {
+                        setPromoNotice('Enter a promo code to preview a discount.')
+                        return
+                      }
+                      setAppliedPromo(code)
+                      setPromoNotice(`${code} preview applied. Final validation stays with checkout pricing.`)
+                    }}
+                    className="rounded-xl bg-dark px-4 py-2.5 text-sm font-semibold text-white"
+                  >
+                    Apply
+                  </button>
+                </div>
+                {promoNotice ? <p className="mt-2 text-xs font-medium text-muted">{promoNotice}</p> : null}
+              </div>
+
+              {promoDiscount > 0 && (
+                <div className="flex items-center justify-between gap-4 text-emerald-700">
+                  <span>Promo preview</span>
+                  <span>−{formatMoney(promoDiscount, currency)}</span>
                 </div>
               )}
 
               <div className="flex items-center justify-between border-t border-gray-100 pt-4 text-lg font-semibold">
                 <span>Total</span>
-                <span>${displayTotal}</span>
+                <span>{formatMoney(displayTotal, currency)}</span>
               </div>
             </div>
 
@@ -462,7 +549,7 @@ export default function CheckoutPage() {
               {isSubmitting ? (
                 <><Loader2 size={16} className="animate-spin" /> Processing…</>
               ) : (
-                <><CreditCard size={16} /> Confirm and reserve</>
+                <><CreditCard size={16} /> {buttonLabel}</>
               )}
             </button>
 
@@ -488,6 +575,18 @@ export default function CheckoutPage() {
         <div className="space-y-6">
 
           {/* Dates */}
+          <SectionCard>
+            <SectionHeading
+              eyebrow="Booking Flow"
+              title={bookingMode === 'request' ? 'Host approval required' : 'Instant confirmation available'}
+              description={
+                bookingMode === 'request'
+                  ? 'This stay is shown as request-to-book in the traveller flow. The host should approve or decline within 24 hours once backend workflow is connected.'
+                  : 'This stay is shown as instant-bookable. Confirmation can be completed immediately when payment succeeds.'
+              }
+            />
+          </SectionCard>
+
           <SectionCard>
             <SectionHeading
               eyebrow="Dates"
@@ -565,7 +664,7 @@ export default function CheckoutPage() {
                           </div>
                         </div>
                         <p className="text-sm font-bold">
-                          ${Math.round(room.pricePerNight)}
+                          {formatMoney(room.pricePerNight, currency)}
                           <span className={`font-normal text-xs ${isSelected ? 'text-white/70' : 'text-muted'}`}>/night</span>
                         </p>
                       </div>
@@ -583,6 +682,23 @@ export default function CheckoutPage() {
               title="Primary traveler details"
             />
             <div className="mt-6 grid gap-4 md:grid-cols-2">
+              <label className="block md:col-span-2">
+                <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.18em] text-muted">Guests</span>
+                <span className="flex max-w-xs items-center justify-between rounded-2xl border border-gray-200 bg-[#fcfcfb] px-4 py-3">
+                  <span className="inline-flex items-center gap-2 text-sm font-semibold text-dark">
+                    <UsersRound size={16} />
+                    Guest count
+                  </span>
+                  <input
+                    type="number"
+                    min="1"
+                    max="16"
+                    value={guestCount}
+                    onChange={(event) => setGuestCount(Math.max(1, Number(event.target.value) || 1))}
+                    className="w-16 bg-transparent text-right text-sm font-semibold text-dark outline-none"
+                  />
+                </span>
+              </label>
               <label className="block">
                 <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.18em] text-muted">First name</span>
                 <input

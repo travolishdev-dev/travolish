@@ -25,11 +25,14 @@ const countryOptions = [
   { code: 'US', label: 'United States', currency: 'USD' },
   { code: 'GB', label: 'United Kingdom', currency: 'GBP' },
   { code: 'AE', label: 'United Arab Emirates', currency: 'AED' },
+  { code: 'FR', label: 'France', currency: 'EUR' },
 ]
 
 const languageOptions = [
   { code: 'en', label: 'English', nativeLabel: 'English' },
   { code: 'hi', label: 'Hindi', nativeLabel: 'हिन्दी' },
+  { code: 'es', label: 'Spanish', nativeLabel: 'Español' },
+  { code: 'fr', label: 'French', nativeLabel: 'Français' },
 ]
 
 function readStoredCountry() {
@@ -44,6 +47,7 @@ function LanguageRegionModal({ country, onCountryChange, onClose }) {
   const handleCountryChange = (countryCode) => {
     window.localStorage.setItem('travolish.country', countryCode)
     onCountryChange(countryCode)
+    window.dispatchEvent(new CustomEvent('travolish-region-change'))
   }
 
   return (

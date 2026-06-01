@@ -2,6 +2,7 @@ import { useRef, useState } from 'react'
 import { ArrowRight, ChevronLeft, ChevronRight } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useSearchContext } from '../../hooks/useSearchContext'
+import useCurrency from '../../hooks/useCurrency'
 
 const DESTINATION_CARD_ITEM_CLASS =
   'shrink-0 snap-start basis-[82%] sm:basis-[calc((100%-1.25rem)/2)] lg:basis-[calc((100%-2.5rem)/3)] 2xl:basis-[calc((100%-5rem)/5)]'
@@ -49,35 +50,35 @@ const cityDestinations = [
   {
     name: 'Mumbai',
     count: '5,496 hotels',
-    average: 'Rs. 6,624 avg.',
+    averagePrice: 6624,
     image:
       'https://images.unsplash.com/photo-1567157577867-05ccb1388e66?w=900&auto=format&fit=crop',
   },
   {
     name: 'Mussoorie',
     count: '1,435 hotels',
-    average: 'Rs. 7,238 avg.',
+    averagePrice: 7238,
     image:
       'https://images.unsplash.com/photo-1626621341517-bbf3d9990a23?w=900&auto=format&fit=crop',
   },
   {
     name: 'Rishikesh',
     count: '2,112 hotels',
-    average: 'Rs. 5,959 avg.',
+    averagePrice: 5959,
     image:
       'https://images.unsplash.com/photo-1599661046827-dacff0c0f09a?w=900&auto=format&fit=crop',
   },
   {
     name: 'Manali',
     count: '3,803 hotels',
-    average: 'Rs. 5,070 avg.',
+    averagePrice: 5070,
     image:
       'https://images.unsplash.com/photo-1626621341517-bbf3d9990a23?w=900&auto=format&fit=crop',
   },
   {
     name: 'Jaipur',
     count: '4,129 hotels',
-    average: 'Rs. 4,860 avg.',
+    averagePrice: 4860,
     image:
       'https://images.unsplash.com/photo-1599661046827-dacff0c0f09a?w=900&auto=format&fit=crop',
   },
@@ -87,35 +88,35 @@ const regionalDestinations = [
   {
     name: 'Goa',
     count: '4,820 stays',
-    average: 'Rs. 6,180 avg.',
+    averagePrice: 6180,
     image:
       'https://images.unsplash.com/photo-1512343879784-a960bf40e7f2?w=900&auto=format&fit=crop',
   },
   {
     name: 'Kerala',
     count: '3,214 stays',
-    average: 'Rs. 5,420 avg.',
+    averagePrice: 5420,
     image:
       'https://images.unsplash.com/photo-1602216056096-3b40cc0c9944?w=900&auto=format&fit=crop',
   },
   {
     name: 'Rajasthan',
     count: '6,108 stays',
-    average: 'Rs. 6,980 avg.',
+    averagePrice: 6980,
     image:
       'https://images.unsplash.com/photo-1599661046827-dacff0c0f09a?w=900&auto=format&fit=crop',
   },
   {
     name: 'Himachal',
     count: '2,944 stays',
-    average: 'Rs. 5,260 avg.',
+    averagePrice: 5260,
     image:
       'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=900&auto=format&fit=crop',
   },
   {
     name: 'Ladakh',
     count: '1,286 stays',
-    average: 'Rs. 6,740 avg.',
+    averagePrice: 6740,
     image:
       'https://images.unsplash.com/photo-1581793745862-99fde7fa73d2?w=900&auto=format&fit=crop',
   },
@@ -126,6 +127,7 @@ export default function PopularDestinations() {
   const trackRef = useRef(null)
   const navigate = useNavigate()
   const { updateSearchDraft } = useSearchContext()
+  const { formatCurrency } = useCurrency()
   const destinations =
     activeTab === 'cities' ? cityDestinations : regionalDestinations
 
@@ -147,7 +149,7 @@ export default function PopularDestinations() {
         </div>
 
         <div className="flex w-full flex-col gap-3 sm:w-auto sm:items-end md:flex-row md:items-center">
-          <div className="flex w-full rounded-full bg-gray-100 p-1 sm:w-auto">
+          <div className="flex w-full rounded-[14px] bg-gray-100 p-1 sm:w-auto">
             {[
               { id: 'cities', label: 'Cities' },
               { id: 'destinations', label: 'Destinations' },
@@ -156,7 +158,7 @@ export default function PopularDestinations() {
                 key={tab.id}
                 type="button"
                 onClick={() => handleTabChange(tab.id)}
-                className={`flex-1 rounded-full px-4 py-2 text-sm font-semibold transition-colors sm:flex-none ${
+                className={`flex-1 rounded-[10px] px-4 py-2 text-sm font-semibold transition-colors sm:flex-none ${
                   activeTab === tab.id
                     ? 'bg-white text-dark shadow-sm'
                     : 'text-muted hover:text-dark'
@@ -209,7 +211,7 @@ export default function PopularDestinations() {
                 </p>
                 <p className="mt-1 text-sm text-muted">
                   <span className="font-semibold text-dark">
-                    {destination.average.split(' avg.')[0]}
+                    {formatCurrency(destination.averagePrice)}
                   </span>{' '}
                   avg.
                 </p>

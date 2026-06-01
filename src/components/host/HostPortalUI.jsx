@@ -6,6 +6,7 @@ import {
   Bot,
   Building2,
   CalendarDays,
+  CalendarCheck,
   Gauge,
   LayoutDashboard,
   Menu,
@@ -16,7 +17,7 @@ import {
   WalletCards,
   X,
 } from 'lucide-react'
-import { AnimatePresence, motion } from 'framer-motion'
+import { AnimatePresence, motion as Motion } from 'framer-motion'
 import useHostViewer from '../../hooks/useHostViewer'
 import { PreviewModeNotice, StatusPill } from '../portal/PortalUI'
 
@@ -25,6 +26,7 @@ const hostNavGroups = [
     title: 'Operations',
     items: [
       { label: 'Dashboard', href: '/host', icon: LayoutDashboard },
+      { label: 'Bookings', href: '/host/bookings', icon: CalendarCheck },
       { label: 'Listings', href: '/host/listings', icon: Building2 },
       { label: 'Availability', href: '/host/availability', icon: CalendarDays },
       { label: 'Inventory', href: '/host/inventory', icon: Gauge },
@@ -53,7 +55,7 @@ const hostNavGroups = [
 
 const hostBottomNav = [
   { label: 'Host', href: '/host', icon: LayoutDashboard },
-  { label: 'Listings', href: '/host/listings', icon: Building2 },
+  { label: 'Bookings', href: '/host/bookings', icon: CalendarCheck },
   { label: 'Calendar', href: '/host/availability', icon: CalendarDays },
   { label: 'Payouts', href: '/host/payouts', icon: WalletCards },
   { label: 'Safety', href: '/host/emergency', icon: OctagonAlert },
@@ -193,7 +195,7 @@ function HostMobileChrome({ title, mobileAction }) {
       <AnimatePresence>
         {isDrawerOpen ? (
           <>
-            <motion.button
+            <Motion.button
               type="button"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
@@ -201,7 +203,7 @@ function HostMobileChrome({ title, mobileAction }) {
               onClick={() => setIsDrawerOpen(false)}
               className="fixed inset-0 z-40 bg-black/35 md:hidden"
             />
-            <motion.aside
+            <Motion.aside
               initial={{ x: '-100%' }}
               animate={{ x: 0 }}
               exit={{ x: '-100%' }}
@@ -262,7 +264,7 @@ function HostMobileChrome({ title, mobileAction }) {
                   </div>
                 ))}
               </div>
-            </motion.aside>
+            </Motion.aside>
           </>
         ) : null}
       </AnimatePresence>
@@ -348,7 +350,7 @@ export function HostShell({
         <HostMobileChrome title={mobileTitle} mobileAction={mobileAction} />
         <MobileBottomAction action={mobileBottomAction} />
 
-        <motion.section
+        <Motion.section
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.28, ease: 'easeOut' }}
@@ -394,7 +396,7 @@ export function HostShell({
               </div>
             ) : null}
           </div>
-        </motion.section>
+        </Motion.section>
 
         <PreviewModeNotice />
 

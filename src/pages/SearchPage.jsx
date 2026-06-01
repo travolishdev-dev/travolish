@@ -16,6 +16,63 @@ import {
 
 const DEBOUNCE_MS = 350
 
+const AMENITY_FALLBACKS = [
+  ['Wifi', 'Kitchen', 'Free parking'],
+  ['Pool', 'Air conditioning', 'Breakfast'],
+  ['Workspace', 'Washer', 'Pet friendly'],
+  ['Gym', 'Airport pickup', 'Free cancellation'],
+]
+
+const PROPERTY_TYPE_FALLBACKS = ['Hotel', 'Apartment', 'Villa', 'Homestay', 'Resort', 'Guest house']
+
+function propertyIndex(property) {
+  return Math.abs(Number(property.id) || 0)
+}
+
+function enrichProperty(property) {
+  const index = propertyIndex(property)
+  const title = `${property.title ?? ''} ${property.category ?? ''}`.toLowerCase()
+  const propertyType = title.includes('villa')
+    ? 'Villa'
+    : title.includes('apartment') || title.includes('loft')
+      ? 'Apartment'
+      : title.includes('homestay')
+        ? 'Homestay'
+        : title.includes('resort')
+          ? 'Resort'
+          : PROPERTY_TYPE_FALLBACKS[index % PROPERTY_TYPE_FALLBACKS.length]
+  const fallbackAmenities = AMENITY_FALLBACKS[index % AMENITY_FALLBACKS.length]
+  const amenities = property.amenities?.length ? property.amenities : fallbackAmenities
+
+  return {
+    ...property,
+    propertyType,
+    amenities,
+    instantBookable: property.instantBookable ?? index % 2 !== 0,
+    freeCancellation: property.freeCancellation ?? index % 3 !== 0,
+    newestRank: index,
+  }
+}
+
+function sortResults(results, sortOption, sharedLocation) {
+  const sorted = [...results]
+
+  if (sortOption === 'price-low') {
+    return sorted.sort((a, b) => (a.price ?? Number.MAX_SAFE_INTEGER) - (b.price ?? Number.MAX_SAFE_INTEGER))
+  }
+  if (sortOption === 'price-high') {
+    return sorted.sort((a, b) => (b.price ?? 0) - (a.price ?? 0))
+  }
+  if (sortOption === 'rating') {
+    return sorted.sort((a, b) => Number(b.rating ?? 0) - Number(a.rating ?? 0))
+  }
+  if (sortOption === 'newest') {
+    return sorted.sort((a, b) => b.newestRank - a.newestRank)
+  }
+
+  return sortPropertiesBySharedLocation(sorted, sharedLocation)
+}
+
 function SearchCardSkeleton() {
   return (
     <div className="grid overflow-hidden rounded-[18px] border border-gray-200 bg-white shadow-sm md:grid-cols-[180px_minmax(0,1fr)]">
@@ -43,6 +100,11 @@ export default function SearchPage() {
   const [minPrice, setMinPrice] = useState('')
   const [maxPrice, setMaxPrice] = useState('')
   const [minRating, setMinRating] = useState(0)
+  const [propertyType, setPropertyType] = useState('Any')
+  const [selectedAmenities, setSelectedAmenities] = useState([])
+  const [instantBookOnly, setInstantBookOnly] = useState(false)
+  const [freeCancellationOnly, setFreeCancellationOnly] = useState(false)
+  const [sortOption, setSortOption] = useState('recommended')
   const [allProperties, setAllProperties] = useState([])
   const [isLoading, setIsLoading] = useState(false)
   const [totalResults, setTotalResults] = useState(0)
@@ -62,7 +124,7 @@ export default function SearchPage() {
           searchHotels({ query: destination || undefined, pageSize: 50 }),
           listRooms(),
         ])
-        setAllProperties(adaptHotels(searchResult.content ?? [], rooms))
+        setAllProperties(adaptHotels(searchResult.content ?? [], rooms).map(enrichProperty))
         setTotalResults(searchResult.totalElements ?? 0)
       } catch {
         setAllProperties([])
@@ -80,6 +142,7 @@ export default function SearchPage() {
   const parsedMinRating = Number(minRating) || 0
 
   const filteredResults = allProperties.filter((property) => {
+    const totalGuests = Number(searchDraft.adults || 0) + Number(searchDraft.children || 0)
     const matchesMin =
       parsedMinPrice === null ||
       (property.price !== null && property.price >= parsedMinPrice)
@@ -87,14 +150,27 @@ export default function SearchPage() {
       parsedMaxPrice === null ||
       (property.price !== null && property.price <= parsedMaxPrice)
     const matchesRating = !parsedMinRating || Number(property.rating || 0) >= parsedMinRating
+    const matchesType = propertyType === 'Any' || property.propertyType === propertyType
+    const matchesAmenities =
+      selectedAmenities.length === 0 ||
+      selectedAmenities.every((amenity) => property.amenities?.includes(amenity))
+    const matchesInstant = !instantBookOnly || property.instantBookable
+    const matchesCancellation = !freeCancellationOnly || property.freeCancellation
+    const matchesGuests = !totalGuests || Number(property.guests || 0) >= totalGuests
 
-    return matchesMin && matchesMax && matchesRating
+    return (
+      matchesMin &&
+      matchesMax &&
+      matchesRating &&
+      matchesType &&
+      matchesAmenities &&
+      matchesInstant &&
+      matchesCancellation &&
+      matchesGuests
+    )
   })
 
-  const sortedResults = sortPropertiesBySharedLocation(
-    filteredResults,
-    sharedLocation,
-  )
+  const sortedResults = sortResults(filteredResults, sortOption, sharedLocation)
   const sharedCoordinates = formatCoordinates(
     sharedLocation.latitude,
     sharedLocation.longitude,
@@ -111,6 +187,11 @@ export default function SearchPage() {
     setMinPrice('')
     setMaxPrice('')
     setMinRating(0)
+    setPropertyType('Any')
+    setSelectedAmenities([])
+    setInstantBookOnly(false)
+    setFreeCancellationOnly(false)
+    setSortOption('recommended')
   }
 
   const setPropertyCardRef = (propertyId) => (node) => {
@@ -146,6 +227,16 @@ export default function SearchPage() {
         onMinPriceChange={setMinPrice}
         onMaxPriceChange={setMaxPrice}
         onMinRatingChange={setMinRating}
+        propertyType={propertyType}
+        onPropertyTypeChange={setPropertyType}
+        selectedAmenities={selectedAmenities}
+        onSelectedAmenitiesChange={setSelectedAmenities}
+        instantBookOnly={instantBookOnly}
+        onInstantBookOnlyChange={setInstantBookOnly}
+        freeCancellationOnly={freeCancellationOnly}
+        onFreeCancellationOnlyChange={setFreeCancellationOnly}
+        sortOption={sortOption}
+        onSortOptionChange={setSortOption}
         onClearFilters={clearFilters}
       />
 

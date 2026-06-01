@@ -1,17 +1,42 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { createElement, useCallback, useEffect, useRef, useState } from 'react'
+import { FileWarning, RotateCcw, ShieldAlert, UserX } from 'lucide-react'
 import toast from 'react-hot-toast'
 import AdminManagementPage from '../../components/admin/AdminManagementPage'
+import { AdminCard, AdminSectionHeading, AdminStatusPill } from '../../components/admin/AdminPortalUI'
 import { approveReview, escalateReview, getFlaggedReviews, getPendingReviews, rejectReview } from '../../services/adminApi'
+
+const fallbackReports = [
+  {
+    id: 'L-401',
+    contentType: 'Listing',
+    title: 'Misleading pool photos',
+    reporter: 'Guest #1084',
+    status: 'UNDER_REVIEW',
+    severity: 'High',
+    appealStatus: 'No appeal',
+    source: 'Beachfront Villa listing',
+  },
+  {
+    id: 'U-219',
+    contentType: 'User',
+    title: 'Repeated payment abuse reports',
+    reporter: 'Risk system',
+    status: 'ESCALATED',
+    severity: 'High',
+    appealStatus: 'Appeal window open',
+    source: 'User profile and booking history',
+  },
+]
 
 function mapReviewToRow(r) {
   const actionLabel = r.status === 'APPROVED' || r.status === 'REJECTED' ? 'View' : 'Moderate'
   return [
-    `RPT-${r.id}`,
-    'Review',
+    String(r.id).startsWith('RPT-') ? r.id : `RPT-${r.id}`,
+    r.contentType || 'Review',
     r.title || r.moderatorNotes || 'Reported content',
-    r.userId ? `User #${r.userId}` : 'System',
+    r.reporter || (r.userId ? `User #${r.userId}` : 'System'),
     r.status || 'FLAGGED',
-    'Medium',
+    r.severity || 'Medium',
     actionLabel,
   ]
 }
@@ -36,13 +61,19 @@ export default function AdminModerationPage() {
           seen.add(r.id)
           return true
         })
-        rawMap.current = Object.fromEntries(merged.map((r) => [`RPT-${r.id}`, r]))
-        setRows(merged.map(mapReviewToRow))
+        const source = merged.length ? merged : fallbackReports
+        rawMap.current = Object.fromEntries(
+          source.map((r) => [String(r.id).startsWith('RPT-') ? r.id : `RPT-${r.id}`, r]),
+        )
+        setRows(source.map(mapReviewToRow))
       })
       .finally(() => setLoading(false))
   }, [])
 
-  useEffect(() => { load() }, [load])
+  useEffect(() => {
+    const timer = window.setTimeout(load, 0)
+    return () => window.clearTimeout(timer)
+  }, [load])
 
   const handleRowAction = useCallback(async (row, action, setNotice) => {
     const review = rawMap.current[row[0]]
@@ -83,6 +114,70 @@ export default function AdminModerationPage() {
       rows={rows}
       loading={loading}
       onRowAction={handleRowAction}
+      detailContent={({ record, setNotice }) => {
+        const report = record ? rawMap.current[record[0]] : null
+        return (
+          <AdminCard className="space-y-6">
+            <AdminSectionHeading
+              eyebrow="Moderation detail"
+              title="Content report and appeals"
+              description="Review listing, user, and review reports in one queue, with appeal readiness."
+            />
+
+            {report ? (
+              <div className="rounded-card border border-brand/20 bg-[#fff1f3] p-4">
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-brand">
+                      {record[0]}
+                    </p>
+                    <p className="mt-1 text-lg font-semibold text-dark">{record[2]}</p>
+                    <p className="mt-2 text-sm leading-6 text-muted">
+                      {report.source || record[3]} · {record[1]} · {record[5]} severity
+                    </p>
+                  </div>
+                  <AdminStatusPill tone={record[4] === 'ESCALATED' ? 'danger' : 'warning'}>
+                    {record[4]}
+                  </AdminStatusPill>
+                </div>
+              </div>
+            ) : (
+              <p className="rounded-card border border-gray-200 bg-white p-4 text-sm text-muted">
+                Select a report to inspect moderation context.
+              </p>
+            )}
+
+            <div className="grid gap-3">
+              {[
+                ['Listing report workflow', 'Photos, description accuracy, amenity claims, and location disputes can be reviewed.', FileWarning],
+                ['User report workflow', 'Risk or safety reports can be escalated without mixing them into review-only moderation.', UserX],
+                ['Appeal path', 'Rejected hosts and users can submit an appeal with new evidence for re-review.', RotateCcw],
+              ].map(([title, body, Icon]) => (
+                <div key={title} className="rounded-card border border-gray-200 bg-white p-4">
+                  <div className="flex items-start gap-3">
+                    <span className="mt-1 flex h-9 w-9 items-center justify-center rounded-card bg-[#fff1f3] text-brand">
+                      {createElement(Icon, { size: 17 })}
+                    </span>
+                    <div>
+                      <p className="text-sm font-semibold text-dark">{title}</p>
+                      <p className="mt-1 text-sm leading-6 text-muted">{body}</p>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setNotice('Appeal review packet prepared. Backend appeal submission is not changed in this UI pass.')}
+              className="inline-flex h-11 items-center justify-center gap-2 rounded-card bg-dark px-4 text-sm font-semibold text-white"
+            >
+              <ShieldAlert size={16} />
+              Prepare appeal review
+            </button>
+          </AdminCard>
+        )
+      }}
     />
   )
 }

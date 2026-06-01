@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { BellRing, CheckCheck, Clock3 } from 'lucide-react'
+import { BellRing, CheckCheck, Clock3, Filter, Trash2 } from 'lucide-react'
 import { formatDistanceToNow, isThisWeek, isToday, parseISO } from 'date-fns'
 import {
   PortalShell,
@@ -27,13 +27,13 @@ const TYPE_TONE = {
 const TYPE_ACTION = {
   BOOKING_CONFIRMATION: (n) => ({ label: 'View booking', href: n.bookingId ? `/trips/${n.bookingId}` : '/trips' }),
   BOOKING_REMINDER:    (n) => ({ label: 'View booking', href: n.bookingId ? `/trips/${n.bookingId}` : '/trips' }),
-  BOOKING_CANCELLATION:(n) => ({ label: 'Browse stays', href: '/search' }),
+  BOOKING_CANCELLATION:() => ({ label: 'Browse stays', href: '/search' }),
   CHECK_IN_REMINDER:   (n) => ({ label: 'View booking', href: n.bookingId ? `/trips/${n.bookingId}` : '/trips' }),
   CHECK_OUT_REMINDER:  (n) => ({ label: 'View booking', href: n.bookingId ? `/trips/${n.bookingId}` : '/trips' }),
-  PAYMENT_RECEIVED:    (n) => ({ label: 'View trips',   href: '/trips' }),
-  PAYMENT_FAILED:      (n) => ({ label: 'View trips',   href: '/trips' }),
+  PAYMENT_RECEIVED:    () => ({ label: 'View trips',   href: '/trips' }),
+  PAYMENT_FAILED:      () => ({ label: 'View trips',   href: '/trips' }),
   REVIEW_REQUEST:      (n) => ({ label: 'Leave review', href: n.hotelId ? `/reviews/new?hotelId=${n.hotelId}` : '/trips' }),
-  PROMOTIONAL_OFFER:   (n) => ({ label: 'Browse stays', href: '/search' }),
+  PROMOTIONAL_OFFER:   () => ({ label: 'Browse stays', href: '/search' }),
 }
 
 const SECTION_ORDER = ['Today', 'This week', 'Earlier']
@@ -54,6 +54,7 @@ function adaptNotification(n) {
   const { label, href } = actionFn(n)
   return {
     id: n.id,
+    type: n.type || 'GENERAL',
     section: n.createdAt ? getSection(n.createdAt) : 'Earlier',
     title: n.subject || n.type || 'Notification',
     body: n.message || '',
@@ -69,11 +70,13 @@ export default function NotificationsPage() {
   const [raw, setRaw] = useState([])
   const [loading, setLoading] = useState(true)
   const [showUnreadOnly, setShowUnreadOnly] = useState(false)
+  const [activeType, setActiveType] = useState('ALL')
+  const [dismissedIds, setDismissedIds] = useState([])
 
   useEffect(() => {
     listNotifications(1, { size: 50 })
       .then((data) => setRaw(data.content ?? data))
-      .catch(() => {})
+      .catch((error) => { void error })
       .finally(() => setLoading(false))
   }, [])
 
@@ -81,12 +84,35 @@ export default function NotificationsPage() {
     try {
       await markNotificationRead(id)
       setRaw((prev) => prev.map((n) => (n.id === id ? { ...n, isRead: true } : n)))
-    } catch {}
+    } catch (error) {
+      void error
+    }
   }
 
   const adapted = useMemo(() => raw.map(adaptNotification), [raw])
   const unreadCount = adapted.filter((n) => !n.isRead).length
-  const visible = showUnreadOnly ? adapted.filter((n) => !n.isRead) : adapted
+  const typeOptions = useMemo(
+    () => ['ALL', ...new Set(adapted.map((notification) => notification.type))],
+    [adapted],
+  )
+  const visible = adapted.filter((notification) => {
+    if (dismissedIds.includes(notification.id)) return false
+    if (showUnreadOnly && notification.isRead) return false
+    if (activeType !== 'ALL' && notification.type !== activeType) return false
+    return true
+  })
+
+  const handleMarkAllRead = async () => {
+    const unreadIds = adapted.filter((notification) => !notification.isRead).map((notification) => notification.id)
+    if (!unreadIds.length) return
+
+    setRaw((prev) => prev.map((notification) => ({ ...notification, isRead: true })))
+    await Promise.allSettled(unreadIds.map((id) => markNotificationRead(id)))
+  }
+
+  const handleDismiss = (id) => {
+    setDismissedIds((prev) => (prev.includes(id) ? prev : [...prev, id]))
+  }
 
   const grouped = useMemo(() => {
     const acc = {}
@@ -124,6 +150,21 @@ export default function NotificationsPage() {
           />
 
           <div className="grid gap-2 sm:flex sm:flex-wrap sm:gap-3">
+            <label className="inline-flex w-full items-center gap-2 rounded-full border border-gray-200 bg-white px-4 py-2.5 text-sm font-semibold text-dark sm:w-auto">
+              <Filter size={15} />
+              <select
+                value={activeType}
+                onChange={(event) => setActiveType(event.target.value)}
+                className="bg-transparent text-sm font-semibold outline-none"
+                aria-label="Filter notifications by type"
+              >
+                {typeOptions.map((type) => (
+                  <option key={type} value={type}>
+                    {type === 'ALL' ? 'All types' : type.replace(/_/g, ' ').toLowerCase()}
+                  </option>
+                ))}
+              </select>
+            </label>
             <button
               type="button"
               onClick={() => setShowUnreadOnly(false)}
@@ -142,6 +183,15 @@ export default function NotificationsPage() {
               }`}
             >
               Only unread
+            </button>
+            <button
+              type="button"
+              onClick={handleMarkAllRead}
+              disabled={unreadCount === 0}
+              className="inline-flex items-center justify-center gap-2 rounded-full border border-gray-200 bg-white px-4 py-2.5 text-sm font-semibold text-dark transition-colors hover:bg-gray-50 disabled:opacity-45"
+            >
+              <CheckCheck size={15} />
+              Mark all read
             </button>
           </div>
         </div>
@@ -175,6 +225,9 @@ export default function NotificationsPage() {
                             <StatusPill tone={notification.tone}>
                               {notification.isRead ? 'Read' : 'New'}
                             </StatusPill>
+                            <StatusPill tone="slate">
+                              {notification.type.replace(/_/g, ' ').toLowerCase()}
+                            </StatusPill>
                             {notification.time && (
                               <span className="inline-flex items-center gap-1 text-sm text-muted">
                                 <Clock3 size={14} />
@@ -205,6 +258,14 @@ export default function NotificationsPage() {
                               Mark read
                             </button>
                           )}
+                          <button
+                            type="button"
+                            onClick={() => handleDismiss(notification.id)}
+                            className="inline-flex w-full items-center justify-center gap-2 rounded-full border border-gray-200 bg-white px-4 py-2.5 text-sm font-semibold text-dark transition-colors hover:bg-gray-50 sm:w-auto"
+                          >
+                            <Trash2 size={14} />
+                            Dismiss
+                          </button>
                         </div>
                       </div>
                     </div>

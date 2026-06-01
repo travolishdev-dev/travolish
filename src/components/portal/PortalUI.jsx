@@ -5,16 +5,18 @@ import {
   CalendarRange,
   CreditCard,
   Home,
+  LifeBuoy,
   Menu,
   MessageCircleMore,
   Receipt,
   ShieldCheck,
   Sparkles,
   Star,
+  TicketPercent,
   UserRound,
   X,
 } from 'lucide-react'
-import { AnimatePresence, motion } from 'framer-motion'
+import { AnimatePresence, motion as Motion } from 'framer-motion'
 import usePortalViewer from '../../hooks/usePortalViewer'
 import useAccountInsights from '../../hooks/useAccountInsights'
 
@@ -38,6 +40,8 @@ const accountNavGroups = [
     title: 'Travel',
     items: [
       { label: 'Trips', href: '/trips', icon: CalendarRange },
+      { label: 'Offers', href: '/offers', icon: TicketPercent },
+      { label: 'Emergency', href: '/emergency', icon: LifeBuoy },
       { label: 'Messages', href: '/messages', icon: MessageCircleMore },
       { label: 'Reviews', href: '/reviews/me', icon: Star },
     ],
@@ -59,8 +63,8 @@ const toneClasses = {
 const mobileBottomNav = [
   { label: 'Home', href: '/', icon: Home },
   { label: 'Trips', href: '/trips', icon: CalendarRange },
+  { label: 'Offers', href: '/offers', icon: TicketPercent },
   { label: 'Messages', href: '/messages', icon: MessageCircleMore },
-  { label: 'Reviews', href: '/reviews/me', icon: Star },
   { label: 'Account', href: '/account', icon: UserRound },
 ]
 
@@ -70,6 +74,8 @@ const mobileDrawerSections = [
     items: [
       { label: 'Home', href: '/', icon: Home },
       { label: 'Trips', href: '/trips', icon: CalendarRange },
+      { label: 'Offers', href: '/offers', icon: TicketPercent },
+      { label: 'Emergency', href: '/emergency', icon: LifeBuoy },
       { label: 'Messages', href: '/messages', icon: MessageCircleMore },
       { label: 'Reviews', href: '/reviews/me', icon: Star },
       { label: 'Notifications', href: '/notifications', icon: BellRing },
@@ -216,7 +222,7 @@ function PortalMobileChrome({ title, mobileAction }) {
       <AnimatePresence>
         {isDrawerOpen && (
           <>
-            <motion.button
+            <Motion.button
               type="button"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
@@ -224,7 +230,7 @@ function PortalMobileChrome({ title, mobileAction }) {
               onClick={() => setIsDrawerOpen(false)}
               className="fixed inset-0 z-40 bg-black/35 md:hidden"
             />
-            <motion.aside
+            <Motion.aside
               initial={{ x: '-100%' }}
               animate={{ x: 0 }}
               exit={{ x: '-100%' }}
@@ -287,7 +293,7 @@ function PortalMobileChrome({ title, mobileAction }) {
                   </div>
                 ))}
               </div>
-            </motion.aside>
+            </Motion.aside>
           </>
         )}
       </AnimatePresence>
@@ -398,7 +404,7 @@ export function PortalShell({
       <div className="mx-auto flex max-w-[1760px] flex-col gap-4 px-4 pt-4 md:gap-6 md:px-10 md:pt-0 xl:px-20">
         <PortalMobileChrome title={mobileTitle} mobileAction={mobileAction} />
         <MobileBottomAction action={mobileBottomAction} />
-        <motion.section
+        <Motion.section
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.28, ease: 'easeOut' }}
@@ -438,7 +444,7 @@ export function PortalShell({
               </div>
             ) : null}
           </div>
-        </motion.section>
+        </Motion.section>
 
         <PreviewModeNotice />
         {children}
@@ -470,7 +476,7 @@ export function AccountShell({
       <div className="mx-auto flex max-w-[1760px] flex-col gap-4 px-4 pt-4 md:gap-6 md:px-10 md:pt-0 xl:px-20">
         <PortalMobileChrome title={mobileTitle} mobileAction={mobileAction} />
         <MobileBottomAction action={mobileBottomAction} />
-        <motion.section
+        <Motion.section
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.28, ease: 'easeOut' }}
@@ -527,7 +533,7 @@ export function AccountShell({
               ))}
             </div>
           </div>
-        </motion.section>
+        </Motion.section>
 
         <PreviewModeNotice />
 

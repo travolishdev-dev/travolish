@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { ArrowRight, ChevronLeft, ChevronRight, Map } from 'lucide-react'
+import { ArrowRight, ChevronLeft, ChevronRight, Map, Sparkles } from 'lucide-react'
 import HomeSearchPanel from '../components/home/HomeSearchPanel'
 import PropertyCard from '../components/home/PropertyCard'
 import PopularDestinations from '../components/home/PopularDestinations'
@@ -17,6 +17,24 @@ import {
 const SECTION_SIZE = 8
 const CARD_TRACK_ITEM_CLASS =
   'shrink-0 snap-start basis-[82%] sm:basis-[calc((100%-1.25rem)/2)] lg:basis-[calc((100%-2.5rem)/3)] xl:basis-[calc((100%-3.75rem)/4)] 2xl:basis-[calc((100%-5rem)/5)]'
+
+const recommendationModes = [
+  {
+    id: 'trusted',
+    label: 'Most trusted',
+    signal: 'ratings, reviews, and booking confidence',
+  },
+  {
+    id: 'value',
+    label: 'Best value',
+    signal: 'lower nightly rates with strong guest feedback',
+  },
+  {
+    id: 'weekend',
+    label: 'Weekend ready',
+    signal: 'easy-to-book stays with broad appeal',
+  },
+]
 
 function scrollCardTrack(trackRef, direction) {
   const track = trackRef.current
@@ -199,10 +217,61 @@ function PropertySection({ eyebrow, title, description, propertiesToShow }) {
   )
 }
 
+function scoreRecommendation(property, modeId) {
+  const rating = Number(property.rating ?? 0)
+  const reviews = Number(property.reviewCount ?? 0)
+  const price = Number(property.price ?? property.displayPrice ?? 0)
+  const valueBoost = price ? Math.max(0, 10000 - price) / 1000 : 0
+
+  if (modeId === 'value') return rating * 8 + reviews / 25 + valueBoost
+  if (modeId === 'weekend') return rating * 7 + reviews / 30 + (property.images?.length ?? 0)
+  return rating * 10 + reviews / 18
+}
+
+function RecommendationControls({ activeMode, onModeChange }) {
+  const selected = recommendationModes.find((mode) => mode.id === activeMode) ?? recommendationModes[0]
+
+  return (
+    <section className="rounded-[28px] border border-gray-200 bg-white p-5 shadow-[0_14px_34px_rgba(15,23,42,0.05)] md:p-6">
+      <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+        <div className="max-w-2xl">
+          <p className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-muted">
+            <Sparkles size={14} className="text-brand" />
+            AI recommendations
+          </p>
+          <h2 className="mt-2 text-2xl font-semibold tracking-tight text-dark">
+            Tune the shortlist
+          </h2>
+          <p className="mt-2 text-sm leading-6 text-muted">
+            Ranking currently prioritizes {selected.signal}.
+          </p>
+        </div>
+        <div className="grid gap-2 sm:flex sm:flex-wrap sm:gap-3">
+          {recommendationModes.map((mode) => (
+            <button
+              key={mode.id}
+              type="button"
+              onClick={() => onModeChange(mode.id)}
+              className={`rounded-2xl px-4 py-2.5 text-sm font-semibold transition-colors ${
+                activeMode === mode.id
+                  ? 'bg-dark text-white'
+                  : 'border border-gray-200 bg-[#fcfbf8] text-dark hover:bg-white'
+              }`}
+            >
+              {mode.label}
+            </button>
+          ))}
+        </div>
+      </div>
+    </section>
+  )
+}
+
 export default function HomePage() {
   const navigate = useNavigate()
   const [properties, setProperties] = useState([])
   const [isLoading, setIsLoading] = useState(true)
+  const [recommendationMode, setRecommendationMode] = useState('trusted')
   const sharedLocation = useNativeAppLocationStore()
 
   useEffect(() => {
@@ -242,11 +311,10 @@ export default function HomePage() {
   const nearbyIds = new Set(nearbyProperties.map((p) => p.id))
   const recommendedProperties = [...properties]
     .filter((p) => !nearbyIds.has(p.id))
-    .sort((a, b) => {
-      if (b.rating !== a.rating) return b.rating - a.rating
-      return b.reviewCount - a.reviewCount
-    })
+    .sort((a, b) => scoreRecommendation(b, recommendationMode) - scoreRecommendation(a, recommendationMode))
     .slice(0, SECTION_SIZE)
+  const selectedRecommendationMode =
+    recommendationModes.find((mode) => mode.id === recommendationMode) ?? recommendationModes[0]
 
   const nearbyTitle = sharedLocation.hasSharedLocation
     ? 'Hotel deals near your handoff'
@@ -255,7 +323,7 @@ export default function HomePage() {
     ? `Sorted around ${sharedCoordinates} from your ${platformLabel.toLowerCase()} handoff so nearby stays stay easy to compare.`
     : 'A focused shortlist of stays with strong ratings, useful details, and clear next steps.'
   const recommendedDescription =
-    'More options to keep browsing once the first shortlist is covered.'
+    `A preference-aware shortlist ranked by ${selectedRecommendationMode.signal}.`
 
   return (
     <main className="pb-16">
@@ -278,9 +346,16 @@ export default function HomePage() {
               propertiesToShow={nearbyProperties}
             />
 
+            {recommendedProperties.length > 0 && (
+              <RecommendationControls
+                activeMode={recommendationMode}
+                onModeChange={setRecommendationMode}
+              />
+            )}
+
             <PropertySection
               eyebrow="Recommended"
-              title="Recommended for your next stay"
+              title={`${selectedRecommendationMode.label} for your next stay`}
               description={recommendedDescription}
               propertiesToShow={recommendedProperties}
             />

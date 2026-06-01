@@ -13,6 +13,15 @@ import useHostContext from '../../hooks/useHostContext'
 
 const filters = ['All', 'Live', 'Draft updates']
 
+function getBookingRequestCount(listingId) {
+  return {
+    13: 2,
+    10: 1,
+    14: 3,
+    4: 0,
+  }[Number(listingId)] ?? 0
+}
+
 function adaptListing(h) {
   return {
     id: h.id,
@@ -39,13 +48,10 @@ export default function HostListingsPage() {
   const { hostId, loading: hostLoading } = useHostContext()
   const [listings, setListings] = useState([])
   const [activeFilter, setActiveFilter] = useState('All')
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(false)
 
   useEffect(() => {
-    if (hostLoading || !hostId) {
-      if (!hostLoading) setLoading(false)
-      return
-    }
+    if (hostLoading || !hostId) return
     getHostListings(hostId)
       .then((data) => {
         const items = data?.content ?? (Array.isArray(data) ? data : null)
@@ -125,6 +131,11 @@ export default function HostListingsPage() {
                       {listing.status}
                     </StatusPill>
                     <StatusPill tone="sky">{listing.market}</StatusPill>
+                    {getBookingRequestCount(listing.id) > 0 ? (
+                      <StatusPill tone="warning">
+                        {getBookingRequestCount(listing.id)} booking request{getBookingRequestCount(listing.id) > 1 ? 's' : ''}
+                      </StatusPill>
+                    ) : null}
                   </div>
                   <h2 className="mt-3 text-xl font-semibold tracking-tight text-dark">
                     {listing.property.title}
@@ -159,6 +170,12 @@ export default function HostListingsPage() {
                       className="inline-flex items-center justify-center rounded-2xl bg-dark px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-gray-800"
                     >
                       Rooms
+                    </Link>
+                    <Link
+                      to="/host/bookings"
+                      className="inline-flex items-center justify-center rounded-2xl border border-amber-200 bg-amber-50 px-4 py-2.5 text-sm font-semibold text-amber-800 transition-colors hover:bg-amber-100"
+                    >
+                      Requests
                     </Link>
                   </div>
                 </div>

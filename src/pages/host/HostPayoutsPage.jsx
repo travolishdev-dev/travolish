@@ -12,13 +12,11 @@ export default function HostPayoutsPage() {
   const { hostId, loading: hostLoading } = useHostContext()
   const [summary, setSummary] = useState(null)
   const [history, setHistory] = useState([])
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(false)
+  const [payoutNotice, setPayoutNotice] = useState('')
 
   useEffect(() => {
-    if (hostLoading || !hostId) {
-      if (!hostLoading) setLoading(false)
-      return
-    }
+    if (hostLoading || !hostId) return
     Promise.all([
       getPayoutBalance(hostId).catch(() => null),
       getPayoutHistory(hostId).catch(() => null),
@@ -65,6 +63,59 @@ export default function HostPayoutsPage() {
       ]}
     >
       <SectionCard>
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+          <SectionHeading
+            eyebrow="Balance"
+            title="Manual payout request"
+            description="UI-only request control for hosts who want to transfer available balance before the scheduled run."
+          />
+          <button
+            type="button"
+            onClick={() => setPayoutNotice('Manual payout request prepared. Backend payout initiation is unchanged.')}
+            className="inline-flex items-center justify-center rounded-2xl bg-dark px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-gray-800"
+          >
+            Request payout
+          </button>
+        </div>
+
+        <div className="mt-6 grid gap-4 lg:grid-cols-3">
+          <div className="rounded-2xl border border-gray-200 bg-[#fcfbf8] p-4">
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted">
+              Schedule
+            </p>
+            <p className="mt-2 text-lg font-semibold text-dark">Weekly, every Friday</p>
+            <p className="mt-2 text-sm leading-6 text-muted">
+              Payouts are queued after checkout completion and reserve checks.
+            </p>
+          </div>
+          <div className="rounded-2xl border border-gray-200 bg-[#fcfbf8] p-4">
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted">
+              Default destination
+            </p>
+            <p className="mt-2 text-lg font-semibold text-dark">Primary bank account</p>
+            <p className="mt-2 text-sm leading-6 text-muted">
+              Change default payout account from Bank accounts.
+            </p>
+          </div>
+          <div className="rounded-2xl border border-gray-200 bg-[#fcfbf8] p-4">
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted">
+              Reserve release
+            </p>
+            <p className="mt-2 text-lg font-semibold text-dark">48h after checkout</p>
+            <p className="mt-2 text-sm leading-6 text-muted">
+              Security holds release when no incident is open.
+            </p>
+          </div>
+        </div>
+
+        {payoutNotice ? (
+          <div className="mt-5 rounded-2xl border border-brand/20 bg-rose-50 px-4 py-3 text-sm font-semibold text-brand">
+            {payoutNotice}
+          </div>
+        ) : null}
+      </SectionCard>
+
+      <SectionCard>
         <SectionHeading eyebrow="History" title="Recent payouts" />
 
         {loading && (
@@ -104,6 +155,40 @@ export default function HostPayoutsPage() {
             ))}
           </div>
         )}
+      </SectionCard>
+
+      <SectionCard>
+        <SectionHeading
+          eyebrow="Tax"
+          title="Tax documents"
+          description="Placeholder document center for annual host tax forms."
+        />
+
+        <div className="mt-6 grid gap-3">
+          {[
+            ['2026 Form 1099-K', 'Preparing', 'Available after year-end reconciliation'],
+            ['2025 Earnings summary', 'Ready', 'Downloadable PDF placeholder'],
+            ['Tax profile', 'Needs review', 'Confirm legal name and payout country'],
+          ].map(([title, status, note]) => (
+            <div
+              key={title}
+              className="grid gap-3 rounded-2xl border border-gray-200 bg-[#fcfbf8] p-4 md:grid-cols-[minmax(0,1fr)_auto_auto] md:items-center"
+            >
+              <div>
+                <p className="text-sm font-semibold text-dark">{title}</p>
+                <p className="mt-1 text-sm text-muted">{note}</p>
+              </div>
+              <StatusPill tone={status === 'Ready' ? 'success' : 'warning'}>{status}</StatusPill>
+              <button
+                type="button"
+                onClick={() => setPayoutNotice(`${title} selected. Document download endpoint is not wired in this UI pass.`)}
+                className="inline-flex items-center justify-center rounded-2xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-semibold text-dark transition-colors hover:bg-gray-50"
+              >
+                View
+              </button>
+            </div>
+          ))}
+        </div>
       </SectionCard>
     </HostShell>
   )

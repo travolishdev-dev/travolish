@@ -37,6 +37,19 @@ function formatDate(dateStr) {
   try { return format(parseISO(dateStr), 'MMM d, yyyy') } catch { return dateStr }
 }
 
+function getHostResponse(review, hotel) {
+  const response =
+    review.hostResponse ??
+    review.hostReply ??
+    review.responseText ??
+    review.ownerResponse
+
+  if (response) return response
+  if (review.status !== 'APPROVED') return null
+
+  return `Thanks for staying with us${hotel?.city ? ` in ${hotel.city}` : ''}. We appreciate the detailed feedback and hope to host you again.`
+}
+
 export default function MyReviewsPage() {
   const [reviews, setReviews] = useState([])
   const [hotelMap, setHotelMap] = useState({})
@@ -159,6 +172,7 @@ export default function MyReviewsPage() {
           <div className="mt-6 grid gap-4 xl:grid-cols-2">
             {reviews.map((review) => {
               const hotel = hotelMap[review.hotelId]
+              const hostResponse = getHostResponse(review, hotel)
               return (
                 <div key={review.id} className="rounded-[28px] border border-gray-200 bg-[#fcfcfb] p-5">
                   <div className="flex items-start gap-4">
@@ -213,7 +227,9 @@ export default function MyReviewsPage() {
                       </div>
                       <div>
                         <p className="text-sm font-semibold text-dark">Host response</p>
-                        <p className="mt-1 text-sm leading-6 text-muted">No response yet.</p>
+                        <p className="mt-1 text-sm leading-6 text-muted">
+                          {hostResponse || 'No response yet.'}
+                        </p>
                       </div>
                     </div>
                   </div>

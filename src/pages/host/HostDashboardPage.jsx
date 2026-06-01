@@ -23,17 +23,6 @@ function fmtCheckIn(dateStr) {
   }
 }
 
-function arrivalLabel(dateStr) {
-  try {
-    const d = parseISO(dateStr)
-    if (isToday(d)) return 'Today'
-    if (isTomorrow(d)) return 'Tomorrow'
-    return format(d, 'MMM d')
-  } catch {
-    return dateStr
-  }
-}
-
 function buildStats(overview) {
   if (!overview) return [
     { label: 'Total bookings', value: '—', note: 'Loading…' },
@@ -76,7 +65,7 @@ function buildPriorityTasks(overview) {
     tasks.push({
       title: `${overview.pendingBookings} booking${overview.pendingBookings !== 1 ? 's' : ''} waiting for confirmation`,
       context: 'Review and confirm pending reservations to secure your calendar.',
-      href: '/trips',
+      href: '/host/bookings',
       tone: 'brand',
     })
   }
@@ -173,7 +162,7 @@ export default function HostDashboardPage() {
       mobileTitle="Host"
       description="Listings, arrivals, and next actions."
       actions={[
-        { label: 'Listings', href: '/host/listings', secondary: true },
+        { label: 'Bookings', href: '/host/bookings', secondary: true },
         { label: 'Availability', href: '/host/availability' },
       ]}
       stats={stats}
@@ -207,6 +196,38 @@ export default function HostDashboardPage() {
             ))}
           </div>
         )}
+      </SectionCard>
+
+      <SectionCard>
+        <SectionHeading
+          eyebrow="Payouts"
+          title="Balance snapshot"
+          description="Quick payout visibility on the host dashboard before opening the full payout ledger."
+        />
+
+        <div className="mt-6 grid gap-4 lg:grid-cols-4">
+          {[
+            ['Available', '$2,840', 'Ready to transfer'],
+            ['Pending', '$6,120', 'Awaiting checkout completion'],
+            ['Reserve hold', '$980', 'Security / damage window'],
+            ['Next payout', 'Friday', 'Weekly schedule'],
+          ].map(([label, value, note]) => (
+            <div key={label} className="rounded-[22px] border border-gray-200 bg-[#fcfbf8] p-4">
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted">
+                {label}
+              </p>
+              <p className="mt-2 text-xl font-semibold tracking-tight text-dark">{value}</p>
+              <p className="mt-1 text-xs leading-5 text-muted">{note}</p>
+            </div>
+          ))}
+        </div>
+
+        <Link
+          to="/host/payouts"
+          className="mt-5 inline-flex items-center justify-center rounded-2xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-semibold text-dark transition-colors hover:bg-gray-50"
+        >
+          Open payout center
+        </Link>
       </SectionCard>
 
       <SectionCard>

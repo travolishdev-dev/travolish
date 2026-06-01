@@ -110,6 +110,41 @@ body {
   display: inline-block;
 }
 
+/* ── Traveller Assistant Bubble ── */
+.traveller-assistant-cloud {
+  padding: 0.82rem 1rem;
+  border: 1px solid rgba(255, 56, 92, 0.16);
+  border-radius: 16px;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(255, 241, 245, 0.98));
+  box-shadow:
+    0 16px 34px rgba(255, 56, 92, 0.16),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.74);
+  animation: traveller-assistant-cloud-float 3.4s ease-in-out infinite;
+}
+
+.traveller-assistant-cloud::after {
+  content: '';
+  position: absolute;
+  right: 1.35rem;
+  bottom: -0.42rem;
+  width: 0.78rem;
+  height: 0.78rem;
+  border-right: 1px solid rgba(255, 56, 92, 0.16);
+  border-bottom: 1px solid rgba(255, 56, 92, 0.16);
+  background: rgba(255, 246, 249, 0.98);
+  transform: rotate(45deg);
+}
+
+@keyframes traveller-assistant-cloud-float {
+  0%,
+  100% {
+    transform: translateY(0) scale(1);
+  }
+  50% {
+    transform: translateY(-6px) scale(1.02);
+  }
+}
+
 /* ── Home Search Hero ── */
 .home-search-hero {
   position: relative;

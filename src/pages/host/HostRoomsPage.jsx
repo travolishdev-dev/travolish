@@ -9,6 +9,7 @@ import {
 } from '../../components/host/HostPortalUI'
 import { getHostListings, getHostRooms } from '../../services/hostListingsApi'
 import useHostContext from '../../hooks/useHostContext'
+import useCurrency from '../../hooks/useCurrency'
 
 function adaptRoom(r) {
   return {
@@ -20,7 +21,8 @@ function adaptRoom(r) {
     capacity: r.maxOccupancy ?? r.capacity ?? '—',
     beds: r.bedConfiguration ?? r.beds ?? '—',
     baths: r.bathrooms != null ? `${r.bathrooms} bath` : r.baths ?? '—',
-    baseRate: r.pricePerNight != null ? `$${r.pricePerNight}` : r.basePrice != null ? `$${r.basePrice}` : r.baseRate ?? '—',
+    rawBaseRate: r.pricePerNight ?? r.basePrice ?? null,
+    baseRate: r.baseRate ?? '—',
     upsells: r.amenities?.join(', ') ?? r.upsells ?? '',
     housekeepingState: r.housekeepingStatus ?? r.housekeepingState ?? '—',
     nightsSold: r.nightsSold ?? 0,
@@ -54,31 +56,43 @@ export default function HostRoomsPage() {
   const { hostId, loading: hostLoading } = useHostContext()
   const [listing, setListing] = useState(null)
   const [rooms, setRooms] = useState([])
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(false)
+  const { formatCurrency } = useCurrency()
 
   useEffect(() => {
     if (hostLoading || !hostId) {
-      if (!hostLoading) setLoading(false)
       return
     }
 
-    Promise.all([
-      getHostListings(hostId).catch(() => null),
-      getHostRooms(id).catch(() => null),
-    ]).then(([listingsData, roomsData]) => {
-      if (listingsData) {
-        const items = listingsData?.content ?? (Array.isArray(listingsData) ? listingsData : null)
-        const found = items?.find((h) => String(h.id) === String(id))
-        if (found) setListing(adaptListing(found))
-      }
-      if (roomsData) {
-        const items = roomsData?.content ?? (Array.isArray(roomsData) ? roomsData : null)
-        if (items?.length) setRooms(items.map(adaptRoom))
-      }
-    }).finally(() => setLoading(false))
+    let cancelled = false
+    const timer = window.setTimeout(() => {
+      setLoading(true)
+      Promise.all([
+        getHostListings(hostId).catch(() => null),
+        getHostRooms(id).catch(() => null),
+      ]).then(([listingsData, roomsData]) => {
+        if (cancelled) return
+        if (listingsData) {
+          const items = listingsData?.content ?? (Array.isArray(listingsData) ? listingsData : null)
+          const found = items?.find((h) => String(h.id) === String(id))
+          if (found) setListing(adaptListing(found))
+        }
+        if (roomsData) {
+          const items = roomsData?.content ?? (Array.isArray(roomsData) ? roomsData : null)
+          if (items?.length) setRooms(items.map(adaptRoom))
+        }
+      }).finally(() => {
+        if (!cancelled) setLoading(false)
+      })
+    }, 0)
+
+    return () => {
+      cancelled = true
+      window.clearTimeout(timer)
+    }
   }, [id, hostId, hostLoading])
 
-  if (loading) {
+  if (hostLoading || loading) {
     return (
       <HostShell
         title="Rooms"
@@ -202,7 +216,7 @@ export default function HostRoomsPage() {
                       Base rate
                     </p>
                     <p className="mt-2 text-2xl font-semibold tracking-tight text-dark">
-                      {room.baseRate}
+                      {room.rawBaseRate != null ? formatCurrency(room.rawBaseRate) : room.baseRate}
                     </p>
                     <p className="mt-1 text-sm text-muted">{room.upsells}</p>
                     <Link

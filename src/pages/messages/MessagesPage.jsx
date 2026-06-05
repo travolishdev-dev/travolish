@@ -9,8 +9,7 @@ import {
   StatusPill,
 } from '../../components/portal/PortalUI'
 import { listConversations } from '../../services/chatApi'
-
-const MY_USER_ID = 1
+import useAuthStore from '../../stores/useAuthStore'
 
 const PLACEHOLDER_IMAGES = [
   'https://images.unsplash.com/photo-1542314831-068cd1dbfeeb?w=400&auto=format&fit=crop',
@@ -28,8 +27,8 @@ function formatTime(dt) {
   try { return format(parseISO(dt), 'MMM d') } catch { return '' }
 }
 
-function adaptConversation(c) {
-  const isUser1 = c.userId1 === MY_USER_ID
+function adaptConversation(c, userId) {
+  const isUser1 = c.userId1 === userId
   const otherId = isUser1 ? c.userId2 : c.userId1
   const unread = isUser1 ? (c.user1UnreadCount ?? 0) : (c.user2UnreadCount ?? 0)
   return {
@@ -45,16 +44,18 @@ function adaptConversation(c) {
 }
 
 export default function MessagesPage() {
+  const userId = useAuthStore((s) => s.backendUserId)
   const [conversations, setConversations] = useState([])
   const [loading, setLoading] = useState(true)
   const [query, setQuery] = useState('')
 
   useEffect(() => {
-    listConversations(MY_USER_ID)
-      .then((data) => setConversations((data ?? []).map(adaptConversation)))
+    if (!userId) { setLoading(false); return }
+    listConversations(userId)
+      .then((data) => setConversations((data ?? []).map((c) => adaptConversation(c, userId))))
       .catch(() => {})
       .finally(() => setLoading(false))
-  }, [])
+  }, [userId])
 
   const visible = useMemo(() => {
     if (!query.trim()) return conversations

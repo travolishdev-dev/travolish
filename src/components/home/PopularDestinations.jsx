@@ -1,8 +1,9 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { ArrowRight, ChevronLeft, ChevronRight } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useSearchContext } from '../../hooks/useSearchContext'
 import useCurrency from '../../hooks/useCurrency'
+import { searchHotels } from '../../services/hotelsApi'
 
 const DESTINATION_CARD_ITEM_CLASS =
   'shrink-0 snap-start basis-[82%] sm:basis-[calc((100%-1.25rem)/2)] lg:basis-[calc((100%-2.5rem)/3)] 2xl:basis-[calc((100%-5rem)/5)]'
@@ -46,90 +47,44 @@ function DestinationCarouselControls({ onPrevious, onNext }) {
   )
 }
 
-const cityDestinations = [
-  {
-    name: 'Mumbai',
-    count: '5,496 hotels',
-    averagePrice: 6624,
-    image:
-      'https://images.unsplash.com/photo-1567157577867-05ccb1388e66?w=900&auto=format&fit=crop',
-  },
-  {
-    name: 'Mussoorie',
-    count: '1,435 hotels',
-    averagePrice: 7238,
-    image:
-      'https://images.unsplash.com/photo-1626621341517-bbf3d9990a23?w=900&auto=format&fit=crop',
-  },
-  {
-    name: 'Rishikesh',
-    count: '2,112 hotels',
-    averagePrice: 5959,
-    image:
-      'https://images.unsplash.com/photo-1599661046827-dacff0c0f09a?w=900&auto=format&fit=crop',
-  },
-  {
-    name: 'Manali',
-    count: '3,803 hotels',
-    averagePrice: 5070,
-    image:
-      'https://images.unsplash.com/photo-1626621341517-bbf3d9990a23?w=900&auto=format&fit=crop',
-  },
-  {
-    name: 'Jaipur',
-    count: '4,129 hotels',
-    averagePrice: 4860,
-    image:
-      'https://images.unsplash.com/photo-1599661046827-dacff0c0f09a?w=900&auto=format&fit=crop',
-  },
+// Static images and search queries per destination
+const CITY_DESTINATIONS = [
+  { name: 'Mumbai',    query: 'Mumbai',    image: 'https://images.unsplash.com/photo-1567157577867-05ccb1388e66?w=900&auto=format&fit=crop' },
+  { name: 'Mussoorie', query: 'Mussoorie', image: 'https://images.unsplash.com/photo-1626621341517-bbf3d9990a23?w=900&auto=format&fit=crop' },
+  { name: 'Rishikesh', query: 'Rishikesh', image: 'https://images.unsplash.com/photo-1599661046827-dacff0c0f09a?w=900&auto=format&fit=crop' },
+  { name: 'Manali',    query: 'Manali',    image: 'https://images.unsplash.com/photo-1626621341517-bbf3d9990a23?w=900&auto=format&fit=crop' },
+  { name: 'Jaipur',    query: 'Jaipur',    image: 'https://images.unsplash.com/photo-1599661046827-dacff0c0f09a?w=900&auto=format&fit=crop' },
 ]
 
-const regionalDestinations = [
-  {
-    name: 'Goa',
-    count: '4,820 stays',
-    averagePrice: 6180,
-    image:
-      'https://images.unsplash.com/photo-1512343879784-a960bf40e7f2?w=900&auto=format&fit=crop',
-  },
-  {
-    name: 'Kerala',
-    count: '3,214 stays',
-    averagePrice: 5420,
-    image:
-      'https://images.unsplash.com/photo-1602216056096-3b40cc0c9944?w=900&auto=format&fit=crop',
-  },
-  {
-    name: 'Rajasthan',
-    count: '6,108 stays',
-    averagePrice: 6980,
-    image:
-      'https://images.unsplash.com/photo-1599661046827-dacff0c0f09a?w=900&auto=format&fit=crop',
-  },
-  {
-    name: 'Himachal',
-    count: '2,944 stays',
-    averagePrice: 5260,
-    image:
-      'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=900&auto=format&fit=crop',
-  },
-  {
-    name: 'Ladakh',
-    count: '1,286 stays',
-    averagePrice: 6740,
-    image:
-      'https://images.unsplash.com/photo-1581793745862-99fde7fa73d2?w=900&auto=format&fit=crop',
-  },
+const REGIONAL_DESTINATIONS = [
+  { name: 'Goa',       query: 'Goa',       image: 'https://images.unsplash.com/photo-1512343879784-a960bf40e7f2?w=900&auto=format&fit=crop' },
+  { name: 'Kerala',    query: 'Kerala',    image: 'https://images.unsplash.com/photo-1602216056096-3b40cc0c9944?w=900&auto=format&fit=crop' },
+  { name: 'Rajasthan', query: 'Rajasthan', image: 'https://images.unsplash.com/photo-1599661046827-dacff0c0f09a?w=900&auto=format&fit=crop' },
+  { name: 'Himachal',  query: 'Himachal',  image: 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=900&auto=format&fit=crop' },
+  { name: 'Ladakh',    query: 'Ladakh',    image: 'https://images.unsplash.com/photo-1581793745862-99fde7fa73d2?w=900&auto=format&fit=crop' },
 ]
 
 export default function PopularDestinations() {
   const [activeTab, setActiveTab] = useState('cities')
+  const [liveCounts, setLiveCounts] = useState({})
   const trackRef = useRef(null)
   const navigate = useNavigate()
   const { updateSearchDraft } = useSearchContext()
   const { formatCurrency } = useCurrency()
-  const destinations =
-    activeTab === 'cities' ? cityDestinations : regionalDestinations
+
+  const allDestinations = [...CITY_DESTINATIONS, ...REGIONAL_DESTINATIONS]
+
+  useEffect(() => {
+    Promise.all(
+      allDestinations.map(({ name, query }) =>
+        searchHotels({ query, pageSize: 1 })
+          .then((r) => [name, r.totalElements ?? 0])
+          .catch(() => [name, null]),
+      ),
+    ).then((entries) => setLiveCounts(Object.fromEntries(entries)))
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const destinations = activeTab === 'cities' ? CITY_DESTINATIONS : REGIONAL_DESTINATIONS
 
   const handleTabChange = (tabId) => {
     setActiveTab(tabId)
@@ -204,16 +159,16 @@ export default function PopularDestinations() {
                   {destination.name}
                 </h3>
                 <p className="mt-2 text-sm text-muted">
-                  <span className="font-semibold text-dark">
-                    {destination.count.split(' ')[0]}
-                  </span>{' '}
-                  {destination.count.split(' ').slice(1).join(' ')}
-                </p>
-                <p className="mt-1 text-sm text-muted">
-                  <span className="font-semibold text-dark">
-                    {formatCurrency(destination.averagePrice)}
-                  </span>{' '}
-                  avg.
+                  {liveCounts[destination.name] != null && liveCounts[destination.name] > 0 ? (
+                    <>
+                      <span className="font-semibold text-dark">
+                        {liveCounts[destination.name].toLocaleString()}
+                      </span>{' '}
+                      {liveCounts[destination.name] === 1 ? 'hotel' : 'hotels'}
+                    </>
+                  ) : (
+                    <span className="text-muted">Explore stays</span>
+                  )}
                 </p>
               </div>
               <span className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-2xl border border-gray-200 text-dark transition-colors group-hover:border-brand group-hover:bg-brand group-hover:text-white">

@@ -9,6 +9,7 @@ import {
   StatusPill,
 } from '../components/portal/PortalUI'
 import { listNotifications, markNotificationRead } from '../services/notificationsApi'
+import useAuthStore from '../stores/useAuthStore'
 
 const TYPE_TONE = {
   BOOKING_CONFIRMATION: 'success',
@@ -72,13 +73,15 @@ export default function NotificationsPage() {
   const [showUnreadOnly, setShowUnreadOnly] = useState(false)
   const [activeType, setActiveType] = useState('ALL')
   const [dismissedIds, setDismissedIds] = useState([])
+  const { backendUserId, user } = useAuthStore()
 
   useEffect(() => {
-    listNotifications(1, { size: 50 })
-      .then((data) => setRaw(data.content ?? data))
+    if (!backendUserId) { setLoading(false); return }
+    listNotifications(backendUserId, { size: 50, email: user?.email })
+      .then((data) => setRaw(data.content ?? data ?? []))
       .catch((error) => { void error })
       .finally(() => setLoading(false))
-  }, [])
+  }, [backendUserId, user?.email])
 
   const handleMarkRead = async (id) => {
     try {

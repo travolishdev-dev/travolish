@@ -6,18 +6,22 @@ import {
   StatusPill,
 } from '../../components/host/HostPortalUI'
 import { HostField } from '../../components/host/HostFormFields'
-import { getBankAccounts, registerBankAccount } from '../../services/bankAccountsApi'
+import { getBankAccounts, registerBankAccount, deleteBankAccount, setPrimaryBankAccount } from '../../services/bankAccountsApi'
+import toast from 'react-hot-toast'
 import useHostContext from '../../hooks/useHostContext'
 
 function adaptAccount(a) {
+  // Derive last4 from accountNumber since lastFourDigits doesn't exist in HostBankAccountDTO
+  const last4 = a.lastFourDigits ?? a.last4
+    ?? (a.accountNumber ? String(a.accountNumber).slice(-4) : '****')
   return {
     id: a.id,
     label: a.accountHolderName ?? a.bankName ?? a.label ?? 'Bank account',
     type: a.accountType ?? a.type ?? '—',
-    last4: a.lastFourDigits ?? a.last4 ?? '****',
-    currency: a.currency ?? 'USD',
+    last4,
+    currency: a.currency ?? 'INR',
     status: a.verificationStatus ?? a.status ?? 'Pending',
-    transferSpeed: a.transferSpeed ?? '1–2 business days',
+    isPrimary: a.isPrimary ?? false,
   }
 }
 
@@ -25,8 +29,8 @@ export default function HostBankAccountsPage() {
   const { hostId, loading: hostLoading } = useHostContext()
   const [accounts, setAccounts] = useState([])
   const [defaultAccountId, setDefaultAccountId] = useState(null)
-  const [bankNotice, setBankNotice] = useState('')
   const [accountsLoading, setAccountsLoading] = useState(true)
+  const [actioningId, setActioningId] = useState(null)
   const [formState, setFormState] = useState({
     accountName: '',
     bankName: '',
@@ -47,7 +51,9 @@ export default function HostBankAccountsPage() {
         if (items?.length) {
           const nextAccounts = items.map(adaptAccount)
           setAccounts(nextAccounts)
-          setDefaultAccountId((current) => current ?? nextAccounts[0]?.id ?? null)
+          // Prefer the account marked as primary by the backend
+          const primary = nextAccounts.find((a) => a.isPrimary) ?? nextAccounts[0]
+          setDefaultAccountId((current) => current ?? primary?.id ?? null)
         }
       })
       .catch(() => {})
@@ -56,6 +62,41 @@ export default function HostBankAccountsPage() {
 
   const updateField = (field) => (event) =>
     setFormState((current) => ({ ...current, [field]: event.target.value }))
+
+  async function handleSetDefault(account) {
+    setActioningId(account.id)
+    try {
+      await setPrimaryBankAccount(hostId, account.id)
+      setDefaultAccountId(account.id)
+      toast.success(`${account.label} set as default payout account.`)
+    } catch (err) {
+      // 409 means the account isn't verified yet
+      const is409 = err?.status === 409 || err?.message?.includes('409') || String(err).includes('409')
+      toast.error(is409
+        ? 'Only verified accounts can be set as default. Complete KYC verification first.'
+        : 'Could not update default account.')
+    } finally {
+      setActioningId(null)
+    }
+  }
+
+  async function handleDelete(account) {
+    if (!window.confirm(`Delete "${account.label}"? This cannot be undone.`)) return
+    setActioningId(account.id)
+    try {
+      await deleteBankAccount(account.id, hostId)
+      setAccounts((prev) => prev.filter((a) => a.id !== account.id))
+      if (defaultAccountId === account.id) {
+        const remaining = accounts.filter((a) => a.id !== account.id)
+        setDefaultAccountId(remaining[0]?.id ?? null)
+      }
+      toast.success(`${account.label} removed.`)
+    } catch {
+      toast.error('Could not delete account. It may be linked to a pending payout.')
+    } finally {
+      setActioningId(null)
+    }
+  }
 
   async function handleSave() {
     if (!formState.accountName || !formState.accountNumber) return
@@ -77,7 +118,7 @@ export default function HostBankAccountsPage() {
       }
       setFormState({ accountName: '', bankName: '', routingNumber: '', accountNumber: '', currency: '' })
     } catch {
-      // keep current state
+      toast.error('Failed to save account. Please try again.')
     } finally {
       setSaving(false)
     }
@@ -100,11 +141,6 @@ export default function HostBankAccountsPage() {
         <SectionCard>
           <SectionHeading eyebrow="Accounts" title="Connected payout destinations" />
 
-          {bankNotice ? (
-            <div className="mt-5 rounded-2xl border border-brand/20 bg-rose-50 px-4 py-3 text-sm font-semibold text-brand">
-              {bankNotice}
-            </div>
-          ) : null}
 
           {accountsLoading && (
             <div className="py-12 text-center text-sm text-muted">Loading accounts…</div>
@@ -134,27 +170,23 @@ export default function HostBankAccountsPage() {
                     <p className="mt-2 text-sm text-muted">
                       {account.type} · {account.currency} · •••• {account.last4}
                     </p>
-                    <p className="mt-3 text-sm leading-6 text-dark">
-                      Typical transfer speed: {account.transferSpeed}
-                    </p>
                   </div>
                   <div className="grid gap-2 sm:flex sm:flex-wrap lg:justify-end">
                     <button
                       type="button"
-                      onClick={() => {
-                        setDefaultAccountId(account.id)
-                        setBankNotice(`${account.label} set as default payout destination in this UI view.`)
-                      }}
-                      className="inline-flex items-center justify-center rounded-2xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-semibold text-dark transition-colors hover:bg-gray-50"
+                      onClick={() => handleSetDefault(account)}
+                      disabled={defaultAccountId === account.id || actioningId === account.id}
+                      className="inline-flex items-center justify-center rounded-2xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-semibold text-dark transition-colors hover:bg-gray-50 disabled:opacity-50"
                     >
-                      Set default
+                      {defaultAccountId === account.id ? 'Default ✓' : 'Set default'}
                     </button>
                     <button
                       type="button"
-                      onClick={() => setBankNotice(`Delete requested for ${account.label}. Backend delete is not called in this UI pass.`)}
-                      className="inline-flex items-center justify-center rounded-2xl border border-rose-200 bg-rose-50 px-4 py-2.5 text-sm font-semibold text-rose-700 transition-colors hover:bg-rose-100"
+                      onClick={() => handleDelete(account)}
+                      disabled={actioningId === account.id}
+                      className="inline-flex items-center justify-center rounded-2xl border border-rose-200 bg-rose-50 px-4 py-2.5 text-sm font-semibold text-rose-700 transition-colors hover:bg-rose-100 disabled:opacity-50"
                     >
-                      Delete
+                      {actioningId === account.id ? 'Deleting…' : 'Delete'}
                     </button>
                   </div>
                 </div>

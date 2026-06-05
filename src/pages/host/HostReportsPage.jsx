@@ -1,10 +1,11 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import {
   HostShell,
   SectionCard,
   SectionHeading,
 } from '../../components/host/HostPortalUI'
 import { getRevenueReport, getOccupancyReport } from '../../services/reportsApi'
+import { getDashboardOverview } from '../../services/analyticsApi'
 import useHostContext from '../../hooks/useHostContext'
 
 const EMPTY_REPORT_CARDS = [
@@ -13,72 +14,179 @@ const EMPTY_REPORT_CARDS = [
   { title: 'RevPAR', amount: '—', delta: '—', note: '' },
 ]
 
-const trendBars = [
-  { label: 'Mon', occupancy: 62, revenue: 42 },
-  { label: 'Tue', occupancy: 68, revenue: 49 },
-  { label: 'Wed', occupancy: 74, revenue: 55 },
-  { label: 'Thu', occupancy: 71, revenue: 52 },
-  { label: 'Fri', occupancy: 88, revenue: 76 },
-  { label: 'Sat', occupancy: 94, revenue: 88 },
-  { label: 'Sun', occupancy: 81, revenue: 69 },
-]
+const WEEKDAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
 
-const comparisonCards = [
-  { label: 'Revenue vs previous period', value: '+12.4%', note: 'Weekend ADR carried the lift.' },
-  { label: 'Occupancy vs previous period', value: '+7.8%', note: 'Two fewer blocked nights.' },
-  { label: 'Cancellations', value: '-3', note: 'Lower refund pressure.' },
-]
+function buildTrendBars(revenueTrend, occupancyTrend) {
+  const rev = Array.isArray(revenueTrend) ? revenueTrend.slice(-7) : []
+  const occ = Array.isArray(occupancyTrend) ? occupancyTrend.slice(-7) : []
+  if (!rev.length && !occ.length) return null
+
+  const len = Math.max(rev.length, occ.length, 7)
+  const maxRev = Math.max(...rev.map((d) => Number(d.value ?? 0)), 1)
+  const maxOcc = Math.max(...occ.map((d) => Number(d.value ?? 0)), 1)
+
+  return Array.from({ length: len }, (_, i) => {
+    const revVal = Number(rev[i]?.value ?? 0)
+    const occVal = Number(occ[i]?.value ?? 0)
+    const dateLabel = rev[i]?.date ?? occ[i]?.date
+    let label = WEEKDAY_LABELS[i % 7]
+    if (dateLabel) {
+      try {
+        label = new Date(dateLabel).toLocaleDateString('en-US', { weekday: 'short' }).slice(0, 3)
+      } catch { /* use default */ }
+    }
+    return {
+      label,
+      revenue: Math.round((revVal / maxRev) * 100),
+      occupancy: Math.round((occVal / maxOcc) * 100),
+    }
+  })
+}
+
+// Build bars from the dailyForecasts array returned by the revenue report.
+// Samples 7 evenly-distributed days; caps projectedOccupancy at 100 to
+// guard against backend data anomalies (e.g. totalPrice stored in wrong field).
+function buildTrendBarsFromDaily(dailyForecasts) {
+  if (!Array.isArray(dailyForecasts) || !dailyForecasts.length) return null
+
+  const n = Math.min(7, dailyForecasts.length)
+  const last = dailyForecasts.length - 1
+  const sampled = Array.from({ length: n }, (_, i) =>
+    dailyForecasts[Math.round((i / (n - 1 || 1)) * last)],
+  )
+
+  const occVals = sampled.map((d) => Math.min(Number(d.projectedOccupancy ?? 0), 100))
+  const revVals = sampled.map((d) => Number(d.projectedRevenue ?? 0))
+  const maxOcc = Math.max(...occVals, 1)
+  const maxRev = Math.max(...revVals, 1)
+
+  return sampled.map((d, i) => {
+    let label = WEEKDAY_LABELS[i % 7]
+    try {
+      label = new Date(d.date).toLocaleDateString('en-US', { weekday: 'short' }).slice(0, 3)
+    } catch { /* keep default */ }
+    return {
+      label,
+      occupancy: Math.round((occVals[i] / maxOcc) * 100),
+      revenue: Math.round((revVals[i] / maxRev) * 100),
+    }
+  })
+}
+
+function buildComparisonCards(revenueData, occupancyData) {
+  const cards = []
+
+  if (revenueData?.revenueGrowth != null) {
+    const v = Number(revenueData.revenueGrowth)
+    cards.push({
+      label: 'Revenue vs previous period',
+      value: `${v >= 0 ? '+' : ''}${v.toFixed(1)}%`,
+      note: revenueData.revenuePeriod || '',
+    })
+  }
+
+  if (occupancyData?.averageOccupancy != null) {
+    cards.push({
+      label: 'Average occupancy',
+      value: `${Number(occupancyData.averageOccupancy).toFixed(1)}%`,
+      note: occupancyData.peakOccupancy != null ? `Peak ${occupancyData.peakOccupancy}%` : '',
+    })
+  }
+
+  if (occupancyData?.cancellationRate != null) {
+    const rate = Number(occupancyData.cancellationRate)
+    cards.push({
+      label: 'Cancellation rate',
+      value: `${rate.toFixed(1)}%`,
+      note: occupancyData.totalBookings != null ? `${occupancyData.totalBookings} total bookings` : '',
+    })
+  }
+
+  return cards.length ? cards : null
+}
+
+function downloadCSV(reportCards, comparisonCards, marketSegments, dateRange) {
+  const rows = [
+    ['Travolish Host Report', `${dateRange.from} to ${dateRange.to}`],
+    [],
+    ['Metric', 'Value', 'Delta', 'Note'],
+    ...reportCards.map((c) => [c.title, c.amount, c.delta, c.note]),
+    [],
+    ['Comparison', 'Value', 'Note'],
+    ...(comparisonCards ?? []).map((c) => [c.label, c.value, c.note]),
+  ]
+  if (marketSegments.length) {
+    rows.push([], ['Market', 'Share', 'Trend'])
+    marketSegments.forEach((s) => rows.push([s.market, s.share, s.trend]))
+  }
+  const csv = rows.map((r) => r.map((v) => `"${String(v ?? '').replace(/"/g, '""')}"`).join(',')).join('\n')
+  const blob = new Blob([csv], { type: 'text/csv' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `travolish-report-${dateRange.from}-${dateRange.to}.csv`
+  a.click()
+  URL.revokeObjectURL(url)
+}
 
 export default function HostReportsPage() {
-  const { primaryHotelId, loading: hostLoading } = useHostContext()
+  const { primaryHotelId, hostId, loading: hostLoading } = useHostContext()
   const [reportCards, setReportCards] = useState(EMPTY_REPORT_CARDS)
   const [marketSegments, setMarketSegments] = useState([])
   const [occupancyData, setOccupancyData] = useState(null)
+  const [revenueData, setRevenueData] = useState(null)
+  const [trendBars, setTrendBars] = useState(null)
+  const [comparisonCards, setComparisonCards] = useState(null)
   const [dateRange, setDateRange] = useState({
     from: '2026-05-01',
     to: '2026-05-31',
   })
-  const [reportNotice, setReportNotice] = useState('')
+  const [fetching, setFetching] = useState(false)
 
-  useEffect(() => {
-    if (hostLoading || !primaryHotelId) return
+  const fetchReports = useCallback(
+    async (startDate, endDate) => {
+      if (!primaryHotelId) return
+      setFetching(true)
+      try {
+        const [revData, occData, overview] = await Promise.allSettled([
+          getRevenueReport(primaryHotelId, startDate, endDate),
+          getOccupancyReport(primaryHotelId, startDate, endDate),
+          getDashboardOverview(hostId),
+        ])
 
-    getRevenueReport(primaryHotelId)
-      .then((data) => {
-        if (data) {
+        const rev = revData.status === 'fulfilled' ? revData.value : null
+        const occ = occData.status === 'fulfilled' ? occData.value : null
+        const ov = overview.status === 'fulfilled' ? overview.value : null
+
+        if (rev) {
+          setRevenueData(rev)
           setReportCards([
             {
               title: 'Total Revenue',
-              amount: data.totalRevenue != null ? `$${Math.round(data.totalRevenue).toLocaleString()}` : '—',
-              delta: data.revenueGrowth != null ? `${data.revenueGrowth > 0 ? '+' : ''}${data.revenueGrowth}%` : '—',
-              note: data.revenuePeriod ?? '',
+              amount: rev.totalRevenue != null ? `$${Math.round(rev.totalRevenue).toLocaleString()}` : '—',
+              delta: rev.revenueGrowth != null ? `${rev.revenueGrowth > 0 ? '+' : ''}${rev.revenueGrowth}%` : '—',
+              note: rev.revenuePeriod ?? '',
             },
             {
               title: 'Average Daily Rate',
-              amount: (data.averageDailyRate ?? data.averageDailyRevenue) != null
-                ? `$${Math.round(data.averageDailyRate ?? data.averageDailyRevenue).toLocaleString()}`
-                : '—',
-              delta: data.adrChange != null ? `${data.adrChange > 0 ? '+' : ''}${data.adrChange}%` : '—',
-              note: data.adrNote ?? '',
+              amount: rev.averageDailyRate != null ? `$${Math.round(rev.averageDailyRate).toLocaleString()}` : '—',
+              delta: rev.adrChange != null ? `${rev.adrChange > 0 ? '+' : ''}${rev.adrChange}%` : '—',
+              note: '',
             },
             {
               title: 'RevPAR',
-              amount: data.revPar != null ? `$${data.revPar}` : '—',
-              delta: data.revParChange != null ? `${data.revParChange > 0 ? '+' : ''}${data.revParChange}%` : '—',
-              note: data.revParNote ?? '',
+              amount: rev.revPar != null ? `$${rev.revPar}` : '—',
+              delta: rev.revParChange != null ? `${rev.revParChange > 0 ? '+' : ''}${rev.revParChange}%` : '—',
+              note: '',
             },
           ])
         }
-      })
-      .catch(() => {})
 
-    getOccupancyReport(primaryHotelId)
-      .then((data) => {
-        if (data) {
-          setOccupancyData(data)
-          if (data.segments?.length) {
+        if (occ) {
+          setOccupancyData(occ)
+          if (occ.segments?.length) {
             setMarketSegments(
-              data.segments.map((s) => ({
+              occ.segments.map((s) => ({
                 market: s.segmentName ?? s.market,
                 share: s.percentage != null ? `${s.percentage}%` : s.share ?? '—',
                 trend: s.trend ?? s.change ?? '—',
@@ -86,26 +194,53 @@ export default function HostReportsPage() {
             )
           }
         }
-      })
-      .catch(() => {})
-  }, [primaryHotelId, hostLoading])
+
+        // Prefer dashboard overview trend arrays; fall back to dailyForecasts from revenue report
+        const bars =
+          buildTrendBars(ov?.revenueTrend, ov?.occupancyTrend) ??
+          buildTrendBarsFromDaily(rev?.dailyForecasts)
+        if (bars) setTrendBars(bars)
+
+        const comparison = buildComparisonCards(rev, occ)
+        if (comparison) setComparisonCards(comparison)
+      } finally {
+        setFetching(false)
+      }
+    },
+    [primaryHotelId, hostId],
+  )
+
+  useEffect(() => {
+    if (hostLoading || !primaryHotelId) return
+    fetchReports(dateRange.from, dateRange.to)
+  }, [primaryHotelId, hostLoading]) // eslint-disable-line react-hooks/exhaustive-deps
 
   function updateDateRange(field) {
-    return (event) => {
-      setDateRange((current) => ({
-        ...current,
-        [field]: event.target.value,
-      }))
-    }
+    return (event) =>
+      setDateRange((current) => ({ ...current, [field]: event.target.value }))
   }
 
   function handleApplyRange() {
-    setReportNotice(`Showing report UI for ${dateRange.from} to ${dateRange.to}. Live report query wiring is unchanged.`)
+    fetchReports(dateRange.from, dateRange.to)
   }
 
-  function handleExport(format) {
-    setReportNotice(`${format} export prepared for ${dateRange.from} to ${dateRange.to}. UI placeholder only.`)
+  function handleExportCSV() {
+    downloadCSV(reportCards, comparisonCards, marketSegments, dateRange)
   }
+
+  function handleExportPDF() {
+    window.print()
+  }
+
+  const displayBars = trendBars ?? [
+    { label: 'Mon', occupancy: 0, revenue: 0 },
+    { label: 'Tue', occupancy: 0, revenue: 0 },
+    { label: 'Wed', occupancy: 0, revenue: 0 },
+    { label: 'Thu', occupancy: 0, revenue: 0 },
+    { label: 'Fri', occupancy: 0, revenue: 0 },
+    { label: 'Sat', occupancy: 0, revenue: 0 },
+    { label: 'Sun', occupancy: 0, revenue: 0 },
+  ]
 
   return (
     <HostShell
@@ -134,7 +269,7 @@ export default function HostReportsPage() {
         <SectionHeading
           eyebrow="Period"
           title="Date range and export"
-          description="Choose custom periods and prepare CSV/PDF exports without changing report API calls yet."
+          description="Choose a custom period and export data as CSV or print as PDF."
         />
 
         <div className="mt-6 grid gap-4 lg:grid-cols-[1fr_1fr_auto_auto_auto]">
@@ -159,31 +294,26 @@ export default function HostReportsPage() {
           <button
             type="button"
             onClick={handleApplyRange}
-            className="h-12 self-end rounded-xl bg-dark px-5 text-sm font-semibold text-white transition-colors hover:bg-gray-800"
+            disabled={fetching}
+            className="h-12 self-end rounded-xl bg-dark px-5 text-sm font-semibold text-white transition-colors hover:bg-gray-800 disabled:opacity-50"
           >
-            Apply
+            {fetching ? 'Loading…' : 'Apply'}
           </button>
           <button
             type="button"
-            onClick={() => handleExport('CSV')}
+            onClick={handleExportCSV}
             className="h-12 self-end rounded-xl border border-gray-200 bg-white px-5 text-sm font-semibold text-dark transition-colors hover:bg-gray-50"
           >
             Export CSV
           </button>
           <button
             type="button"
-            onClick={() => handleExport('PDF')}
+            onClick={handleExportPDF}
             className="h-12 self-end rounded-xl border border-gray-200 bg-white px-5 text-sm font-semibold text-dark transition-colors hover:bg-gray-50"
           >
             Export PDF
           </button>
         </div>
-
-        {reportNotice ? (
-          <div className="mt-5 rounded-2xl border border-brand/20 bg-rose-50 px-4 py-3 text-sm font-semibold text-brand">
-            {reportNotice}
-          </div>
-        ) : null}
       </SectionCard>
 
       <SectionCard>
@@ -211,21 +341,21 @@ export default function HostReportsPage() {
         <SectionHeading
           eyebrow="Charts"
           title="Booking trend visualisation"
-          description="Compact occupancy and revenue bars for the selected period."
+          description="Occupancy and revenue trend for the selected period."
         />
 
         <div className="mt-6 grid grid-cols-7 gap-3">
-          {trendBars.map((bar) => (
-            <div key={bar.label} className="flex min-h-[190px] flex-col justify-end gap-2">
+          {displayBars.map((bar, i) => (
+            <div key={`${bar.label}-${i}`} className="flex min-h-[190px] flex-col justify-end gap-2">
               <div className="flex flex-1 items-end gap-1.5">
                 <div
-                  className="w-full rounded-xl bg-brand"
-                  style={{ height: `${bar.occupancy}%` }}
+                  className="w-full rounded-xl bg-brand transition-all duration-500"
+                  style={{ height: `${Math.max(bar.occupancy, 2)}%` }}
                   title={`${bar.occupancy}% occupancy`}
                 />
                 <div
-                  className="w-full rounded-xl bg-dark"
-                  style={{ height: `${bar.revenue}%` }}
+                  className="w-full rounded-xl bg-dark transition-all duration-500"
+                  style={{ height: `${Math.max(bar.revenue, 2)}%` }}
                   title={`${bar.revenue}% revenue index`}
                 />
               </div>
@@ -252,15 +382,21 @@ export default function HostReportsPage() {
         <SectionHeading eyebrow="Compare" title="Period comparison" />
 
         <div className="mt-6 grid gap-4 md:grid-cols-3">
-          {comparisonCards.map((card) => (
-            <div key={card.label} className="rounded-2xl border border-gray-200 bg-[#fcfbf8] p-4">
-              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted">
-                {card.label}
-              </p>
-              <p className="mt-2 text-2xl font-semibold tracking-tight text-dark">{card.value}</p>
-              <p className="mt-2 text-sm leading-6 text-muted">{card.note}</p>
-            </div>
-          ))}
+          {(comparisonCards ?? []).length > 0 ? (
+            comparisonCards.map((card) => (
+              <div key={card.label} className="rounded-2xl border border-gray-200 bg-[#fcfbf8] p-4">
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted">
+                  {card.label}
+                </p>
+                <p className="mt-2 text-2xl font-semibold tracking-tight text-dark">{card.value}</p>
+                {card.note && (
+                  <p className="mt-2 text-sm leading-6 text-muted">{card.note}</p>
+                )}
+              </div>
+            ))
+          ) : (
+            <p className="text-sm text-muted">No comparison data available for this period.</p>
+          )}
         </div>
       </SectionCard>
 

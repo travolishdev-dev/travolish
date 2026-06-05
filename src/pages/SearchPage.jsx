@@ -156,7 +156,8 @@ export default function SearchPage() {
       selectedAmenities.every((amenity) => property.amenities?.includes(amenity))
     const matchesInstant = !instantBookOnly || property.instantBookable
     const matchesCancellation = !freeCancellationOnly || property.freeCancellation
-    const matchesGuests = !totalGuests || Number(property.guests || 0) >= totalGuests
+    // null guests = capacity unknown → don't exclude; 0 = not set, treat same as unknown
+    const matchesGuests = !totalGuests || property.guests == null || Number(property.guests) >= totalGuests
 
     return (
       matchesMin &&
@@ -309,7 +310,7 @@ export default function SearchPage() {
                 <Search size={48} className="text-gray-300" />
                 <h2 className="mt-4 text-xl font-semibold text-dark">No results found</h2>
                 <p className="mt-2 max-w-md text-sm text-muted">
-                  Try a different destination or loosen the price and rating filters.
+                  Try adding check-in and check-out dates, a different destination, or loosen the price and rating filters.
                 </p>
               </div>
             ) : (

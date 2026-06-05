@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { differenceInCalendarDays, format, isAfter, parseISO, startOfToday } from 'date-fns'
 import useAuthStore from '../stores/useAuthStore'
 import { listBookings } from '../services/bookingsApi'
@@ -13,13 +13,22 @@ export default function useAccountInsights() {
   const [unreadCount, setUnreadCount] = useState(undefined)
 
   useEffect(() => {
-    if (!user?.email) return
+    if (!user?.email && !backendUserId) return
     let cancelled = false
 
-    listBookings(user.email)
-      .then((data) => {
+    const queries = []
+    if (backendUserId) queries.push(listBookings({ userId: backendUserId }))
+    if (user?.email)   queries.push(listBookings({ guestEmail: user.email }))
+
+    Promise.all(queries)
+      .then((results) => {
         if (cancelled) return
-        const bookings = Array.isArray(data) ? data : []
+        const seen = new Set()
+        const bookings = results.flat().filter((b) => {
+          if (seen.has(b.id)) return false
+          seen.add(b.id)
+          return true
+        })
         setTripCount(bookings.length)
 
         const today = startOfToday()
@@ -60,31 +69,33 @@ export default function useAccountInsights() {
     return () => { cancelled = true }
   }, [backendUserId])
 
-  const loading = '—'
-
-  return [
-    {
-      label: 'Next departure',
-      value: nextDeparture === undefined ? loading
-           : nextDeparture === null ? 'None'
-           : `${nextDeparture.days} day${nextDeparture.days !== 1 ? 's' : ''}`,
-      note: nextDeparture?.note ?? null,
-    },
-    {
-      label: 'Unread host updates',
-      value: unreadCount === undefined ? loading : String(unreadCount),
-      note: unreadCount === 0 ? 'All caught up'
-          : unreadCount === 1 ? '1 notification'
-          : unreadCount > 1 ? `${unreadCount} notifications`
-          : null,
-    },
-    {
-      label: 'Trips booked',
-      value: tripCount === undefined ? loading : String(tripCount),
-      note: tripCount === 1 ? '1 booking total'
-          : tripCount > 1 ? `${tripCount} bookings total`
-          : tripCount === 0 ? 'No bookings yet'
-          : null,
-    },
-  ]
+  // Memoize so the returned array reference is stable unless actual values change
+  return useMemo(() => {
+    const loading = '—'
+    return [
+      {
+        label: 'Next departure',
+        value: nextDeparture === undefined ? loading
+             : nextDeparture === null ? 'None'
+             : `${nextDeparture.days} day${nextDeparture.days !== 1 ? 's' : ''}`,
+        note: nextDeparture?.note ?? null,
+      },
+      {
+        label: 'Unread host updates',
+        value: unreadCount === undefined ? loading : String(unreadCount),
+        note: unreadCount === 0 ? 'All caught up'
+            : unreadCount === 1 ? '1 notification'
+            : unreadCount > 1 ? `${unreadCount} notifications`
+            : null,
+      },
+      {
+        label: 'Trips booked',
+        value: tripCount === undefined ? loading : String(tripCount),
+        note: tripCount === 1 ? '1 booking total'
+            : tripCount > 1 ? `${tripCount} bookings total`
+            : tripCount === 0 ? 'No bookings yet'
+            : null,
+      },
+    ]
+  }, [nextDeparture, unreadCount, tripCount])
 }

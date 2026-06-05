@@ -33,9 +33,21 @@ export default function HostInventoryPage() {
       .then((data) => {
         if (data) {
           setMetrics([
-            { label: 'Sellable nights', value: data.sellableNights ?? data.totalNights ?? '—', note: '' },
-            { label: 'Booked nights', value: data.bookedNights ?? '—', note: '' },
-            { label: 'Occupancy', value: data.occupancyRate != null ? `${data.occupancyRate}%` : '—', note: '' },
+            {
+              label: 'Sellable nights',
+              value: data.sellableNights != null ? String(data.sellableNights) : '—',
+              note: data.availableNights != null ? `${data.availableNights} available` : '',
+            },
+            {
+              label: 'Booked nights',
+              value: data.bookedNights != null ? String(data.bookedNights) : '—',
+              note: '',
+            },
+            {
+              label: 'Occupancy',
+              value: data.occupancyRate != null ? `${data.occupancyRate}%` : '—',
+              note: data.status ?? '',
+            },
           ])
         }
       })
@@ -44,21 +56,26 @@ export default function HostInventoryPage() {
     getInventoryForecast(primaryHotelId)
       .then((data) => {
         if (data) {
+          const fmtDemand = (level) =>
+            level ? level.charAt(0) + level.slice(1).toLowerCase() : '—'
+          const fmtBookings = (v) =>
+            v != null ? `${v} booking${v !== 1 ? 's' : ''} avg/day` : ''
+
           setForecastBlocks([
             {
               title: 'Next 7 days',
-              value: data.next7Days?.occupancy != null ? `${data.next7Days.occupancy}%` : '—',
-              note: '',
+              value: fmtDemand(data.next7Days?.demandLevel),
+              note: fmtBookings(data.next7Days?.avgBookings),
             },
             {
               title: 'Next 30 days',
-              value: data.next30Days?.occupancy != null ? `${data.next30Days.occupancy}%` : '—',
-              note: '',
+              value: fmtDemand(data.next30Days?.demandLevel),
+              note: fmtBookings(data.next30Days?.avgBookings),
             },
             {
-              title: 'Weekend occupancy',
-              value: data.weekendOccupancy != null ? `${data.weekendOccupancy}%` : '—',
-              note: '',
+              title: 'Weekend demand',
+              value: fmtDemand(data.weekendDemand),
+              note: fmtBookings(data.weekendAvgBookings),
             },
           ])
         }

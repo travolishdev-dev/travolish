@@ -118,8 +118,24 @@ export default function AdminVerificationPage() {
                     </AdminStatusPill>
                   </div>
                   <p className="mt-4 text-sm font-semibold text-dark">{label}</p>
-                  <div className="mt-3 flex aspect-[4/3] items-center justify-center rounded-card border border-dashed border-gray-200 bg-[#fcfbf8] text-center text-xs font-semibold text-muted">
-                    {url ? 'Secure document preview' : 'No uploaded file URL'}
+                  <div className="mt-3 overflow-hidden rounded-card border border-dashed border-gray-200 bg-[#fcfbf8]">
+                    {url ? (
+                      <a href={url} target="_blank" rel="noopener noreferrer" title={`Open ${label} in new tab`}>
+                        <img
+                          src={url}
+                          alt={label}
+                          className="aspect-[4/3] w-full object-cover transition-opacity hover:opacity-90"
+                          onError={(e) => { e.currentTarget.style.display = 'none'; e.currentTarget.nextSibling.style.display = 'flex' }}
+                        />
+                        <div className="hidden aspect-[4/3] items-center justify-center text-center text-xs font-semibold text-muted">
+                          Image could not load — click to open URL
+                        </div>
+                      </a>
+                    ) : (
+                      <div className="flex aspect-[4/3] items-center justify-center text-center text-xs font-semibold text-muted">
+                        No uploaded file URL
+                      </div>
+                    )}
                   </div>
                 </div>
               ))}
@@ -148,7 +164,14 @@ export default function AdminVerificationPage() {
 
             <button
               type="button"
-              onClick={() => setNotice('KYC preview and history opened for admin review.')}
+              onClick={() => {
+                const docUrl = kyc?.nationalIdDocumentUrl || kyc?.idDocumentUrl || kyc?.addressProofUrl || kyc?.businessDocumentUrl
+                if (docUrl) {
+                  window.open(docUrl, '_blank', 'noopener,noreferrer')
+                } else {
+                  setNotice('No document URL available for this KYC submission.')
+                }
+              }}
               className="inline-flex h-11 items-center justify-center gap-2 rounded-card bg-dark px-4 text-sm font-semibold text-white"
             >
               <ShieldCheck size={16} />

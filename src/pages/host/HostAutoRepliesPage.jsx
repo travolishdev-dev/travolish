@@ -45,6 +45,8 @@ const guestReminders = [
     timing: '48 hours before check-in',
     channel: 'Email + app',
     message: 'Share arrival timing, address, parking notes, and host contact.',
+    category: 'CHECK_IN_INSTRUCTIONS',
+    defaultText: 'Your check-in is coming up in 48 hours! Here are your arrival details. We look forward to hosting you.',
   },
   {
     id: 'check-in',
@@ -52,6 +54,8 @@ const guestReminders = [
     timing: '8:00 AM on arrival day',
     channel: 'App notification',
     message: 'Send check-in steps, Wi-Fi, house rules, and key collection details.',
+    category: 'BOOKING_CONFIRMATION',
+    defaultText: 'Welcome! Today is your check-in day. Your access details and Wi-Fi password are below. Enjoy your stay!',
   },
   {
     id: 'checkout',
@@ -59,6 +63,8 @@ const guestReminders = [
     timing: 'Evening before checkout',
     channel: 'Email',
     message: 'Remind checkout time, pending dues, damage notes, and review request.',
+    category: 'CHECK_OUT_REMINDER',
+    defaultText: 'Friendly reminder: checkout is tomorrow. Thank you for staying with us — we would love a review when you get a chance!',
   },
 ]
 
@@ -83,10 +89,13 @@ export default function HostAutoRepliesPage() {
   const [newTemplate, setNewTemplate] = useState(EMPTY_TEMPLATE)
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState(null)
-  const [enabledReminders, setEnabledReminders] = useState(() =>
-    guestReminders.reduce((acc, reminder) => ({ ...acc, [reminder.id]: true }), {}),
+  // reminderTemplateId maps reminder.id → backend templateId (null = no template yet)
+  const [reminderTemplateId, setReminderTemplateId] = useState({})
+  const [enabledReminders, setEnabledReminders] = useState(
+    guestReminders.reduce((acc, r) => ({ ...acc, [r.id]: false }), {}),
   )
   const [reminderNotice, setReminderNotice] = useState(null)
+  const [togglingReminder, setTogglingReminder] = useState(null)
 
   useEffect(() => {
     if (hostLoading || !hostId) {
@@ -96,7 +105,23 @@ export default function HostAutoRepliesPage() {
     getTemplatesForHost(hostId)
       .then((data) => {
         const items = Array.isArray(data) ? data : (data?.content ?? [])
-        if (items.length > 0) setTemplates(items.map(adaptTemplate))
+        if (items.length > 0) {
+          const adapted = items.map(adaptTemplate)
+          setTemplates(adapted)
+
+          // Derive reminder states from templates by matching triggerKeyword
+          const idMap = {}
+          const enabledMap = {}
+          guestReminders.forEach((reminder) => {
+            const match = items.find(
+              (t) => t.triggerKeyword === reminder.id || t.category === reminder.category,
+            )
+            idMap[reminder.id] = match?.id ?? null
+            enabledMap[reminder.id] = match ? (match.isActive ?? match.active ?? true) : false
+          })
+          setReminderTemplateId(idMap)
+          setEnabledReminders(enabledMap)
+        }
       })
       .catch(() => {})
       .finally(() => setLoading(false))
@@ -157,12 +182,41 @@ export default function HostAutoRepliesPage() {
   const updateField = (field) => (e) =>
     setNewTemplate((prev) => ({ ...prev, [field]: e.target.value }))
 
-  function toggleReminder(reminder) {
-    setEnabledReminders((prev) => {
-      const nextEnabled = !prev[reminder.id]
+  async function toggleReminder(reminder) {
+    const nextEnabled = !enabledReminders[reminder.id]
+    setTogglingReminder(reminder.id)
+    try {
+      const existingId = reminderTemplateId[reminder.id]
+      if (existingId) {
+        // Template exists — activate or deactivate it
+        if (nextEnabled) {
+          await activateAutoReply(existingId)
+        } else {
+          await deactivateAutoReply(existingId)
+        }
+      } else if (nextEnabled) {
+        // No template yet — create one for this reminder category then activate it
+        const created = await createAutoReply({
+          hostId,
+          templateName: reminder.title,
+          category: reminder.category,
+          triggerKeyword: reminder.id,
+          templateText: reminder.defaultText,
+          language: 'en',
+        })
+        if (created?.id) {
+          setReminderTemplateId((prev) => ({ ...prev, [reminder.id]: created.id }))
+          await activateAutoReply(created.id)
+        }
+      }
+      setEnabledReminders((prev) => ({ ...prev, [reminder.id]: nextEnabled }))
       setReminderNotice(`${reminder.title} ${nextEnabled ? 'enabled' : 'paused'} for upcoming bookings.`)
-      return { ...prev, [reminder.id]: nextEnabled }
-    })
+      refreshTemplates()
+    } catch {
+      setReminderNotice(`Could not update ${reminder.title}. Please try again.`)
+    } finally {
+      setTogglingReminder(null)
+    }
   }
 
   return (
@@ -233,14 +287,15 @@ export default function HostAutoRepliesPage() {
                   <button
                     type="button"
                     onClick={() => toggleReminder(reminder)}
-                    className={`inline-flex items-center gap-2 rounded-xl px-3 py-2 text-xs font-semibold transition-colors ${
+                    disabled={togglingReminder === reminder.id}
+                    className={`inline-flex items-center gap-2 rounded-xl px-3 py-2 text-xs font-semibold transition-colors disabled:opacity-50 ${
                       isEnabled
                         ? 'border border-gray-200 bg-white text-dark hover:bg-gray-50'
                         : 'bg-dark text-white hover:bg-gray-800'
                     }`}
                   >
                     <Power size={13} />
-                    {isEnabled ? 'Pause' : 'Enable'}
+                    {togglingReminder === reminder.id ? '…' : isEnabled ? 'Pause' : 'Enable'}
                   </button>
                 </div>
               </div>

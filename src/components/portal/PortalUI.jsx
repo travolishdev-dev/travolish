@@ -19,6 +19,7 @@ import {
 import { AnimatePresence, motion as Motion } from 'framer-motion'
 import usePortalViewer from '../../hooks/usePortalViewer'
 import useAccountInsights from '../../hooks/useAccountInsights'
+import useAuthStore from '../../stores/useAuthStore'
 
 const accountNavGroups = [
   {
@@ -369,7 +370,7 @@ export function StatusPill({ tone = 'slate', children }) {
 export function PreviewModeNotice({ className = '' }) {
   const { isPreview } = usePortalViewer()
 
-  if (!isPreview) {
+  if (!isPreview || !import.meta.env.DEV) {
     return null
   }
 
@@ -465,7 +466,18 @@ export function AccountShell({
   children,
 }) {
   const { pathname } = useLocation()
-  const { viewer } = usePortalViewer()
+  // AccountShell only needs a few display fields — read directly from auth store
+  // to avoid duplicating the expensive listBookings calls that page-level hooks already make.
+  const { user, profile } = useAuthStore()
+  const shellViewer = {
+    avatar: profile?.avatar_url || null,
+    fullName: profile?.full_name || user?.firstName || '',
+    email: user?.email || profile?.email || '',
+    city: profile?.city || user?.city || null,
+    joinedLabel: user?.createdAt
+      ? `Member since ${new Date(user.createdAt).getFullYear()}`
+      : null,
+  }
   const insights = useAccountInsights()
   const mobilePadding = mobileBottomAction
     ? 'pb-[calc(10.5rem+env(safe-area-inset-bottom))]'
@@ -500,17 +512,17 @@ export function AccountShell({
               <div className="border-t border-gray-200/80 pt-4 lg:min-w-[300px] lg:border-l lg:border-t-0 lg:pl-5 lg:pt-0">
                 <div className="flex items-center gap-4">
                   <img
-                    src={viewer.avatar}
-                    alt={viewer.fullName}
+                    src={shellViewer.avatar}
+                    alt={shellViewer.fullName}
                     className="h-12 w-12 rounded-2xl object-cover"
                   />
                   <div className="min-w-0">
                     <p className="truncate text-[15px] font-semibold text-dark">
-                      {viewer.fullName}
+                      {shellViewer.fullName}
                     </p>
-                    <p className="truncate text-[13px] text-muted">{viewer.email}</p>
+                    <p className="truncate text-[13px] text-muted">{shellViewer.email}</p>
                     <p className="mt-0.5 text-[13px] text-dark">
-                      {viewer.city} · {viewer.joinedLabel}
+                      {shellViewer.city} · {shellViewer.joinedLabel}
                     </p>
                   </div>
                 </div>

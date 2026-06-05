@@ -5,10 +5,8 @@ import {
   AdminApprovalTable,
   AdminHero,
   AdminMiniBars,
-  AdminRequirementBadges,
   AdminShell,
 } from '../../components/admin/AdminPortalUI'
-import { adminDashboard } from '../../data/adminPanelData'
 import { getAdminDashboardStats } from '../../services/adminApi'
 
 function buildStats(s) {
@@ -31,19 +29,20 @@ function buildPendingActions(s) {
 
 function buildApprovals(s) {
   return [
-    ['KYC Review', `${s.pendingKYC} pending`, '—', 'Review queue'],
-    ['Hotel Requests', `${s.totalHotels} listed`, `${s.pendingHotelRequests} pending`, 'Open requests'],
-    ['Content Reports', `${s.flaggedReviews} flagged`, '—', 'Moderate now'],
-    ['Bookings', `${s.totalBookings} total`, `${s.confirmedBookings} confirmed`, 'View bookings'],
+    ['KYC Review',      `${s.pendingKYC} pending`,             '—',                              'Review queue',  '/admin/verification'],
+    ['Hotel Requests',  `${s.totalHotels} listed`,             `${s.pendingHotelRequests} pending`, 'Open requests', '/admin/listing-approvals'],
+    ['Content Reports', `${s.flaggedReviews} flagged`,          '—',                              'Moderate now',  '/admin/moderation'],
+    ['Bookings',        `${s.totalBookings} total`,            `${s.confirmedBookings} confirmed`, 'View bookings', '/admin/bookings'],
   ]
 }
 
 export default function AdminDashboardPage() {
-  const [stats, setStats] = useState(adminDashboard.stats)
-  const [pendingActions, setPendingActions] = useState(adminDashboard.pendingActions)
-  const [bookingTrend, setBookingTrend] = useState(adminDashboard.bookingTrend)
-  const [approvals, setApprovals] = useState(adminDashboard.approvals)
-  const [activity, setActivity] = useState(adminDashboard.activity)
+  const [loading, setLoading] = useState(true)
+  const [stats, setStats] = useState([])
+  const [pendingActions, setPendingActions] = useState([])
+  const [bookingTrend, setBookingTrend] = useState([])
+  const [approvals, setApprovals] = useState([])
+  const [activity, setActivity] = useState([])
 
   useEffect(() => {
     getAdminDashboardStats()
@@ -65,7 +64,23 @@ export default function AdminDashboardPage() {
         }
       })
       .catch(() => {})
+      .finally(() => setLoading(false))
   }, [])
+
+  if (loading) {
+    return (
+      <AdminShell>
+        <div className="animate-pulse space-y-6">
+          <div className="h-32 rounded-2xl bg-gray-100" />
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            {[1, 2, 3, 4].map((i) => <div key={i} className="h-24 rounded-2xl bg-gray-100" />)}
+          </div>
+          <div className="h-48 rounded-2xl bg-gray-100" />
+          <div className="h-64 rounded-2xl bg-gray-100" />
+        </div>
+      </AdminShell>
+    )
+  }
 
   return (
     <AdminShell>
@@ -84,7 +99,6 @@ export default function AdminDashboardPage() {
       </div>
 
       <AdminApprovalTable rows={approvals} />
-      <AdminRequirementBadges />
     </AdminShell>
   )
 }

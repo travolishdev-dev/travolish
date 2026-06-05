@@ -46,12 +46,16 @@ export default function WishlistPage() {
 
     async function load() {
       try {
-        const [hotels, rooms] = await Promise.all([
-          Promise.all(wishlistIds.map((id) => getHotel(Number(id)))),
+        // allSettled so a single missing/deleted hotel doesn't break the whole list
+        const [hotelResults, rooms] = await Promise.all([
+          Promise.allSettled(wishlistIds.map((id) => getHotel(Number(id)))),
           listRooms(),
         ])
         if (cancelled) return
-        setProperties(adaptHotels(hotels.filter(Boolean), rooms))
+        const hotels = hotelResults
+          .filter((r) => r.status === 'fulfilled' && r.value)
+          .map((r) => r.value)
+        setProperties(adaptHotels(hotels, rooms))
       } catch {
         if (!cancelled) setProperties([])
       } finally {

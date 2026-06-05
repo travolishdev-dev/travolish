@@ -52,6 +52,7 @@ import AdminListingApprovalsPage from './pages/admin/AdminListingApprovalsPage'
 import AdminModerationPage from './pages/admin/AdminModerationPage'
 import AdminCategoriesAmenitiesPage from './pages/admin/AdminCategoriesAmenitiesPage'
 import AdminPricingRulesPage from './pages/admin/AdminPricingRulesPage'
+import AdminBookingsPage from './pages/admin/AdminBookingsPage'
 import useAuthStore from './stores/useAuthStore'
 import useNativeAppLocationStore from './stores/useNativeAppLocationStore'
 
@@ -501,6 +502,14 @@ export default function App() {
           element={
             <AppLayout>
               <AdminModerationPage />
+            </AppLayout>
+          }
+        />
+        <Route
+          path="/admin/bookings"
+          element={
+            <AppLayout>
+              <AdminBookingsPage />
             </AppLayout>
           }
         />

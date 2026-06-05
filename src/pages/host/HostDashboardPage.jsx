@@ -10,6 +10,7 @@ import {
 } from '../../components/host/HostPortalUI'
 import { getDashboardOverview } from '../../services/analyticsApi'
 import { listBookingsByHotel } from '../../services/bookingsApi'
+import { getPayoutBalance } from '../../services/payoutsApi'
 import useHostContext from '../../hooks/useHostContext'
 
 function fmtCheckIn(dateStr) {
@@ -133,17 +134,20 @@ export default function HostDashboardPage() {
   const { hostId, hotels, loading: hostLoading } = useHostContext()
   const [overview, setOverview] = useState(null)
   const [arrivals, setArrivals] = useState([])
+  const [payout, setPayout] = useState(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     if (hostLoading || !hostId) return
     async function load() {
       try {
-        const [ov, ...hotelBookingArrays] = await Promise.all([
+        const [ov, payoutData, ...hotelBookingArrays] = await Promise.all([
           getDashboardOverview(hostId).catch(() => null),
+          getPayoutBalance(hostId).catch(() => null),
           ...hotels.map((h) => listBookingsByHotel(h.id).catch(() => [])),
         ])
         setOverview(ov)
+        setPayout(payoutData)
         setArrivals(buildArrivalBoard(hotelBookingArrays.flat()))
       } finally {
         setLoading(false)
@@ -207,10 +211,36 @@ export default function HostDashboardPage() {
 
         <div className="mt-6 grid gap-4 lg:grid-cols-4">
           {[
-            ['Available', '$2,840', 'Ready to transfer'],
-            ['Pending', '$6,120', 'Awaiting checkout completion'],
-            ['Reserve hold', '$980', 'Security / damage window'],
-            ['Next payout', 'Friday', 'Weekly schedule'],
+            [
+              'Available',
+              payout?.availableBalance != null
+                ? `$${Number(payout.availableBalance).toLocaleString(undefined, { maximumFractionDigits: 0 })}`
+                : '—',
+              'Ready to transfer',
+            ],
+            [
+              'Pending',
+              payout?.pendingBalance != null
+                ? `$${Number(payout.pendingBalance).toLocaleString(undefined, { maximumFractionDigits: 0 })}`
+                : '—',
+              'Awaiting checkout completion',
+            ],
+            [
+              'Net earnings',
+              payout?.netEarnings != null
+                ? `$${Number(payout.netEarnings).toLocaleString(undefined, { maximumFractionDigits: 0 })}`
+                : '—',
+              'After commissions & taxes',
+            ],
+            [
+              'Next payout',
+              payout?.nextPayoutDaysRemaining != null
+                ? payout.nextPayoutDaysRemaining === 0
+                  ? 'Today'
+                  : `${payout.nextPayoutDaysRemaining}d`
+                : '—',
+              'Weekly schedule',
+            ],
           ].map(([label, value, note]) => (
             <div key={label} className="rounded-[22px] border border-gray-200 bg-[#fcfbf8] p-4">
               <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted">

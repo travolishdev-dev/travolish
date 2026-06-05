@@ -1,13 +1,13 @@
 import { useEffect, useState } from 'react'
-import { CreditCard, ShieldEllipsis, WalletCards } from 'lucide-react'
+import { CheckCheck, CreditCard, Loader2, ShieldEllipsis, WalletCards } from 'lucide-react'
+import useAuthStore from '../../stores/useAuthStore'
 import {
   AccountShell,
   SectionCard,
   SectionHeading,
   StatusPill,
 } from '../../components/portal/PortalUI'
-import { paymentMethods as mockPaymentMethods, transactionSummary } from '../../data/mockPortalData'
-import { getUserPaymentMethods } from '../../services/paymentMethodsApi'
+import { getUserPaymentMethods, addPaymentMethod } from '../../services/paymentMethodsApi'
 
 const NETWORK_COLORS = {
   VISA: 'from-slate-900 via-slate-800 to-slate-700',
@@ -41,14 +41,90 @@ function adaptMethod(m) {
 }
 
 export default function PaymentMethodsPage() {
-  const [methods, setMethods] = useState(mockPaymentMethods)
+  const { user } = useAuthStore()
+  const [methods, setMethods] = useState([])
   const [loading, setLoading] = useState(true)
+  const [billing, setBilling] = useState({
+    cardholderName: user?.firstName ? `${user.firstName} ${user.lastName ?? ''}`.trim() : '',
+    billingEmail: user?.email ?? '',
+    country: '',
+    postalCode: '',
+  })
+  const [saving, setSaving] = useState(false)
+  const [saveMsg, setSaveMsg] = useState('')
+  const [addingCard, setAddingCard] = useState(false)
+  const [cardForm, setCardForm] = useState({ number: '', expiry: '', cvv: '', name: '' })
+  const [cardSaving, setCardSaving] = useState(false)
+  const [cardMsg, setCardMsg] = useState('')
+
+  const updateBilling = (field) => (e) => setBilling((prev) => ({ ...prev, [field]: e.target.value }))
+  const updateCard = (field) => (e) => setCardForm((prev) => ({ ...prev, [field]: e.target.value }))
+
+  async function handleSaveBilling() {
+    if (!billing.cardholderName.trim()) { setSaveMsg('Cardholder name is required.'); return }
+    setSaving(true); setSaveMsg('')
+    try {
+      await addPaymentMethod({
+        methodType: 'CARD',
+        methodName: billing.cardholderName,
+        billingEmail: billing.billingEmail,
+        billingCountry: billing.country,
+        billingPostalCode: billing.postalCode,
+        isDefault: methods.length === 0,
+      })
+      setSaveMsg('Billing profile saved.')
+      // Refresh list
+      const data = await getUserPaymentMethods()
+      const items = Array.isArray(data) ? data : (data?.content ?? [])
+      setMethods(items.map(adaptMethod))
+    } catch {
+      setSaveMsg('Could not save. Please try again.')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  async function handleAddCard(e) {
+    e.preventDefault()
+    if (!cardForm.number || !cardForm.expiry || !cardForm.cvv) {
+      setCardMsg('All card fields are required.'); return
+    }
+    setCardSaving(true); setCardMsg('')
+    try {
+      const [expMonth, expYear] = cardForm.expiry.split('/')
+      await addPaymentMethod({
+        methodType: 'CARD',
+        cardLast4: cardForm.number.replace(/\s/g, '').slice(-4),
+        cardExpiryMonth: parseInt(expMonth, 10),
+        cardExpiryYear: 2000 + parseInt(expYear?.trim(), 10),
+        cardNetwork: 'VISA',
+        methodName: cardForm.name || billing.cardholderName,
+        isDefault: methods.length === 0,
+      })
+      setCardMsg('Card added.')
+      setAddingCard(false)
+      setCardForm({ number: '', expiry: '', cvv: '', name: '' })
+      const data = await getUserPaymentMethods()
+      const items = Array.isArray(data) ? data : (data?.content ?? [])
+      setMethods(items.map(adaptMethod))
+    } catch {
+      setCardMsg('Could not add card. Please try again.')
+    } finally {
+      setCardSaving(false)
+    }
+  }
+
+  const transactionSummary = [
+    { label: 'Saved cards', value: loading ? '—' : String(methods.length) },
+    { label: 'Default method', value: methods.find((m) => m.primary)?.brand ?? (loading ? '—' : 'None set') },
+    { label: 'Billing status', value: methods.length > 0 ? 'Ready' : (loading ? '—' : 'No card saved') },
+  ]
 
   useEffect(() => {
     getUserPaymentMethods()
       .then((data) => {
         const items = Array.isArray(data) ? data : (data?.content ?? [])
-        if (items.length > 0) setMethods(items.map(adaptMethod))
+        setMethods(items.map(adaptMethod))
       })
       .catch(() => {})
       .finally(() => setLoading(false))
@@ -201,39 +277,86 @@ export default function PaymentMethodsPage() {
 
         <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           {[
-            'Cardholder name',
-            'Billing email',
-            'Country / region',
-            'Postal code',
-          ].map((field) => (
-            <label key={field} className="block">
+            { key: 'cardholderName', label: 'Cardholder name', placeholder: 'Full name on card' },
+            { key: 'billingEmail',   label: 'Billing email',   placeholder: 'you@example.com', type: 'email' },
+            { key: 'country',        label: 'Country / region', placeholder: 'India' },
+            { key: 'postalCode',     label: 'Postal code',     placeholder: '110001' },
+          ].map(({ key, label, placeholder, type = 'text' }) => (
+            <label key={key} className="block">
               <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.18em] text-muted">
-                {field}
+                {label}
               </span>
               <input
-                type="text"
-                placeholder={`Add ${field.toLowerCase()}`}
+                type={type}
+                value={billing[key]}
+                onChange={updateBilling(key)}
+                placeholder={placeholder}
                 className="w-full rounded-2xl border border-gray-200 bg-[#fcfcfb] px-4 py-3 text-base text-dark outline-none transition-colors focus:border-dark md:text-sm"
               />
             </label>
           ))}
         </div>
 
+        {saveMsg && (
+          <p className={`mt-3 text-sm font-semibold ${saveMsg.includes('saved') ? 'text-emerald-600' : 'text-red-500'}`}>
+            {saveMsg}
+          </p>
+        )}
+
         <div className="mt-5 grid gap-2 sm:flex sm:flex-wrap sm:gap-3">
           <button
             type="button"
-            className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-dark px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-gray-800 sm:w-auto"
+            onClick={handleSaveBilling}
+            disabled={saving}
+            className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-dark px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-gray-800 disabled:opacity-50 sm:w-auto"
           >
-            <CreditCard size={16} />
-            Save billing profile
+            {saving ? <Loader2 size={16} className="animate-spin" /> : <CreditCard size={16} />}
+            {saving ? 'Saving…' : 'Save billing profile'}
           </button>
           <button
             type="button"
+            onClick={() => { setAddingCard((v) => !v); setCardMsg('') }}
             className="rounded-full border border-gray-200 bg-white px-4 py-2.5 text-sm font-semibold text-dark transition-colors hover:bg-gray-50"
           >
-            Add new card
+            {addingCard ? 'Cancel' : 'Add new card'}
           </button>
         </div>
+
+        {addingCard && (
+          <form onSubmit={handleAddCard} className="mt-5 rounded-2xl border border-gray-200 bg-gray-50 p-5">
+            <p className="mb-4 text-sm font-semibold text-dark">New card details</p>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <label className="block sm:col-span-2">
+                <span className="mb-1 block text-xs font-semibold uppercase tracking-[0.16em] text-muted">Name on card</span>
+                <input type="text" value={cardForm.name} onChange={updateCard('name')}
+                  placeholder="Full name" className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-dark" />
+              </label>
+              <label className="block sm:col-span-2">
+                <span className="mb-1 block text-xs font-semibold uppercase tracking-[0.16em] text-muted">Card number</span>
+                <input type="text" value={cardForm.number} onChange={updateCard('number')}
+                  placeholder="4242 4242 4242 4242" maxLength={19} className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-dark" />
+              </label>
+              <label className="block">
+                <span className="mb-1 block text-xs font-semibold uppercase tracking-[0.16em] text-muted">Expiry (MM/YY)</span>
+                <input type="text" value={cardForm.expiry} onChange={updateCard('expiry')}
+                  placeholder="06/27" maxLength={5} className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-dark" />
+              </label>
+              <label className="block">
+                <span className="mb-1 block text-xs font-semibold uppercase tracking-[0.16em] text-muted">CVV</span>
+                <input type="password" value={cardForm.cvv} onChange={updateCard('cvv')}
+                  placeholder="•••" maxLength={4} className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-dark" />
+              </label>
+            </div>
+            {cardMsg && (
+              <p className={`mt-2 text-sm font-semibold ${cardMsg.includes('added') ? 'text-emerald-600' : 'text-red-500'}`}>{cardMsg}</p>
+            )}
+            <button type="submit" disabled={cardSaving}
+              className="mt-4 inline-flex items-center gap-2 rounded-xl bg-dark px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-gray-800 disabled:opacity-50">
+              {cardSaving ? <Loader2 size={15} className="animate-spin" /> : <CheckCheck size={15} />}
+              {cardSaving ? 'Adding…' : 'Add card'}
+            </button>
+          </form>
+        )}
       </SectionCard>
     </AccountShell>
   )

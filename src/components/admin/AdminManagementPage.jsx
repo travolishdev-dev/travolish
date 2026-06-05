@@ -10,6 +10,88 @@ import {
   AdminWorkflowPanel,
 } from './AdminPortalUI'
 
+// Derive stat cards from actual loaded rows instead of static config
+function computeLiveStats(pageKey, rows) {
+  switch (pageKey) {
+    case 'users':
+      return [
+        { label: 'Registered accounts', value: rows.length.toLocaleString(), note: 'Travelers, hosts, admins', tone: 'brand' },
+        { label: 'Pending hosts', value: String(rows.filter(r => r[1] === 'Host' && r[2] === 'Pending').length), note: 'Applications waiting', tone: 'warning' },
+        { label: 'Suspended', value: String(rows.filter(r => r[2] === 'Suspended').length), note: 'Policy or payment risk', tone: 'danger' },
+        { label: 'Verified', value: rows.length ? `${Math.round(rows.filter(r => r[3] !== 'Unverified').length / rows.length * 100)}%` : '—', note: 'Identity or payment verified', tone: 'success' },
+      ]
+    case 'verification':
+      return [
+        { label: 'Pending review', value: String(rows.filter(r => ['PENDING', 'UNDER_REVIEW'].includes(r[4])).length), note: 'Awaiting decision', tone: 'warning' },
+        { label: 'Approved', value: String(rows.filter(r => r[4] === 'APPROVED').length), note: 'Clean decisions', tone: 'success' },
+        { label: 'Rejected', value: String(rows.filter(r => r[4] === 'REJECTED').length), note: 'Document mismatch', tone: 'danger' },
+        { label: 'Total', value: String(rows.length), note: 'All KYC submissions', tone: 'brand' },
+      ]
+    case 'listingApprovals':
+      return [
+        { label: 'Pending', value: String(rows.filter(r => r[6] === 'PENDING').length), note: 'Awaiting review', tone: 'warning' },
+        { label: 'Approved', value: String(rows.filter(r => r[6] === 'APPROVED').length), note: 'Hotels created or updated', tone: 'success' },
+        { label: 'Rejected', value: String(rows.filter(r => r[6] === 'REJECTED').length), note: 'Request denied', tone: 'danger' },
+        { label: 'Total', value: String(rows.length), note: 'All hotel requests', tone: 'brand' },
+      ]
+    case 'moderation':
+      return [
+        { label: 'Flagged items', value: String(rows.filter(r => ['FLAGGED', 'UNDER_REVIEW', 'ESCALATED'].includes(r[4])).length), note: 'Across content surfaces', tone: 'danger' },
+        { label: 'Under review', value: String(rows.filter(r => r[4] === 'UNDER_REVIEW').length), note: 'Assigned to moderators', tone: 'warning' },
+        { label: 'Resolved', value: String(rows.filter(r => ['APPROVED', 'REJECTED'].includes(r[4])).length), note: 'Closed cases', tone: 'success' },
+        { label: 'Escalated', value: String(rows.filter(r => r[4] === 'ESCALATED').length), note: 'Legal or safety review', tone: 'brand' },
+      ]
+    case 'categoriesAmenities':
+      return [
+        { label: 'Categories', value: String(rows.filter(r => r[1] === 'Category').length), note: 'Hotel, resort, villa…', tone: 'brand' },
+        { label: 'Amenities', value: String(rows.filter(r => r[1] === 'Amenity').length), note: 'Grouped by type', tone: 'success' },
+        { label: 'Disabled', value: String(rows.filter(r => r[5] === 'DISABLED').length), note: 'Hidden from new listings', tone: 'warning' },
+        { label: 'Active', value: String(rows.filter(r => r[5] === 'ACTIVE').length), note: 'Available for use', tone: 'brand' },
+      ]
+    case 'pricingRules':
+      return [
+        { label: 'Active rules', value: String(rows.filter(r => r[6] === 'Active').length), note: 'Currently applied', tone: 'brand' },
+        { label: 'Draft', value: String(rows.filter(r => r[6] === 'Draft').length), note: 'Awaiting activation', tone: 'warning' },
+        { label: 'Seasonal', value: String(rows.filter(r => r[1] === 'SEASONAL').length), note: 'Date-range based', tone: 'success' },
+        { label: 'Total rules', value: String(rows.length), note: 'Across all types', tone: 'brand' },
+      ]
+    default:
+      return adminScreenConfigs[pageKey]?.stats ?? []
+  }
+}
+
+// Map bulk action labels to the row-action names the individual page handlers understand
+const BULK_TO_ROW_ACTION = {
+  'Approve clean': 'Approve',
+  'Approve selected': 'Approve',
+  'Request resubmission': 'Request files',
+  'Request edits': 'Request files',
+  'Dismiss': 'Moderate',
+  'Suspend': 'Suspend',
+  'Restore': 'Restore',
+  'Escalate': 'Escalate',
+  'Enable': 'Enable',
+  'Disable': 'Disable',
+  'Delete': 'Delete',
+}
+
+function downloadCSV(columns, rows, pageKey) {
+  const header = columns.filter(c => c !== 'Action').join(',')
+  const body = rows.map(row =>
+    row.slice(0, columns.filter(c => c !== 'Action').length)
+      .map(cell => `"${String(cell ?? '').replace(/"/g, '""')}"`)
+      .join(','),
+  )
+  const csv = [header, ...body].join('\n')
+  const blob = new Blob([csv], { type: 'text/csv' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `travolish-${pageKey}-${new Date().toISOString().split('T')[0]}.csv`
+  a.click()
+  URL.revokeObjectURL(url)
+}
+
 export default function AdminManagementPage({ pageKey, rows: rowsProp, loading = false, onRowAction, detailContent }) {
   const config = adminScreenConfigs[pageKey]
   const baseRows = rowsProp ?? config.rows
@@ -18,6 +100,8 @@ export default function AdminManagementPage({ pageKey, rows: rowsProp, loading =
   const [activeFilters, setActiveFilters] = useState({})
   const [selectedRowKey, setSelectedRowKey] = useState('')
   const [actionNotice, setActionNotice] = useState('')
+
+  const liveStats = useMemo(() => computeLiveStats(pageKey, baseRows), [pageKey, baseRows])
 
   const filtersWithOptions = useMemo(
     () =>
@@ -70,9 +154,24 @@ export default function AdminManagementPage({ pageKey, rows: rowsProp, loading =
     setActionNotice('Search and filters reset.')
   }
 
+  function handleExportCSV() {
+    downloadCSV(config.columns, filteredRows, pageKey)
+    setActionNotice(`${filteredRows.length} records exported as CSV.`)
+  }
+
   function handleBulkAction(action) {
-    const recordLabel = filteredRows.length === 1 ? 'record' : 'records'
-    setActionNotice(`${action} prepared for ${filteredRows.length} filtered ${recordLabel}.`)
+    if (action === 'Export') {
+      handleExportCSV()
+      return
+    }
+    const mappedAction = BULK_TO_ROW_ACTION[action]
+    if (mappedAction && selectedRecord && onRowAction) {
+      onRowAction(selectedRecord, mappedAction, setActionNotice)
+    } else if (!selectedRecord) {
+      setActionNotice(`Select a row first, then use "${action}".`)
+    } else {
+      setActionNotice(`"${action}" is not available as an API action for this record type.`)
+    }
   }
 
   function handleRowSelect(row) {
@@ -85,13 +184,16 @@ export default function AdminManagementPage({ pageKey, rows: rowsProp, loading =
     if (onRowAction) {
       onRowAction(row, action, setActionNotice)
     } else {
-      setActionNotice(`${action} selected for ${row[0]}. Add confirmation and reason capture before saving.`)
+      setActionNotice(`${action} selected for ${row[0]}.`)
     }
   }
 
-  function handleExport() {
-    const filterCopy = activeFilterCount ? `${activeFilterCount} active filters` : 'no active filters'
-    setActionNotice(`Export prepared for ${filteredRows.length} records with ${filterCopy}.`)
+  function handleHeaderAction(action) {
+    if (action === 'Export') {
+      handleExportCSV()
+    } else {
+      setActionNotice(`${action} action opened for ${config.title}.`)
+    }
   }
 
   return (
@@ -100,8 +202,9 @@ export default function AdminManagementPage({ pageKey, rows: rowsProp, loading =
         eyebrow={config.eyebrow}
         title={config.title}
         description={config.description}
-        stats={config.stats}
+        stats={liveStats}
         actions={['Create', 'Export', 'Audit log']}
+        onAction={handleHeaderAction}
       />
 
       <AdminFilterBar
@@ -128,7 +231,7 @@ export default function AdminManagementPage({ pageKey, rows: rowsProp, loading =
             selectedRowKey={selectedRecord?.[0]}
             onRowSelect={handleRowSelect}
             onRowAction={handleRowAction}
-            onExport={handleExport}
+            onExport={handleExportCSV}
           />
         )}
         {detailContent

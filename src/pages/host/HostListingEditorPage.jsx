@@ -39,11 +39,18 @@ import { generateListingDescription } from '../../services/listingsApi'
 import { createHotel, getHotel, updateHotel } from '../../services/hostListingsApi'
 import useHostContext from '../../hooks/useHostContext'
 
+const HOTEL_STATUSES = [
+  { value: 'LIVE',   label: 'Live',   description: 'Visible in search and bookable by guests.' },
+  { value: 'DRAFT',  label: 'Draft',  description: 'Hidden from search. Complete your listing before publishing.' },
+  { value: 'PAUSED', label: 'Paused', description: 'Temporarily hidden. All existing bookings remain.' },
+]
+
 const EMPTY_LISTING_DRAFT = {
   title: '',
   description: '',
   houseRules: '',
   propertyType: 'house',
+  status: 'DRAFT',
   basics: { guests: 1, bedrooms: 1, beds: 1, bathrooms: 1 },
   bedDetails: { primary: 'King bed', secondary: 'Sofa bed' },
   amenities: [],
@@ -113,6 +120,15 @@ export default function HostListingEditorPage() {
           description: h.description ?? prev.description,
           location: h.city ?? prev.location,
           country: h.country ?? prev.country,
+          houseRules: h.houseRules ?? prev.houseRules,
+          status: h.status ?? prev.status,
+          bookingSettings: {
+            ...prev.bookingSettings,
+            instantBooking: h.instantBooking ?? prev.bookingSettings.instantBooking,
+            minimumStay: String(h.minimumStay ?? prev.bookingSettings.minimumStay),
+            checkInTime: h.checkInTime ?? prev.bookingSettings.checkInTime,
+            checkOutTime: h.checkOutTime ?? prev.bookingSettings.checkOutTime,
+          },
         }))
       })
       .catch(() => {})
@@ -237,12 +253,47 @@ export default function HostListingEditorPage() {
         description: formState.description,
         city: formState.location,
         country: formState.country,
+        houseRules: formState.houseRules || null,
+        status: formState.status,
+        instantBooking: formState.bookingSettings.instantBooking,
+        minimumStay: parseInt(formState.bookingSettings.minimumStay, 10) || 1,
+        checkInTime: formState.bookingSettings.checkInTime || null,
+        checkOutTime: formState.bookingSettings.checkOutTime || null,
       }
+
+      let savedHotel
       if (id) {
-        await updateHotel(id, payload)
+        savedHotel = await updateHotel(id, payload)
       } else {
-        await createHotel(payload)
+        savedHotel = await createHotel(payload)
       }
+
+      const hotelId = savedHotel?.id ?? id
+      if (hotelId) {
+        const newPhotos = formState.photos.filter((p) => p.file instanceof File)
+
+        // First photo → cover image
+        if (newPhotos.length > 0) {
+          const imgForm = new FormData()
+          imgForm.append('file', newPhotos[0].file)
+          await fetch(`/api/hotels/${hotelId}/images`, { method: 'POST', body: imgForm })
+        }
+
+        // Remaining photos → gallery
+        for (const photo of newPhotos.slice(1)) {
+          const gForm = new FormData()
+          gForm.append('file', photo.file)
+          await fetch(`/api/hotels/${hotelId}/gallery`, { method: 'POST', body: gForm })
+        }
+
+        // Upload video if one was picked
+        if (formState.video?.file instanceof File) {
+          const vidForm = new FormData()
+          vidForm.append('file', formState.video.file)
+          await fetch(`/api/hotels/${hotelId}/videos`, { method: 'POST', body: vidForm })
+        }
+      }
+
       navigate('/host/listings')
     } catch {
       setSaveError('Save failed. Please try again.')
@@ -398,9 +449,7 @@ export default function HostListingEditorPage() {
                   maxLength={500}
                   className="w-full resize-none rounded-xl border border-gray-300 px-4 py-3.5 text-sm text-dark outline-none transition-all focus:border-dark focus:ring-1 focus:ring-dark"
                 />
-                <p className="mt-1.5 text-xs text-muted">
-                  {formState.houseRules.length}/500 · UI only until house-rules persistence is wired.
-                </p>
+                <p className="mt-1.5 text-xs text-muted">{formState.houseRules.length}/500</p>
               </div>
             </div>
           </SectionCard>
@@ -734,9 +783,39 @@ export default function HostListingEditorPage() {
                 </div>
               </div>
 
-              <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-800">
-                UI only: these fields are intentionally not added to the save payload yet, so existing listing create/update behavior remains unchanged.
-              </div>
+            </div>
+          </SectionCard>
+
+          <SectionCard>
+            <SectionHeading
+              eyebrow="Step 8"
+              title="Listing status"
+              description="Control whether this property is visible to travellers."
+            />
+            <div className="mt-6 grid gap-3">
+              {HOTEL_STATUSES.map((s) => (
+                <label
+                  key={s.value}
+                  className={`flex cursor-pointer items-start gap-4 rounded-2xl border p-4 transition-colors ${
+                    formState.status === s.value
+                      ? 'border-dark bg-gray-50'
+                      : 'border-gray-200 bg-white hover:border-gray-400'
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="hotelStatus"
+                    value={s.value}
+                    checked={formState.status === s.value}
+                    onChange={() => setFormState((prev) => ({ ...prev, status: s.value }))}
+                    className="mt-1 accent-brand"
+                  />
+                  <span>
+                    <span className="block text-sm font-semibold text-dark">{s.label}</span>
+                    <span className="mt-1 block text-sm text-muted">{s.description}</span>
+                  </span>
+                </label>
+              ))}
             </div>
           </SectionCard>
 
@@ -760,8 +839,8 @@ export default function HostListingEditorPage() {
             </div>
 
             <div className="mt-5 flex flex-wrap items-center gap-2">
-              <StatusPill tone={id ? 'success' : 'warning'}>
-                {id ? 'Live' : 'Draft'}
+              <StatusPill tone={formState.status === 'LIVE' ? 'success' : formState.status === 'PAUSED' ? 'sky' : 'warning'}>
+                {formState.status === 'LIVE' ? 'Live' : formState.status === 'PAUSED' ? 'Paused' : 'Draft'}
               </StatusPill>
               {selectedPropertyType ? (
                 <StatusPill tone="sky">{selectedPropertyType.label}</StatusPill>

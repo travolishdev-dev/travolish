@@ -8,24 +8,24 @@ import {
   StatusPill,
 } from '../../components/host/HostPortalUI'
 import { HostPillButton } from '../../components/host/HostFormFields'
-import { getHostListings } from '../../services/hostListingsApi'
+import { getHostListings, getHostRooms } from '../../services/hostListingsApi'
+import { listBookingsByHotel } from '../../services/bookingsApi'
 import useHostContext from '../../hooks/useHostContext'
 
 const filters = ['All', 'Live', 'Draft updates']
 
-function getBookingRequestCount(listingId) {
-  return {
-    13: 2,
-    10: 1,
-    14: 3,
-    4: 0,
-  }[Number(listingId)] ?? 0
+// Map backend HotelStatus enum → UI label used by filter tabs
+function mapHotelStatus(raw) {
+  if (raw === 'LIVE') return 'Live'
+  if (raw === 'DRAFT') return 'Draft updates'
+  if (raw === 'PAUSED') return 'Draft updates'
+  return 'Live' // default for legacy rows
 }
 
 function adaptListing(h) {
   return {
     id: h.id,
-    status: h.status ?? 'Live',
+    status: mapHotelStatus(h.status),
     market: h.city ?? h.country ?? h.market ?? '—',
     description: h.description ?? '',
     roomCount: h.totalRooms ?? h.roomCount ?? 0,
@@ -39,7 +39,9 @@ function adaptListing(h) {
       title: h.name ?? h.property?.title ?? 'Untitled',
       location: h.city ?? h.property?.location ?? '—',
       country: h.country ?? h.property?.country ?? '—',
-      image: h.images?.[0] ?? h.property?.image ?? '',
+      // imageUrl is the correct field name from Hotel entity; h.images[] doesn't exist
+      image: h.imageUrl ?? h.images?.[0] ?? h.property?.image
+        ?? 'https://images.unsplash.com/photo-1566073771259-6a8506099945?w=400&auto=format&fit=crop',
     },
   }
 }
@@ -47,15 +49,47 @@ function adaptListing(h) {
 export default function HostListingsPage() {
   const { hostId, loading: hostLoading } = useHostContext()
   const [listings, setListings] = useState([])
+  const [pendingCounts, setPendingCounts] = useState({})
+  const [roomCounts, setRoomCounts] = useState({})
   const [activeFilter, setActiveFilter] = useState('All')
-  const [loading, setLoading] = useState(false)
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    if (hostLoading || !hostId) return
+    if (hostLoading) return
+    if (!hostId) { setLoading(false); return }
+
     getHostListings(hostId)
-      .then((data) => {
+      .then(async (data) => {
         const items = data?.content ?? (Array.isArray(data) ? data : null)
-        if (items?.length) setListings(items.map(adaptListing))
+        if (!items?.length) return
+        setListings(items.map(adaptListing))
+
+        // Fetch pending bookings, room counts in parallel for all hotels
+        const [bookingResults, roomResults] = await Promise.all([
+          Promise.all(
+            items.map((h) =>
+              listBookingsByHotel(h.id)
+                .then((bookings) => {
+                  const arr = Array.isArray(bookings) ? bookings : []
+                  return [h.id, arr.filter((b) => b.status === 'PENDING').length]
+                })
+                .catch(() => [h.id, 0]),
+            ),
+          ),
+          Promise.all(
+            items.map((h) =>
+              getHostRooms(h.id)
+                .then((rooms) => {
+                  const arr = Array.isArray(rooms) ? rooms : (rooms?.content ?? [])
+                  return [h.id, arr.length]
+                })
+                .catch(() => [h.id, 0]),
+            ),
+          ),
+        ])
+
+        setPendingCounts(Object.fromEntries(bookingResults))
+        setRoomCounts(Object.fromEntries(roomResults))
       })
       .catch(() => {})
       .finally(() => setLoading(false))
@@ -131,9 +165,9 @@ export default function HostListingsPage() {
                       {listing.status}
                     </StatusPill>
                     <StatusPill tone="sky">{listing.market}</StatusPill>
-                    {getBookingRequestCount(listing.id) > 0 ? (
+                    {(pendingCounts[listing.id] ?? 0) > 0 ? (
                       <StatusPill tone="warning">
-                        {getBookingRequestCount(listing.id)} booking request{getBookingRequestCount(listing.id) > 1 ? 's' : ''}
+                        {pendingCounts[listing.id]} booking request{pendingCounts[listing.id] > 1 ? 's' : ''}
                       </StatusPill>
                     ) : null}
                   </div>
@@ -146,7 +180,7 @@ export default function HostListingsPage() {
                   </p>
                   <p className="mt-3 text-sm leading-6 text-dark">{listing.description}</p>
                   <div className="mt-3 flex flex-wrap items-center gap-4 text-sm text-muted">
-                    <span>{listing.roomCount} rooms</span>
+                    <span>{roomCounts[listing.id] ?? listing.roomCount} rooms</span>
                     <span>{listing.occupancy30} occupancy</span>
                     <span>{listing.nextArrival}</span>
                   </div>

@@ -5,28 +5,6 @@ import AdminManagementPage from '../../components/admin/AdminManagementPage'
 import { AdminCard, AdminSectionHeading, AdminStatusPill } from '../../components/admin/AdminPortalUI'
 import { approveReview, escalateReview, getFlaggedReviews, getPendingReviews, rejectReview } from '../../services/adminApi'
 
-const fallbackReports = [
-  {
-    id: 'L-401',
-    contentType: 'Listing',
-    title: 'Misleading pool photos',
-    reporter: 'Guest #1084',
-    status: 'UNDER_REVIEW',
-    severity: 'High',
-    appealStatus: 'No appeal',
-    source: 'Beachfront Villa listing',
-  },
-  {
-    id: 'U-219',
-    contentType: 'User',
-    title: 'Repeated payment abuse reports',
-    reporter: 'Risk system',
-    status: 'ESCALATED',
-    severity: 'High',
-    appealStatus: 'Appeal window open',
-    source: 'User profile and booking history',
-  },
-]
 
 function mapReviewToRow(r) {
   const actionLabel = r.status === 'APPROVED' || r.status === 'REJECTED' ? 'View' : 'Moderate'
@@ -61,7 +39,7 @@ export default function AdminModerationPage() {
           seen.add(r.id)
           return true
         })
-        const source = merged.length ? merged : fallbackReports
+        const source = merged
         rawMap.current = Object.fromEntries(
           source.map((r) => [String(r.id).startsWith('RPT-') ? r.id : `RPT-${r.id}`, r]),
         )
@@ -167,14 +145,16 @@ export default function AdminModerationPage() {
               ))}
             </div>
 
-            <button
-              type="button"
-              onClick={() => setNotice('Appeal review packet prepared. Backend appeal submission is not changed in this UI pass.')}
-              className="inline-flex h-11 items-center justify-center gap-2 rounded-card bg-dark px-4 text-sm font-semibold text-white"
-            >
-              <ShieldAlert size={16} />
-              Prepare appeal review
-            </button>
+            {report && (
+              <button
+                type="button"
+                onClick={() => setNotice(`Appeal window opened for ${record[0]} — status: ${record[4]}. Notify reporter and host when resolved.`)}
+                className="inline-flex h-11 items-center justify-center gap-2 rounded-card bg-dark px-4 text-sm font-semibold text-white"
+              >
+                <ShieldAlert size={16} />
+                Prepare appeal review
+              </button>
+            )}
           </AdminCard>
         )
       }}

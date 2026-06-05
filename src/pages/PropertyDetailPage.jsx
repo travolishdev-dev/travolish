@@ -366,26 +366,25 @@ export default function PropertyDetailPage() {
             </div>
           )}
 
-          <div className="py-8 border-b border-gray-200">
-            <div className="flex items-center gap-3">
-              <PlayCircle size={24} className="text-dark" />
-              <h2 className="text-xl font-semibold text-dark">Video walkthrough</h2>
+          {property.videoUrl && (
+            <div className="py-8 border-b border-gray-200">
+              <div className="flex items-center gap-3">
+                <PlayCircle size={24} className="text-dark" />
+                <h2 className="text-xl font-semibold text-dark">Video walkthrough</h2>
+              </div>
+              <div className="mt-5 overflow-hidden rounded-[24px] border border-gray-200 bg-black">
+                <video
+                  controls
+                  preload="metadata"
+                  poster={property.images?.[0]}
+                  className="aspect-video w-full bg-black object-cover"
+                >
+                  <source src={property.videoUrl} />
+                  Your browser does not support video playback.
+                </video>
+              </div>
             </div>
-            <div className="mt-5 overflow-hidden rounded-[24px] border border-gray-200 bg-black">
-              <video
-                controls
-                preload="metadata"
-                poster={property.images?.[0]}
-                className="aspect-video w-full bg-black object-cover"
-              >
-                {property.videoUrl ? <source src={property.videoUrl} /> : null}
-                Video walkthrough will appear here when the host uploads one.
-              </video>
-            </div>
-            <p className="mt-3 text-sm text-muted">
-              Hosts can attach a walkthrough video; this player keeps the display side ready.
-            </p>
-          </div>
+          )}
 
           {/* Amenities — only shown when the hotel has them */}
           {hasAmenities && (

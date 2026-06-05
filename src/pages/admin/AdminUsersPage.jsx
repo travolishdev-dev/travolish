@@ -220,6 +220,22 @@ export default function AdminUsersPage() {
       } catch {
         toast.error('Delete failed')
       }
+    } else if (action === 'Suspend') {
+      try {
+        await updateUserStatus(user.id, 'SUSPENDED')
+        toast.success(`${row[0]} suspended`)
+        load()
+      } catch {
+        toast.error('Suspend failed')
+      }
+    } else if (action === 'Restore') {
+      try {
+        await updateUserStatus(user.id, 'ACTIVE')
+        toast.success(`${row[0]} restored to active`)
+        load()
+      } catch {
+        toast.error('Restore failed')
+      }
     } else {
       setNotice(`Editing ${row[0]} — use the panel on the right to change role or status.`)
     }

@@ -113,6 +113,17 @@ export default function SearchControls({
     freeCancellationOnly ||
     sortOption !== 'recommended'
 
+  // Total active filter count including guests (above 1 adult = meaningful filter)
+  const guestCount = (searchDraft.adults || 1) + (searchDraft.children || 0)
+  const activeFilterCount = [
+    minPrice, maxPrice, minRating > 0,
+    propertyType !== 'Any',
+    ...selectedAmenities.map(() => true),
+    instantBookOnly, freeCancellationOnly,
+    sortOption !== 'recommended',
+    guestCount > 1,
+  ].filter(Boolean).length
+
   const toggleAmenity = (amenity) => {
     onSelectedAmenitiesChange(
       selectedAmenities.includes(amenity)
@@ -272,6 +283,11 @@ export default function SearchControls({
             >
               <SlidersHorizontal size={17} />
               Filters
+              {activeFilterCount > 0 && (
+                <span className="inline-flex h-5 min-w-[20px] items-center justify-center rounded-full bg-dark px-1.5 text-[10px] font-bold text-white">
+                  {activeFilterCount}
+                </span>
+              )}
             </button>
 
             <button

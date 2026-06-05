@@ -1,17 +1,14 @@
 import { useEffect, useMemo, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { ChevronLeft, ChevronRight, RefreshCw } from 'lucide-react'
 import {
   HostShell,
   SectionCard,
   SectionHeading,
 } from '../../components/host/HostPortalUI'
-import { getHotelAvailabilityRange } from '../../services/availabilityApi'
+import { getHotelAvailabilityRange, blockRoomDate, unblockRoomDate } from '../../services/availabilityApi'
 import { getHostRooms } from '../../services/hostListingsApi'
 import useHostContext from '../../hooks/useHostContext'
-import {
-  hostAvailabilityRows,
-  hostListings,
-} from '../../data/mockHostPortalData'
 
 const statusStyles = {
   open: 'bg-white text-dark border-gray-200',
@@ -167,6 +164,10 @@ function normalizeStatus(value) {
 function mapStatus(availability) {
   if (!availability) return 'open'
 
+  // Check blocked first — API returns blockedRooms (not blockedCount) and status:"FULL"
+  // Checking before explicitStatus so a blocked day doesn't fallback to 'occupied'
+  if (Number(availability.blockedRooms ?? availability.blockedCount ?? 0) > 0 || availability.isBlocked) return 'blocked'
+
   const explicitStatus = normalizeStatus(
     availability.status ??
       availability.availabilityStatus ??
@@ -175,7 +176,6 @@ function mapStatus(availability) {
   )
 
   if (explicitStatus) return explicitStatus
-  if (Number(availability.blockedCount ?? 0) > 0 || availability.isBlocked) return 'blocked'
   if (Number(availability.availableRooms) === 0 || availability.available === false) return 'occupied'
   if (availability.isPremiumDate) return 'premium'
   if (availability.isTurnoverDay) return 'turn'
@@ -219,17 +219,8 @@ function positiveModulo(value, divisor) {
   return ((value % divisor) + divisor) % divisor
 }
 
-function getFallbackStatus(listingId, date) {
-  const row = hostAvailabilityRows.find(
-    (availabilityRow) => String(availabilityRow.listingId) === String(listingId),
-  )
-
-  if (!row?.pattern?.length) return 'open'
-
-  const baseDate = new Date(2026, 0, 1)
-  const dayIndex = Math.floor((startOfDay(date) - baseDate) / DAY_MS)
-  const listingOffset = Number(listingId) || 0
-  return row.pattern[positiveModulo(dayIndex + listingOffset, row.pattern.length)] ?? 'open'
+function getFallbackStatus() {
+  return 'open'
 }
 
 function getStatusForListingDate(availabilityByListingDate, listingId, date) {
@@ -237,7 +228,7 @@ function getStatusForListingDate(availabilityByListingDate, listingId, date) {
   return availabilityByListingDate[String(listingId)]?.[dateKey] ?? getFallbackStatus(listingId, date)
 }
 
-function countStatuses(dates, availabilityByListingDate, listings = hostListings) {
+function countStatuses(dates, availabilityByListingDate, listings = []) {
   const counts = Object.keys(statusMeta).reduce((acc, status) => {
     acc[status] = 0
     return acc
@@ -253,7 +244,7 @@ function countStatuses(dates, availabilityByListingDate, listings = hostListings
   return counts
 }
 
-function buildEventsForDate(date, availabilityByListingDate, listings = hostListings) {
+function buildEventsForDate(date, availabilityByListingDate, listings = []) {
   return listings.map((listing) => {
     const status = getStatusForListingDate(
       availabilityByListingDate,
@@ -269,11 +260,21 @@ function buildEventsForDate(date, availabilityByListingDate, listings = hostList
   })
 }
 
+function hotelsToListings(hotels) {
+  return hotels.map((h) => ({
+    id: h.id,
+    property: { title: h.name ?? `Property ${h.id}`, location: h.city ?? '' },
+    market: h.city ?? h.country ?? '',
+  }))
+}
+
 export default function HostAvailabilityPage() {
-  const { primaryHotelId, loading: hostLoading } = useHostContext()
+  const { primaryHotelId, hotels, loading: hostLoading } = useHostContext()
   const [dates] = useState(buildDates)
   const [rows, setRows] = useState([])
+  const [hotelRooms, setHotelRooms] = useState([])
   const [dataLoading, setDataLoading] = useState(false)
+  const [applying, setApplying] = useState(false)
   const today = useMemo(() => startOfDay(new Date()), [])
   const [availabilityAction, setAvailabilityAction] = useState(() => ({
     start: toDateKey(today),
@@ -289,22 +290,20 @@ export default function HostAvailabilityPage() {
   const [isLoadingAvailability, setIsLoadingAvailability] = useState(false)
   const [hasLiveAvailability, setHasLiveAvailability] = useState(false)
 
+  const listings = useMemo(() => hotelsToListings(hotels), [hotels])
   const monthDays = useMemo(() => buildMonthDays(currentMonth), [currentMonth])
   const calendarDays = useMemo(() => buildCalendarGrid(currentMonth), [currentMonth])
   const selectedListings = useMemo(() => {
-    if (selectedListingId === 'all') return hostListings
-
-    return hostListings.filter(
-      (listing) => String(listing.id) === String(selectedListingId),
-    )
-  }, [selectedListingId])
+    if (selectedListingId === 'all') return listings
+    return listings.filter((listing) => String(listing.id) === String(selectedListingId))
+  }, [selectedListingId, listings])
   const monthStartKey = toDateKey(monthDays[0])
   const monthEndKey = toDateKey(monthDays[monthDays.length - 1])
   const selectedMonthLabel = formatMonthLabel(currentMonth)
   const selectedScopeLabel =
     selectedListingId === 'all'
       ? 'All host properties'
-      : getPropertyTitle(selectedListings[0] ?? hostListings[0])
+      : getPropertyTitle(selectedListings[0] ?? listings[0])
   const monthlyCounts = useMemo(
     () => countStatuses(monthDays, availabilityByListingDate, selectedListings),
     [availabilityByListingDate, monthDays, selectedListings],
@@ -337,8 +336,9 @@ export default function HostAvailabilityPage() {
         byRoomDate[rid][iso] = item
       })
 
-      const roomsWithData = rooms.filter((r) => byRoomDate[r.id])
-      const sourceRooms = roomsWithData.length > 0 ? roomsWithData : rooms
+      if (rooms.length) setHotelRooms(rooms)
+      // Always show all rooms; mapStatus(undefined) returns 'open' for dates with no record
+      const sourceRooms = rooms
 
       const newRows = sourceRooms.map((room) => ({
         roomId: room.id,
@@ -361,13 +361,12 @@ export default function HostAvailabilityPage() {
       setIsLoadingAvailability(true)
 
       const results = await Promise.allSettled(
-        hostListings.map(async (listing) => {
+        listings.map(async (listing) => {
           const data = await getHotelAvailabilityRange(
             listing.id,
             monthStartKey,
             monthEndKey,
           )
-
           return {
             listingId: listing.id,
             items: getAvailabilityItems(data),
@@ -415,7 +414,7 @@ export default function HostAvailabilityPage() {
     return () => {
       isCurrent = false
     }
-  }, [monthEndKey, monthStartKey, primaryHotelId])
+  }, [monthEndKey, monthStartKey, primaryHotelId, listings])
 
   function handleMonthInputChange(event) {
     const [year, month] = event.target.value.split('-').map(Number)
@@ -437,14 +436,48 @@ export default function HostAvailabilityPage() {
     }
   }
 
-  function handleApplyAvailabilityAction() {
-    const scope = selectedListingId === 'all' ? 'all properties' : selectedScopeLabel
-    const rateCopy = availabilityAction.rateOverride
-      ? ` with $${availabilityAction.rateOverride} rate override`
-      : ''
-    setAvailabilityNotice(
-      `${availabilityAction.action} prepared for ${scope}, ${availabilityAction.start} to ${availabilityAction.end}, ${availabilityAction.minimumStay || 1}-night minimum${rateCopy}. UI only; no inventory API write was sent.`,
-    )
+  async function handleApplyAvailabilityAction() {
+    const action = availabilityAction.action
+    const isBlock = action === 'Block dates'
+    const isOpen = action === 'Open dates'
+
+    if (!isBlock && !isOpen) {
+      // Set minimum stay and rate override don't have a direct availability API endpoint
+      setAvailabilityNotice(`"${action}" saved locally. Minimum stay and rate override require a pricing rule — use Pricing rules to persist.`)
+      return
+    }
+
+    if (!hotelRooms.length) {
+      // Proactive banner handles this — no need to duplicate via notice
+      return
+    }
+
+    setApplying(true)
+    setAvailabilityNotice('')
+
+    const start = new Date(availabilityAction.start)
+    const end = new Date(availabilityAction.end)
+    const dateList = []
+    for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+      dateList.push(toDateKey(new Date(d)))
+    }
+
+    try {
+      const calls = hotelRooms.flatMap((room) =>
+        dateList.map((date) =>
+          isBlock
+            ? blockRoomDate(room.id, date, 1, 'owner hold', primaryHotelId).catch(() => null)
+            : unblockRoomDate(room.id, date, 1, primaryHotelId).catch(() => null),
+        ),
+      )
+      await Promise.all(calls)
+      const verb = isBlock ? 'Blocked' : 'Opened'
+      setAvailabilityNotice(`${verb} ${dateList.length} date${dateList.length !== 1 ? 's' : ''} across ${hotelRooms.length} room${hotelRooms.length !== 1 ? 's' : ''}.`)
+    } catch {
+      setAvailabilityNotice('Some dates could not be updated. Please try again.')
+    } finally {
+      setApplying(false)
+    }
   }
 
   const stats = [
@@ -546,7 +579,7 @@ export default function HostAvailabilityPage() {
               ? 'Checking inventory...'
               : hasLiveAvailability
                 ? 'Live inventory loaded where available.'
-                : 'Preview data shown until inventory API returns data.'}
+                : 'Sign in to load your live availability data.'}
           </span>
         </div>
       </SectionCard>
@@ -555,7 +588,7 @@ export default function HostAvailabilityPage() {
         <SectionHeading
           eyebrow="Bulk controls"
           title="Date range actions"
-          description="UI-only controls for blocking dates, setting minimum stay, and overriding rates across a selected range."
+          description="Block or open dates across a selected range. Set minimum stay and rate override via Pricing rules."
         />
 
         <div className="mt-6 grid gap-4 xl:grid-cols-[1fr_1fr_1fr_1fr_auto]">
@@ -616,13 +649,45 @@ export default function HostAvailabilityPage() {
           <button
             type="button"
             onClick={handleApplyAvailabilityAction}
-            className="h-12 self-end rounded-xl bg-dark px-5 text-sm font-semibold text-white transition-colors hover:bg-gray-800"
+            disabled={applying || !hotelRooms.length}
+            className="h-12 self-end rounded-xl bg-dark px-5 text-sm font-semibold text-white transition-colors hover:bg-gray-800 disabled:opacity-50"
           >
-            Preview action
+            {applying ? 'Applying…' : 'Apply'}
           </button>
         </div>
 
-        {availabilityNotice ? (
+        {/* No-listing banner — host hasn't created a property yet */}
+        {!hostLoading && !primaryHotelId && (
+          <div className="mt-5 flex flex-col gap-2 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 sm:flex-row sm:items-center sm:justify-between">
+            <span className="font-semibold">
+              You haven&apos;t created a listing yet. Create your first property to manage availability.
+            </span>
+            <Link
+              to="/host/listings/new"
+              className="shrink-0 rounded-lg bg-amber-800 px-4 py-2 text-xs font-bold text-white transition-colors hover:bg-amber-900"
+            >
+              Create listing →
+            </Link>
+          </div>
+        )}
+
+        {/* No-rooms proactive banner — shown immediately on load, not just on Apply */}
+        {!hostLoading && !dataLoading && primaryHotelId && hotelRooms.length === 0 && (
+          <div className="mt-5 flex flex-col gap-2 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 sm:flex-row sm:items-center sm:justify-between">
+            <span className="font-semibold">
+              This property has no rooms yet. Add at least one room to manage availability.
+            </span>
+            <Link
+              to={`/host/listings/${primaryHotelId}/rooms`}
+              className="shrink-0 rounded-lg bg-amber-800 px-4 py-2 text-xs font-bold text-white transition-colors hover:bg-amber-900"
+            >
+              Add a room →
+            </Link>
+          </div>
+        )}
+
+        {/* Success / error notice from Apply action */}
+        {availabilityNotice && hotelRooms.length > 0 ? (
           <div className="mt-5 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-800">
             {availabilityNotice}
           </div>
@@ -665,7 +730,7 @@ export default function HostAvailabilityPage() {
                 </span>
               </button>
 
-              {hostListings.map((listing) => {
+              {listings.map((listing) => {
                 const isSelected = String(selectedListingId) === String(listing.id)
                 const listingCounts = countStatuses(
                   monthDays,

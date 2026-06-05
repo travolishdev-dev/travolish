@@ -6,13 +6,15 @@ import {
   SectionHeading,
   StatusPill,
 } from '../../components/host/HostPortalUI'
-import { HostField, HostPillButton } from '../../components/host/HostFormFields'
+import { HostPillButton } from '../../components/host/HostFormFields'
 import {
   getPricingRulesForHotel,
   createPricingRule,
   deletePricingRule,
   togglePricingRule,
 } from '../../services/pricingApi'
+import { getHostRooms } from '../../services/hostListingsApi'
+import toast from 'react-hot-toast'
 import useHostContext from '../../hooks/useHostContext'
 
 function adaptRule(r) {
@@ -62,6 +64,7 @@ const EMPTY_RULE = {
 export default function HostPricingRulesPage() {
   const { primaryHotelId, loading: hostLoading } = useHostContext()
   const [rules, setRules] = useState([])
+  const [rooms, setRooms] = useState([])
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
   const [newRule, setNewRule] = useState(EMPTY_RULE)
@@ -73,13 +76,16 @@ export default function HostPricingRulesPage() {
       if (!hostLoading) setLoading(false)
       return
     }
-    getPricingRulesForHotel(primaryHotelId)
-      .then((data) => {
-        const items = Array.isArray(data) ? data : (data?.content ?? [])
-        if (items.length > 0) setRules(items.map(adaptRule))
-      })
-      .catch(() => {})
-      .finally(() => setLoading(false))
+    Promise.all([
+      getPricingRulesForHotel(primaryHotelId).catch(() => null),
+      getHostRooms(primaryHotelId).catch(() => []),
+    ]).then(([data, roomList]) => {
+      // Always update rules (even when empty — fixes stale list after delete)
+      const items = Array.isArray(data) ? data : (data?.content ?? [])
+      setRules(items.map(adaptRule))
+      const rs = Array.isArray(roomList) ? roomList : (roomList?.content ?? roomList?.rooms ?? [])
+      if (rs.length) setRooms(rs)
+    }).finally(() => setLoading(false))
   }, [primaryHotelId, hostLoading])
 
   function refreshRules() {
@@ -87,7 +93,7 @@ export default function HostPricingRulesPage() {
     getPricingRulesForHotel(primaryHotelId)
       .then((data) => {
         const items = Array.isArray(data) ? data : (data?.content ?? [])
-        if (items.length > 0) setRules(items.map(adaptRule))
+        setRules(items.map(adaptRule)) // always update, even when empty
       })
       .catch(() => {})
   }
@@ -120,6 +126,7 @@ export default function HostPricingRulesPage() {
       setNewRule(EMPTY_RULE)
       setShowForm(false)
       refreshRules()
+      toast.success('Pricing rule created.')
     } catch {
       setSaveError('Failed to create rule. Please try again.')
     } finally {
@@ -228,13 +235,33 @@ export default function HostPricingRulesPage() {
                 onChange={updateNewRule('basePrice')}
                 placeholder="200"
               />
-              <HostField
-                label="Room ID (optional — blank = all rooms)"
-                type="number"
-                value={newRule.roomId}
-                onChange={updateNewRule('roomId')}
-                placeholder="Leave blank for hotel-wide rule"
-              />
+              <div>
+                <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.18em] text-muted">
+                  Room (optional)
+                </label>
+                {rooms.length > 0 ? (
+                  <select
+                    value={newRule.roomId}
+                    onChange={updateNewRule('roomId')}
+                    className="w-full rounded-xl border border-gray-300 bg-white px-4 py-3.5 text-sm text-dark outline-none transition-all focus:border-dark focus:ring-1 focus:ring-dark"
+                  >
+                    <option value="">— All rooms (hotel-wide) —</option>
+                    {rooms.map((r) => (
+                      <option key={r.id} value={String(r.id)}>
+                        {r.number ?? r.name ?? `Room ${r.id}`} — {r.type ?? ''}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <input
+                    type="number"
+                    value={newRule.roomId}
+                    onChange={updateNewRule('roomId')}
+                    placeholder="Leave blank for hotel-wide rule"
+                    className="w-full rounded-xl border border-gray-300 bg-white px-4 py-3.5 text-sm text-dark outline-none transition-all focus:border-dark focus:ring-1 focus:ring-dark"
+                  />
+                )}
+              </div>
             </div>
 
             <div className="mt-4">

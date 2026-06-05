@@ -24,25 +24,26 @@ import { getHotel, listRooms, getHotelAddOns } from '../../services/hotelsApi'
 import { checkAvailability, calculatePrice, createBooking } from '../../services/bookingsApi'
 import useAuthStore from '../../stores/useAuthStore'
 import useCurrency from '../../hooks/useCurrency'
+import { formatCurrencyAmount, currencyConfig } from '../../lib/currency'
 
 const CHECKOUT_ADDONS = [
   {
     id: 'addon-transfer',
     title: 'Private arrival transfer',
     description: 'Door-to-door pickup from the airport to the hotel in a private vehicle.',
-    price: 45,
+    price: 3500,  // INR
   },
   {
     id: 'addon-checkout',
     title: 'Late check-out until 2 pm',
     description: 'Extend your stay and leave at your leisure without rushing in the morning.',
-    price: 30,
+    price: 2500,  // INR
   },
   {
     id: 'addon-pantry',
     title: 'Pre-stocked pantry',
     description: 'Arrive to a curated selection of snacks, breakfast items, and beverages.',
-    price: 65,
+    price: 5000,  // INR
   },
 ]
 
@@ -52,20 +53,13 @@ const SUPPORT_HIGHLIGHTS = [
   'Message your host directly through the Travolish app.',
 ]
 
-const CURRENCY_OPTIONS = [
-  { code: 'USD', label: 'USD', locale: 'en-US', rate: 1 },
-  { code: 'INR', label: 'INR', locale: 'en-IN', rate: 83 },
-  { code: 'EUR', label: 'EUR', locale: 'de-DE', rate: 0.92 },
-  { code: 'GBP', label: 'GBP', locale: 'en-GB', rate: 0.79 },
-]
+// Currency options for the selector — sourced from the shared currencyConfig so rates stay in sync
+const CURRENCY_OPTIONS = Object.values(currencyConfig).map((c) => ({ code: c.code, label: c.code }))
 
+// Delegate to the shared formatter so PropertyDetailPage and CheckoutPage agree on prices.
+// Stored prices are in INR; formatCurrencyAmount converts using rateFromInr.
 function formatMoney(value, currencyCode) {
-  const option = CURRENCY_OPTIONS.find((item) => item.code === currencyCode) ?? CURRENCY_OPTIONS[0]
-  return new Intl.NumberFormat(option.locale, {
-    style: 'currency',
-    currency: option.code,
-    maximumFractionDigits: 0,
-  }).format(Math.max(0, Math.round(Number(value || 0) * option.rate)))
+  return formatCurrencyAmount(value, currencyCode)
 }
 
 const DEFAULT_CHECK_IN = addDays(new Date(), 1)
@@ -74,7 +68,7 @@ const DEFAULT_CHECK_OUT = addDays(new Date(), 4)
 export default function CheckoutPage() {
   const { propertyId } = useParams()
   const location = useLocation()
-  const { user, profile } = useAuthStore()
+  const { user, profile, backendUserId } = useAuthStore()
   const { currency: profileCurrency } = useCurrency()
 
   const incomingBooking = location.state?.booking ?? null
@@ -247,12 +241,21 @@ export default function CheckoutPage() {
       const booking = await createBooking({
         roomId: selectedRoom.id,
         hotelId: hotel.id,
+        userId: backendUserId ?? null,
         guestName: `${firstName} ${lastName}`.trim(),
         guestEmail: email,
         guestPhone: phone,
         checkIn,
         checkOut,
         basePrice: selectedRoom.pricePerNight,
+        // Include pricing breakdown fields so the backend stores the full picture
+        seasonalAdjustment: priceBreakdown?.seasonalAdjustment ?? 0,
+        dynamicPricingAdjustment: priceBreakdown?.dynamicPricingAdjustment ?? 0,
+        // Promo code discount: stored as positive value, applied as reduction
+        promotionalDiscount: priceBreakdown?.promotionalDiscount
+          ? Math.abs(priceBreakdown.promotionalDiscount)
+          : 0,
+        // totalPrice already reflects any applied promo discount
         totalPrice: priceBreakdown ? priceBreakdown.totalPrice : selectedRoom.pricePerNight * nights,
       })
       setConfirmedBooking(booking)

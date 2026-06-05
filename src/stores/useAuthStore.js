@@ -15,12 +15,22 @@ const BASE_URL = import.meta.env.VITE_API_BASE_URL || ''
 // components that read `profile.avatar_url` / `profile.full_name` keep working.
 function deriveProfile(user) {
   if (!user) return null
+  // Normalise role: backend sends GUEST/HOST/ADMIN (uppercase) → lowercase for display
+  const rawRole = user.role || 'GUEST'
   return {
     id: user.id,
     avatar_url: user.avatarUrl || user.imageKey || null,
     full_name: [user.firstName, user.lastName].filter(Boolean).join(' '),
     email: user.email,
-    role: 'guest',
+    role: rawRole.toLowerCase(),   // 'guest' | 'host' | 'admin'
+    // Pass through all profile fields so viewer and edit-profile pages have them
+    phone: user.phone || null,
+    city: user.city || null,
+    timeZone: user.timeZone || null,
+    travelStyle: user.travelStyle || null,
+    bio: user.bio || null,
+    preferredName: user.preferredName || null,
+    createdAt: user.createdAt || null,
   }
 }
 
@@ -91,6 +101,14 @@ const useAuthStore = create((set, get) => ({
   updateAvatar: (avatarUrl) => {
     set((state) => {
       const user = state.user ? { ...state.user, avatarUrl } : null
+      return { user, profile: deriveProfile(user) }
+    })
+  },
+
+  // Patch the stored user with updated fields after a profile save
+  patchUser: (fields) => {
+    set((state) => {
+      const user = state.user ? { ...state.user, ...fields } : null
       return { user, profile: deriveProfile(user) }
     })
   },

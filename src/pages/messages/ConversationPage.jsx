@@ -9,8 +9,7 @@ import {
   StatusPill,
 } from '../../components/portal/PortalUI'
 import { getConversation, getMessages, sendMessage } from '../../services/chatApi'
-
-const MY_USER_ID = 1
+import useAuthStore from '../../stores/useAuthStore'
 
 const quickReplies = [
   'Looks great, thank you.',
@@ -30,6 +29,7 @@ function formatFileSize(size) {
 }
 
 export default function ConversationPage() {
+  const userId = useAuthStore((s) => s.backendUserId)
   const { id } = useParams()
   const [conversation, setConversation] = useState(null)
   const [messages, setMessages] = useState([])
@@ -82,7 +82,7 @@ export default function ConversationPage() {
   }, [conversation?.id])
 
   const receiverId = conversation
-    ? conversation.userId1 === MY_USER_ID
+    ? conversation.userId1 === userId
       ? conversation.userId2
       : conversation.userId1
     : null
@@ -96,7 +96,7 @@ export default function ConversationPage() {
     setAttachmentNotice(null)
     const optimistic = {
       id: `tmp-${Date.now()}`,
-      senderId: MY_USER_ID,
+      senderId: userId,
       messageText: trimmed || `${attachedFiles.length} attachment${attachedFiles.length === 1 ? '' : 's'}`,
       createdAt: new Date().toISOString(),
       attachments: attachedFiles,
@@ -168,8 +168,8 @@ export default function ConversationPage() {
     )
   }
 
-  const otherUserId = conversation.userId1 === MY_USER_ID ? conversation.userId2 : conversation.userId1
-  const unread = conversation.userId1 === MY_USER_ID ? conversation.user1UnreadCount : conversation.user2UnreadCount
+  const otherUserId = conversation.userId1 === userId ? conversation.userId2 : conversation.userId1
+  const unread = conversation.userId1 === userId ? conversation.user1UnreadCount : conversation.user2UnreadCount
 
   return (
     <PortalShell
@@ -208,7 +208,7 @@ export default function ConversationPage() {
             <p className="py-10 text-center text-sm text-muted">No messages yet. Say hello!</p>
           )}
           {messages.map((message) => {
-            const isMe = message.senderId === MY_USER_ID
+            const isMe = message.senderId === userId
             const messageAttachments = Array.isArray(message.attachments) ? message.attachments : []
             return (
               <div key={message.id} className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>

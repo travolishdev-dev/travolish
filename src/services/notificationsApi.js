@@ -1,7 +1,9 @@
 import { get, post, put, del } from '../lib/api'
 
-export async function listNotifications(userId, { page = 0, size = 50 } = {}) {
-  return get(`/api/notifications/user/${userId}`, { page, size })
+export async function listNotifications(userId, { page = 0, size = 50, email } = {}) {
+  const params = { page, size }
+  if (email) params.email = email
+  return get(`/api/notifications/user/${userId}`, params)
 }
 
 export async function listUnreadNotifications(userId, { page = 0, size = 50 } = {}) {

@@ -23,6 +23,7 @@ export async function calculatePrice(roomId, basePrice, checkIn, checkOut) {
 export async function createBooking({
   roomId,
   hotelId,
+  userId,          // backend user ID — links the booking to the logged-in user
   guestName,
   guestEmail,
   guestPhone,
@@ -30,10 +31,14 @@ export async function createBooking({
   checkOut,
   basePrice,
   totalPrice,
+  seasonalAdjustment,
+  dynamicPricingAdjustment,
+  promotionalDiscount,
 }) {
   return post('/api/bookings', {
     roomId,
     hotelId,
+    userId: userId ?? null,
     guestName,
     guestEmail,
     guestPhone,
@@ -41,6 +46,9 @@ export async function createBooking({
     checkOutDate: fmt(checkOut),
     basePrice,
     totalPrice,
+    seasonalAdjustment: seasonalAdjustment ?? 0,
+    dynamicPricingAdjustment: dynamicPricingAdjustment ?? 0,
+    promotionalDiscount: promotionalDiscount ?? 0,
     status: 'PENDING',
   })
 }
@@ -53,10 +61,24 @@ export async function cancelBooking(booking) {
   return put(`/api/bookings/${booking.id}`, { ...booking, status: 'CANCELLED' })
 }
 
-export async function listBookings(guestEmail) {
-  return get('/api/bookings', guestEmail ? { guestEmail } : undefined)
+export async function confirmBooking(id, booking) {
+  return put(`/api/bookings/${id}`, { ...booking, status: 'CONFIRMED' })
+}
+
+export async function rejectBooking(id, booking) {
+  return put(`/api/bookings/${id}`, { ...booking, status: 'CANCELLED' })
+}
+
+export async function listBookings({ userId, guestEmail } = {}) {
+  if (userId) return get('/api/bookings', { userId })
+  if (guestEmail) return get('/api/bookings', { guestEmail })
+  return get('/api/bookings')
 }
 
 export async function listBookingsByHotel(hotelId) {
   return get(`/api/bookings/hotel/${hotelId}`)
+}
+
+export async function refreshBookingStatuses() {
+  return post('/api/bookings/refresh-statuses', {}).catch(() => null)
 }

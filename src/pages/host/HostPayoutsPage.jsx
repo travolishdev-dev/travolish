@@ -5,14 +5,18 @@ import {
   SectionHeading,
   StatusPill,
 } from '../../components/host/HostPortalUI'
-import { getPayoutBalance, getPayoutHistory } from '../../services/payoutsApi'
+import { getPayoutBalance, getPayoutHistory, requestPayout } from '../../services/payoutsApi'
+import { getBankAccounts } from '../../services/bankAccountsApi'
+import toast from 'react-hot-toast'
 import useHostContext from '../../hooks/useHostContext'
 
 export default function HostPayoutsPage() {
   const { hostId, loading: hostLoading } = useHostContext()
   const [summary, setSummary] = useState(null)
   const [history, setHistory] = useState([])
+  const [primaryBankAccountId, setPrimaryBankAccountId] = useState(null)
   const [loading, setLoading] = useState(false)
+  const [requesting, setRequesting] = useState(false)
   const [payoutNotice, setPayoutNotice] = useState('')
 
   useEffect(() => {
@@ -20,7 +24,8 @@ export default function HostPayoutsPage() {
     Promise.all([
       getPayoutBalance(hostId).catch(() => null),
       getPayoutHistory(hostId).catch(() => null),
-    ]).then(([balanceData, historyData]) => {
+      getBankAccounts(hostId).catch(() => null),
+    ]).then(([balanceData, historyData, bankData]) => {
       if (balanceData) {
         setSummary({
           available: balanceData.availableBalance ?? balanceData.available ?? '—',
@@ -42,8 +47,51 @@ export default function HostPayoutsPage() {
           })),
         )
       }
+      const bankItems = bankData?.content ?? (Array.isArray(bankData) ? bankData : null)
+      if (bankItems?.length) {
+        const primary = bankItems.find((b) => b.isPrimary) ?? bankItems[0]
+        if (primary) setPrimaryBankAccountId(primary.id)
+      }
     }).finally(() => setLoading(false))
   }, [hostId, hostLoading])
+
+  async function handleRequestPayout() {
+    if (!primaryBankAccountId) {
+      toast.error('Add a verified bank account before requesting a payout.')
+      return
+    }
+    const availableAmount = Number(summary?.available ?? 0)
+    if (availableAmount <= 0) {
+      toast.error('No available balance to transfer.')
+      return
+    }
+    setRequesting(true)
+    try {
+      await requestPayout({
+        bankAccountId: primaryBankAccountId,
+        amount: availableAmount,
+        description: 'Manual payout request',
+      })
+      toast.success('Payout request submitted. Funds will arrive in your bank account within 1–3 business days.')
+      // Refresh balance
+      const updated = await getPayoutBalance(hostId).catch(() => null)
+      if (updated) {
+        setSummary({
+          available: updated.availableBalance ?? updated.available ?? '—',
+          pending: updated.pendingBalance ?? updated.pending ?? '—',
+          reserveHold: updated.reserveBalance ?? updated.reserveHold ?? '—',
+          nextTransfer: updated.nextPayoutDate ?? updated.nextTransfer ?? '—',
+        })
+      }
+    } catch (err) {
+      const msg = err?.message?.includes('400')
+        ? 'Payout request failed — ensure your bank account is verified and balance is available.'
+        : 'Payout request failed. Please try again.'
+      toast.error(msg)
+    } finally {
+      setRequesting(false)
+    }
+  }
 
   return (
     <HostShell
@@ -67,14 +115,15 @@ export default function HostPayoutsPage() {
           <SectionHeading
             eyebrow="Balance"
             title="Manual payout request"
-            description="UI-only request control for hosts who want to transfer available balance before the scheduled run."
+            description="Transfer your available balance to your primary bank account. Funds arrive within 1–3 business days via NEFT/IMPS."
           />
           <button
             type="button"
-            onClick={() => setPayoutNotice('Manual payout request prepared. Backend payout initiation is unchanged.')}
-            className="inline-flex items-center justify-center rounded-2xl bg-dark px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-gray-800"
+            onClick={handleRequestPayout}
+            disabled={requesting}
+            className="inline-flex items-center justify-center rounded-2xl bg-dark px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-gray-800 disabled:opacity-50"
           >
-            Request payout
+            {requesting ? 'Requesting…' : 'Request payout'}
           </button>
         </div>
 
@@ -108,11 +157,6 @@ export default function HostPayoutsPage() {
           </div>
         </div>
 
-        {payoutNotice ? (
-          <div className="mt-5 rounded-2xl border border-brand/20 bg-rose-50 px-4 py-3 text-sm font-semibold text-brand">
-            {payoutNotice}
-          </div>
-        ) : null}
       </SectionCard>
 
       <SectionCard>

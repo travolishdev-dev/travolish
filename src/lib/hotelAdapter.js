@@ -28,8 +28,29 @@ function buildPriceMap(rooms = []) {
   return map
 }
 
-export function adaptHotel(hotel, priceMap = {}) {
+// Build a map of hotelId → max guest capacity from room capacities
+function buildCapacityMap(rooms = []) {
+  const map = {}
+  rooms.forEach((room) => {
+    const hid = room.hotelId
+    const cap = Number(room.capacity)
+    if (hid == null || !cap) return
+    map[hid] = Math.max(map[hid] || 0, cap)
+  })
+  return map
+}
+
+export function adaptHotel(hotel, priceMap = {}, capacityMap = {}) {
   const price = priceMap[hotel.id]
+
+  // Build image gallery: cover first, then gallery uploads, then placeholders to fill 3 slots
+  const realImage = hotel.imageUrl ?? null
+  const gallery = Array.isArray(hotel.galleryImages) ? hotel.galleryImages.filter(Boolean) : []
+  const realImages = [realImage, ...gallery].filter(Boolean)
+  const placeholders = getPlaceholderImages(hotel.id)
+  const images = realImages.length > 0
+    ? [...realImages, ...placeholders].slice(0, Math.max(realImages.length, 3))
+    : placeholders
 
   return {
     id: String(hotel.id),
@@ -40,14 +61,25 @@ export function adaptHotel(hotel, priceMap = {}) {
     price: price !== undefined ? Math.round(price) : null,
     rating: hotel.rating ?? 0,
     reviewCount: hotel.reviewCount ?? hotel.reviews?.length ?? 0,
-    images: getPlaceholderImages(hotel.id),
-    host: { name: 'Host', superhost: false },
-    amenities: [],
-    beds: 1,
-    bedrooms: 1,
-    bathrooms: 1,
-    guests: 2,
+    images,
+    videoUrl: hotel.videoUrl ?? null,
+    host: {
+      name: hotel.hostName ?? 'Host',
+      superhost: hotel.superhost ?? false,
+    },
+    amenities: hotel.amenities ?? [],
+    beds: hotel.beds ?? 1,
+    bedrooms: hotel.bedrooms ?? 1,
+    bathrooms: hotel.bathrooms ?? 1,
+    // Use explicit hotel-level maxGuests when set; null means unknown → search filter skips it.
+    // Room capacity is used for booking, not search discovery.
+    guests: hotel.maxGuests ?? hotel.guests ?? null,
     description: hotel.description || '',
+    houseRules: hotel.houseRules ?? null,
+    instantBookable: hotel.instantBooking ?? true,
+    minimumStay: hotel.minimumStay ?? 1,
+    checkInTime: hotel.checkInTime ?? null,
+    checkOutTime: hotel.checkOutTime ?? null,
     coordinates: [hotel.latitude || 0, hotel.longitude || 0],
     category: 'city',
     dates: null,
@@ -55,6 +87,7 @@ export function adaptHotel(hotel, priceMap = {}) {
 }
 
 export function adaptHotels(hotels, rooms = []) {
-  const priceMap = buildPriceMap(rooms)
-  return hotels.map((h) => adaptHotel(h, priceMap))
+  const priceMap    = buildPriceMap(rooms)
+  const capacityMap = buildCapacityMap(rooms)
+  return hotels.map((h) => adaptHotel(h, priceMap, capacityMap))
 }

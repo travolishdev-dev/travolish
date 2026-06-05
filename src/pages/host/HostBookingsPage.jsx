@@ -1,5 +1,8 @@
-import { useMemo, useState } from 'react'
-import { CalendarCheck, CheckCircle2, Clock3, MessageCircleMore, XCircle } from 'lucide-react'
+import { useEffect, useMemo, useState } from 'react'
+import { CalendarCheck, CheckCircle2, Clock3, Loader2, MessageCircleMore, XCircle } from 'lucide-react'
+import { differenceInCalendarDays, format, isToday, parseISO } from 'date-fns'
+import { Link } from 'react-router-dom'
+import toast from 'react-hot-toast'
 import {
   HostShell,
   SectionCard,
@@ -7,63 +10,26 @@ import {
   StatusPill,
 } from '../../components/host/HostPortalUI'
 import { HostPillButton } from '../../components/host/HostFormFields'
-
-const bookingRows = [
-  {
-    id: 'REQ-1042',
-    guest: 'Aarav Mehta',
-    property: 'Lagoon Suite',
-    room: 'Sunset Pool Residence',
-    checkIn: 'Jun 02',
-    checkOut: 'Jun 06',
-    nights: 4,
-    amount: '$7,440',
-    status: 'Request',
-    sla: '18h left',
-    note: 'Requests airport transfer and late dinner setup.',
-  },
-  {
-    id: 'BK-8841',
-    guest: 'Sofia Rossi',
-    property: 'Lakefront Glass Suite',
-    room: 'Dock level suite',
-    checkIn: 'Today',
-    checkOut: 'May 31',
-    nights: 2,
-    amount: '$1,680',
-    status: 'Check-in today',
-    sla: 'Arrives 4:10 PM',
-    note: 'Welcome note sent. Housekeeping marked ready.',
-  },
-  {
-    id: 'REQ-1038',
-    guest: 'Nolan Park',
-    property: 'Tokyo Design Loft',
-    room: 'Shibuya Studio Loft',
-    checkIn: 'Jun 09',
-    checkOut: 'Jun 12',
-    nights: 3,
-    amount: '$780',
-    status: 'Request',
-    sla: '6h left',
-    note: 'Asks if luggage drop is possible before check-in.',
-  },
-  {
-    id: 'BK-8796',
-    guest: 'Maya Chen',
-    property: 'Paris Penthouse',
-    room: 'City terrace room',
-    checkIn: 'Jun 14',
-    checkOut: 'Jun 18',
-    nights: 4,
-    amount: '$2,080',
-    status: 'Confirmed',
-    sla: 'Paid',
-    note: 'No action needed.',
-  },
-]
+import { confirmBooking, rejectBooking, listBookingsByHotel } from '../../services/bookingsApi'
+import { getOrCreateConversation } from '../../services/chatApi'
+import { findUserByEmail } from '../../services/usersApi'
+import useAuthStore from '../../stores/useAuthStore'
+import useCurrency from '../../hooks/useCurrency'
+import useHostContext from '../../hooks/useHostContext'
+import { useNavigate } from 'react-router-dom'
 
 const filters = ['All', 'Request', 'Confirmed', 'Check-in today']
+
+function mapStatus(booking) {
+  if (booking.status === 'PENDING') return 'Request'
+  if (booking.status === 'CONFIRMED') {
+    try {
+      if (isToday(parseISO(booking.checkInDate))) return 'Check-in today'
+    } catch { /* fall through */ }
+    return 'Confirmed'
+  }
+  return null
+}
 
 function toneForStatus(status) {
   if (status === 'Request') return 'warning'
@@ -72,20 +38,117 @@ function toneForStatus(status) {
   return 'slate'
 }
 
+function fmtDate(iso) {
+  try {
+    const d = parseISO(iso)
+    if (isToday(d)) return 'Today'
+    return format(d, 'MMM d')
+  } catch {
+    return iso
+  }
+}
+
+function nightCount(checkIn, checkOut) {
+  try {
+    return differenceInCalendarDays(parseISO(checkOut), parseISO(checkIn))
+  } catch {
+    return '—'
+  }
+}
+
 export default function HostBookingsPage() {
+  const { hostId, hotels, loading: hostLoading } = useHostContext()
+  const { formatCurrency } = useCurrency()
+  const navigate = useNavigate()
+  const myUserId = useAuthStore((s) => s.backendUserId)
+  const [bookings, setBookings] = useState([])
+  const [loading, setLoading] = useState(true)
   const [activeFilter, setActiveFilter] = useState('All')
-  const [notice, setNotice] = useState('')
+  const [actioning, setActioning] = useState(null)
+
+  const hotelById = useMemo(() => {
+    const map = {}
+    hotels.forEach((h) => { map[h.id] = h })
+    return map
+  }, [hotels])
+
+  useEffect(() => {
+    if (hostLoading) return
+    if (!hotels.length) {
+      setLoading(false)
+      return
+    }
+
+    Promise.all(hotels.map((h) => listBookingsByHotel(h.id).catch(() => [])))
+      .then((arrays) => {
+        const all = arrays
+          .flat()
+          .filter((b) => b.status === 'PENDING' || b.status === 'CONFIRMED')
+          .sort((a, b) => {
+            if (a.status === 'PENDING' && b.status !== 'PENDING') return -1
+            if (b.status === 'PENDING' && a.status !== 'PENDING') return 1
+            return (a.checkInDate ?? '').localeCompare(b.checkInDate ?? '')
+          })
+        setBookings(all)
+      })
+      .finally(() => setLoading(false))
+  }, [hotels, hostLoading])
 
   const visibleRows = useMemo(() => {
-    if (activeFilter === 'All') return bookingRows
-    return bookingRows.filter((booking) => booking.status === activeFilter)
-  }, [activeFilter])
+    if (activeFilter === 'All') return bookings
+    return bookings.filter((b) => mapStatus(b) === activeFilter)
+  }, [bookings, activeFilter])
 
-  const requestCount = bookingRows.filter((booking) => booking.status === 'Request').length
-  const todayCount = bookingRows.filter((booking) => booking.status === 'Check-in today').length
+  const requestCount = bookings.filter((b) => b.status === 'PENDING').length
+  const todayCount = bookings.filter((b) => {
+    try { return b.status === 'CONFIRMED' && isToday(parseISO(b.checkInDate)) } catch { return false }
+  }).length
+  const confirmedCount = bookings.filter((b) => b.status === 'CONFIRMED').length
+  const totalValue = bookings.reduce((sum, b) => sum + (b.totalPrice ?? 0), 0)
 
-  function handleAction(action, booking) {
-    setNotice(`${action} selected for ${booking.id}. UI placeholder only; backend approval flow is not changed.`)
+  async function handleApprove(booking) {
+    setActioning(booking.id)
+    try {
+      const updated = await confirmBooking(booking.id, booking)
+      setBookings((prev) => prev.map((b) => b.id === booking.id ? { ...b, ...updated, status: 'CONFIRMED' } : b))
+      toast.success(`Booking #${booking.id} confirmed`)
+    } catch {
+      toast.error('Failed to confirm booking')
+    } finally {
+      setActioning(null)
+    }
+  }
+
+  async function handleMessage(booking) {
+    if (!myUserId || !booking.guestEmail) {
+      navigate('/messages')
+      return
+    }
+    try {
+      const guest = await findUserByEmail(booking.guestEmail).catch(() => null)
+      const guestUserId = guest?.id
+      if (guestUserId) {
+        const conv = await getOrCreateConversation(myUserId, guestUserId)
+        navigate(`/messages/${conv.id}`)
+      } else {
+        navigate('/messages')
+      }
+    } catch {
+      navigate('/messages')
+    }
+  }
+
+  async function handleReject(booking) {
+    setActioning(booking.id)
+    try {
+      await rejectBooking(booking.id, booking)
+      setBookings((prev) => prev.filter((b) => b.id !== booking.id))
+      toast.success(`Booking #${booking.id} declined`)
+    } catch {
+      toast.error('Failed to decline booking')
+    } finally {
+      setActioning(null)
+    }
   }
 
   return (
@@ -101,8 +164,12 @@ export default function HostBookingsPage() {
       stats={[
         { label: 'Requests', value: String(requestCount), note: 'Need host decision' },
         { label: 'Today', value: String(todayCount), note: 'Check-in attention' },
-        { label: 'Confirmed', value: String(bookingRows.filter((booking) => booking.status === 'Confirmed').length), note: 'Upcoming stays' },
-        { label: 'Value', value: '$11,980', note: 'Visible queue total' },
+        { label: 'Confirmed', value: String(confirmedCount), note: 'Upcoming stays' },
+        {
+          label: 'Value',
+          value: totalValue > 0 ? formatCurrency(Math.round(totalValue)) : '—',
+          note: 'Visible queue total',
+        },
       ]}
     >
       <SectionCard>
@@ -110,9 +177,8 @@ export default function HostBookingsPage() {
           <SectionHeading
             eyebrow="Reservations"
             title="Request and arrival queue"
-            description="UI-only MVP queue for approve, reject, message, check-in, and checkout actions."
+            description="Approve or decline pending requests and track confirmed arrivals."
           />
-
           <div className="-mx-4 overflow-x-auto px-4 pb-1 md:mx-0 md:px-0 md:pb-0">
             <div className="flex w-max gap-2">
               {filters.map((filter) => (
@@ -128,87 +194,105 @@ export default function HostBookingsPage() {
           </div>
         </div>
 
-        {notice ? (
-          <div className="mt-5 rounded-2xl border border-brand/20 bg-rose-50 px-4 py-3 text-sm font-semibold text-brand">
-            {notice}
+        {loading || hostLoading ? (
+          <div className="mt-8 flex items-center gap-2 text-sm text-muted">
+            <Loader2 size={14} className="animate-spin" />
+            Loading bookings…
           </div>
-        ) : null}
+        ) : visibleRows.length === 0 ? (
+          <p className="mt-8 text-sm text-muted">
+            {activeFilter === 'All' ? 'No active bookings.' : `No bookings with status "${activeFilter}".`}
+          </p>
+        ) : (
+          <div className="mt-6 divide-y divide-gray-200 border-y border-gray-200">
+            {visibleRows.map((booking) => {
+              const status = mapStatus(booking)
+              const hotel = hotelById[booking.hotelId]
+              const nights = nightCount(booking.checkInDate, booking.checkOutDate)
+              const busy = actioning === booking.id
 
-        <div className="mt-6 divide-y divide-gray-200 border-y border-gray-200">
-          {visibleRows.map((booking) => (
-            <div key={booking.id} className="py-5">
-              <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_260px] xl:items-start">
-                <div>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <StatusPill tone={toneForStatus(booking.status)}>
-                      {booking.status}
-                    </StatusPill>
-                    <StatusPill tone="sky">{booking.id}</StatusPill>
-                    <span className="inline-flex items-center gap-1 rounded-full bg-[#f8f6f2] px-3 py-1 text-xs font-semibold text-muted">
-                      <Clock3 size={13} />
-                      {booking.sla}
-                    </span>
-                  </div>
-                  <h2 className="mt-3 text-xl font-semibold tracking-tight text-dark">
-                    {booking.guest}
-                  </h2>
-                  <p className="mt-2 text-sm leading-6 text-muted">
-                    {booking.property} · {booking.room}
-                  </p>
-                  <div className="mt-3 flex flex-wrap gap-4 text-sm text-dark">
-                    <span className="inline-flex items-center gap-2">
-                      <CalendarCheck size={15} />
-                      {booking.checkIn} → {booking.checkOut}
-                    </span>
-                    <span>{booking.nights} nights</span>
-                    <span className="font-semibold">{booking.amount}</span>
-                  </div>
-                  <p className="mt-3 text-sm leading-6 text-dark">{booking.note}</p>
-                </div>
+              return (
+                <div key={booking.id} className="py-5">
+                  <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_260px] xl:items-start">
+                    <div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <StatusPill tone={toneForStatus(status)}>{status}</StatusPill>
+                        <StatusPill tone="sky">#{booking.id}</StatusPill>
+                        {booking.status === 'PENDING' && (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-[#f8f6f2] px-3 py-1 text-xs font-semibold text-muted">
+                            <Clock3 size={13} />
+                            Awaiting response
+                          </span>
+                        )}
+                      </div>
+                      <h2 className="mt-3 text-xl font-semibold tracking-tight text-dark">
+                        {booking.guestName}
+                      </h2>
+                      {booking.guestEmail && (
+                        <p className="mt-1 text-sm text-muted">{booking.guestEmail}</p>
+                      )}
+                      <p className="mt-2 text-sm leading-6 text-muted">
+                        {hotel?.name ?? `Property #${booking.hotelId}`}
+                        {booking.roomId ? ` · Room ${booking.roomId}` : ''}
+                      </p>
+                      <div className="mt-3 flex flex-wrap gap-4 text-sm text-dark">
+                        <span className="inline-flex items-center gap-2">
+                          <CalendarCheck size={15} />
+                          {fmtDate(booking.checkInDate)} → {fmtDate(booking.checkOutDate)}
+                        </span>
+                        {nights !== '—' && <span>{nights} night{nights !== 1 ? 's' : ''}</span>}
+                        {booking.totalPrice != null && (
+                          <span className="font-semibold">{formatCurrency(booking.totalPrice)}</span>
+                        )}
+                      </div>
+                      {booking.notes && (
+                        <p className="mt-3 text-sm leading-6 text-dark">{booking.notes}</p>
+                      )}
+                    </div>
 
-                <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-1">
-                  {booking.status === 'Request' ? (
-                    <>
+                    <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-1">
+                      {booking.status === 'PENDING' ? (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => handleApprove(booking)}
+                            disabled={busy}
+                            className="inline-flex items-center justify-center gap-2 rounded-2xl bg-dark px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-gray-800 disabled:opacity-50"
+                          >
+                            {busy ? <Loader2 size={15} className="animate-spin" /> : <CheckCircle2 size={16} />}
+                            Approve
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleReject(booking)}
+                            disabled={busy}
+                            className="inline-flex items-center justify-center gap-2 rounded-2xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-semibold text-dark transition-colors hover:bg-gray-50 disabled:opacity-50"
+                          >
+                            <XCircle size={16} />
+                            Decline
+                          </button>
+                        </>
+                      ) : (
+                        <span className="inline-flex items-center justify-center gap-2 rounded-2xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-semibold text-dark">
+                          <CalendarCheck size={16} />
+                          {status}
+                        </span>
+                      )}
                       <button
                         type="button"
-                        onClick={() => handleAction('Approve request', booking)}
-                        className="inline-flex items-center justify-center gap-2 rounded-2xl bg-dark px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-gray-800"
-                      >
-                        <CheckCircle2 size={16} />
-                        Approve
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleAction('Reject request', booking)}
+                        onClick={() => handleMessage(booking)}
                         className="inline-flex items-center justify-center gap-2 rounded-2xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-semibold text-dark transition-colors hover:bg-gray-50"
                       >
-                        <XCircle size={16} />
-                        Reject
+                        <MessageCircleMore size={16} />
+                        Message
                       </button>
-                    </>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => handleAction('Update stay status', booking)}
-                      className="inline-flex items-center justify-center gap-2 rounded-2xl bg-dark px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-gray-800"
-                    >
-                      <CalendarCheck size={16} />
-                      Update status
-                    </button>
-                  )}
-                  <button
-                    type="button"
-                    onClick={() => handleAction('Message guest', booking)}
-                    className="inline-flex items-center justify-center gap-2 rounded-2xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-semibold text-dark transition-colors hover:bg-gray-50"
-                  >
-                    <MessageCircleMore size={16} />
-                    Message
-                  </button>
+                    </div>
+                  </div>
                 </div>
-              </div>
-            </div>
-          ))}
-        </div>
+              )
+            })}
+          </div>
+        )}
       </SectionCard>
     </HostShell>
   )

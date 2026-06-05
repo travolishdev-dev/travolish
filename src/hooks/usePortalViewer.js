@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { format, parseISO } from 'date-fns'
 import useAuthStore from '../stores/useAuthStore'
 import { listBookings } from '../services/bookingsApi'
@@ -15,9 +15,14 @@ export default function usePortalViewer() {
     if (!backendUserId) return
     let cancelled = false
 
-    listBookings(user?.email)
-      .then((data) => {
-        if (!cancelled) setTripCount(Array.isArray(data) ? data.length : 0)
+    const queries = []
+    if (backendUserId) queries.push(listBookings({ userId: backendUserId }))
+    if (user?.email)   queries.push(listBookings({ guestEmail: user.email }))
+    Promise.all(queries)
+      .then((results) => {
+        const seen = new Set()
+        const all = results.flat().filter((b) => { if (seen.has(b.id)) return false; seen.add(b.id); return true })
+        if (!cancelled) setTripCount(all.length)
       })
       .catch(() => { if (!cancelled) setTripCount(0) })
 
@@ -39,39 +44,50 @@ export default function usePortalViewer() {
     user?.user_metadata?.name?.trim() ||
     ''
 
-  const joinedLabel = user?.created_at
-    ? `Member since ${format(parseISO(user.created_at), 'MMMM yyyy')}`
+  // Backend returns camelCase (createdAt); also accept created_at for legacy compat
+  const createdAtRaw = user?.createdAt || user?.created_at
+  const joinedLabel = createdAtRaw
+    ? `Member since ${format(parseISO(createdAtRaw), 'MMMM yyyy')}`
     : null
 
-  const joinedYear = user?.created_at
-    ? format(parseISO(user.created_at), 'yyyy')
+  const joinedYear = createdAtRaw
+    ? format(parseISO(createdAtRaw), 'yyyy')
     : null
 
   const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone
 
-  const viewer = {
+  // Memoize viewer so downstream components only re-render when values actually change
+  const viewer = useMemo(() => ({
     fullName,
     preferredName: fullName.split(' ')[0] || null,
     email: user?.email || profile?.email || null,
-    phone: profile?.phone || null,
+    phone: profile?.phone || user?.phone || null,
     avatar: profile?.avatar_url || null,
-    role: profile?.role || 'Guest',
-    city: profile?.city || null,
+    role: profile?.role
+      ? profile.role.charAt(0).toUpperCase() + profile.role.slice(1)
+      : 'Guest',
+    city: profile?.city || user?.city || null,
     timeZone,
     joinedLabel,
-    travelStyle: null,
-    bio: null,
+    travelStyle: profile?.travelStyle || user?.travelStyle || null,
+    bio: profile?.bio || user?.bio || null,
     badges: [],
     stats: [
       { label: 'Trips booked', value: tripCount ?? '—' },
       { label: 'Reviews written', value: reviewCount ?? '—' },
-      { label: 'Account type', value: profile?.role ?? 'Guest' },
+      { label: 'Account type', value: profile?.role
+          ? profile.role.charAt(0).toUpperCase() + profile.role.slice(1)
+          : 'Guest' },
       { label: 'Member since', value: joinedYear ?? '—' },
     ],
     preferences: [],
     emergencyContact: null,
     savedAddresses: [],
-  }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }), [fullName, user?.email, user?.phone, user?.city, user?.travelStyle, user?.bio,
+       profile?.avatar_url, profile?.role, profile?.phone, profile?.city,
+       profile?.travelStyle, profile?.bio, timeZone, joinedLabel, joinedYear,
+       tripCount, reviewCount])
 
   return {
     user,

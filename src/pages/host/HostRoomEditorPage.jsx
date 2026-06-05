@@ -79,6 +79,7 @@ export default function HostRoomEditorPage() {
         type: formState.type?.toUpperCase().replace(/\s+/g, '_') ?? 'SUITE',
         number: formState.name,
         pricePerNight: Number(formState.baseRate) || 0,
+        capacity: Number(formState.capacity) || 2,
         available: formState.status?.toLowerCase() !== 'blocked',
       }
       if (id) {

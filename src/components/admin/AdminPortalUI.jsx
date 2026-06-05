@@ -228,8 +228,16 @@ export function AdminShell({ children }) {
   )
 }
 
-export function AdminHero({ eyebrow, title, description, stats, actions }) {
+export function AdminHero({ eyebrow, title, description, stats, actions, onAction }) {
   const [notice, setNotice] = useState('')
+
+  function handleAction(action) {
+    if (onAction) {
+      onAction(action)
+    } else {
+      setNotice(`${action} action selected. Connect this to the ${title} API workflow.`)
+    }
+  }
 
   return (
     <section className="overflow-hidden rounded-card border border-gray-200 bg-white shadow-[0_18px_42px_rgba(15,23,42,0.06)]">
@@ -252,7 +260,7 @@ export function AdminHero({ eyebrow, title, description, stats, actions }) {
                 <button
                   key={action}
                   type="button"
-                  onClick={() => setNotice(`${action} action selected. Connect this to the ${title} API workflow.`)}
+                  onClick={() => handleAction(action)}
                   className="inline-flex h-11 items-center justify-center rounded-card border border-gray-200 bg-white px-4 text-sm font-semibold text-dark transition-colors hover:border-brand hover:text-brand"
                 >
                   {action}
@@ -713,8 +721,6 @@ export function AdminActivityFeed({ items }) {
 }
 
 export function AdminApprovalTable({ rows }) {
-  const [notice, setNotice] = useState('')
-
   return (
     <AdminCard>
       <AdminSectionHeading
@@ -723,28 +729,30 @@ export function AdminApprovalTable({ rows }) {
         description="Shortcuts to the highest-volume review queues."
       />
       <div className="mt-5 grid gap-3">
-        {rows.map(([area, pending, note, action]) => (
+        {rows.map(([area, pending, note, action, href]) => (
           <div key={area} className="grid gap-3 rounded-card border border-gray-200 bg-[#fcfbf8] p-4 md:grid-cols-[1fr_auto_auto] md:items-center">
             <div>
               <p className="text-sm font-semibold text-dark">{area}</p>
-              <p className="mt-1 text-xs font-semibold uppercase tracking-[0.14em] text-muted">{note}</p>
+              {note && note !== '—' && (
+                <p className="mt-1 text-xs font-semibold uppercase tracking-[0.14em] text-muted">{note}</p>
+              )}
             </div>
             <AdminStatusPill tone="warning">{pending}</AdminStatusPill>
-            <button
-              type="button"
-              onClick={() => setNotice(`${action} selected for ${area}.`)}
-              className="inline-flex h-9 items-center justify-center rounded-card bg-dark px-3 text-xs font-semibold text-white"
-            >
-              {action}
-            </button>
+            {href ? (
+              <Link
+                to={href}
+                className="inline-flex h-9 items-center justify-center rounded-card bg-dark px-3 text-xs font-semibold text-white transition-colors hover:bg-gray-800"
+              >
+                {action}
+              </Link>
+            ) : (
+              <span className="inline-flex h-9 items-center justify-center rounded-card bg-gray-200 px-3 text-xs font-semibold text-muted">
+                {action}
+              </span>
+            )}
           </div>
         ))}
       </div>
-      {notice ? (
-        <div className="mt-4 rounded-card border border-brand/20 bg-[#fff1f3] px-4 py-3 text-sm font-semibold text-brand-dark">
-          {notice}
-        </div>
-      ) : null}
     </AdminCard>
   )
 }

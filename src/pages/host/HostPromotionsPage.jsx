@@ -5,8 +5,9 @@ import {
   SectionHeading,
   StatusPill,
 } from '../../components/host/HostPortalUI'
-import { HostField, HostPillButton } from '../../components/host/HostFormFields'
+import { HostPillButton } from '../../components/host/HostFormFields'
 import { getHotelBoosts, purchaseBoost, cancelBoost } from '../../services/boostApi'
+import { getHostRooms } from '../../services/hostListingsApi'
 import useHostContext from '../../hooks/useHostContext'
 
 const BOOST_TYPES = [
@@ -18,6 +19,8 @@ const BOOST_TYPES = [
 ]
 
 const BOOST_TIERS = ['SILVER', 'GOLD', 'PLATINUM']
+
+const TIER_COSTS = { SILVER: 49.99, GOLD: 99.99, PLATINUM: 199.99 }
 
 const EMPTY_FORM = {
   roomId: '',
@@ -57,6 +60,7 @@ function adaptBoost(b) {
 export default function HostPromotionsPage() {
   const { primaryHotelId, loading: hostLoading } = useHostContext()
   const [promotions, setPromotions] = useState([])
+  const [rooms, setRooms] = useState([])
   const [loading, setLoading] = useState(true)
   const [boostForm, setBoostForm] = useState(EMPTY_FORM)
   const [purchasing, setPurchasing] = useState(false)
@@ -68,12 +72,18 @@ export default function HostPromotionsPage() {
       if (!hostLoading) setLoading(false)
       return
     }
-    getHotelBoosts(primaryHotelId)
-      .then((items) => {
-        if (items.length > 0) setPromotions(items.map(adaptBoost))
-      })
-      .catch(() => {})
-      .finally(() => setLoading(false))
+    Promise.all([
+      getHotelBoosts(primaryHotelId).catch(() => []),
+      getHostRooms(primaryHotelId).catch(() => []),
+    ]).then(([boosts, roomList]) => {
+      if (boosts.length > 0) setPromotions(boosts.map(adaptBoost))
+      const rs = Array.isArray(roomList) ? roomList : (roomList?.content ?? roomList?.rooms ?? [])
+      if (rs.length) {
+        setRooms(rs)
+        // Pre-select first room
+        setBoostForm((prev) => ({ ...prev, roomId: prev.roomId || String(rs[0].id) }))
+      }
+    }).finally(() => setLoading(false))
   }, [primaryHotelId, hostLoading])
 
   function refreshBoosts() {
@@ -212,20 +222,41 @@ export default function HostPromotionsPage() {
         />
 
         <div className="mt-6 grid gap-4 md:grid-cols-2">
-          <HostField
-            label="Room ID"
-            type="number"
-            value={boostForm.roomId}
-            onChange={updateForm('roomId')}
-            placeholder="Enter the room ID to boost"
-          />
-          <HostField
-            label="Duration (days)"
-            type="number"
-            value={boostForm.durationDays}
-            onChange={updateForm('durationDays')}
-            placeholder="7"
-          />
+          <div>
+            <label className="mb-2 block text-sm font-semibold text-dark">Room</label>
+            {rooms.length > 0 ? (
+              <select
+                value={boostForm.roomId}
+                onChange={updateForm('roomId')}
+                className="w-full rounded-xl border border-gray-300 bg-white px-4 py-3.5 text-sm text-dark outline-none transition-all focus:border-dark focus:ring-1 focus:ring-dark"
+              >
+                {rooms.map((r) => (
+                  <option key={r.id} value={String(r.id)}>
+                    {r.number ?? r.name ?? `Room ${r.id}`} — {r.type ?? ''}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <input
+                type="number"
+                value={boostForm.roomId}
+                onChange={updateForm('roomId')}
+                placeholder="Enter room ID"
+                className="w-full rounded-xl border border-gray-300 bg-white px-4 py-3.5 text-sm text-dark outline-none transition-all focus:border-dark focus:ring-1 focus:ring-dark"
+              />
+            )}
+          </div>
+          <div>
+            <label className="mb-2 block text-sm font-semibold text-dark">Duration (days)</label>
+            <input
+              type="number"
+              value={boostForm.durationDays}
+              onChange={updateForm('durationDays')}
+              placeholder="7"
+              min="1"
+              className="w-full rounded-xl border border-gray-300 bg-white px-4 py-3.5 text-sm text-dark outline-none transition-all focus:border-dark focus:ring-1 focus:ring-dark"
+            />
+          </div>
         </div>
 
         <div className="mt-5">
@@ -258,6 +289,21 @@ export default function HostPromotionsPage() {
               >
                 {tier.charAt(0) + tier.slice(1).toLowerCase()}
               </HostPillButton>
+            ))}
+          </div>
+          <div className="mt-3 flex flex-wrap gap-3">
+            {BOOST_TIERS.map((tier) => (
+              <div
+                key={tier}
+                className={`rounded-xl border px-3 py-2 text-xs transition-colors ${
+                  boostForm.boostTier === tier
+                    ? 'border-dark bg-dark text-white'
+                    : 'border-gray-200 bg-[#fcfcfb] text-muted'
+                }`}
+              >
+                <span className="font-semibold">{tier.charAt(0) + tier.slice(1).toLowerCase()}</span>
+                {' — '}${TIER_COSTS[tier]}/boost
+              </div>
             ))}
           </div>
         </div>

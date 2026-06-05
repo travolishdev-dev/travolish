@@ -1,7 +1,8 @@
 import { get, post } from '../lib/api'
 
 export async function getHotelBoosts(hotelId = 1) {
-  const data = await get(`/api/listings/boost/hotel/${hotelId}`)
+  // Use analytics endpoint — the /hotel/{id} paginated endpoint has a String/enum type mismatch bug
+  const data = await get('/api/listings/boost/analytics', { hotelId })
   return Array.isArray(data) ? data : (data?.content ?? [])
 }
 

@@ -14,20 +14,8 @@ function getRatingLabel(rating) {
   return 'Guest rated'
 }
 
-function getFallbackPrice(id) {
-  const seed = Number.parseInt(id, 10)
-  const base = Number.isNaN(seed) ? 7 : seed
-  return 2800 + ((base * 673) % 5200)
-}
-
 function getDisplayPrice(property) {
-  return property.price ?? getFallbackPrice(property.id)
-}
-
-function getDealBadge(id) {
-  const value = Number.parseInt(id, 10)
-  const percentage = Number.isNaN(value) ? 18 : 16 + (value % 12)
-  return `${percentage}% better value today`
+  return property.price ?? null
 }
 
 export default function PropertyCard({ property, index = 0, variant = 'default' }) {
@@ -59,7 +47,8 @@ export default function PropertyCard({ property, index = 0, variant = 'default' 
   }
 
   if (variant === 'deal') {
-    const formattedPrice = formatCurrency(getDisplayPrice(property))
+    const rawPrice = getDisplayPrice(property)
+    const formattedPrice = rawPrice != null ? formatCurrency(rawPrice) : null
 
     return (
       <div
@@ -150,17 +139,17 @@ export default function PropertyCard({ property, index = 0, variant = 'default' 
               </span>
             </div>
 
-            <div className="inline-flex max-w-full rounded-md bg-rose-700 px-2 py-1 text-xs font-semibold text-white">
-              <span className="truncate">{getDealBadge(property.id)}</span>
-            </div>
-
             <div className="space-y-1">
               <p className="text-xs text-muted">Travolish stay</p>
               <p className="text-xs text-muted">
-                <span className="text-lg font-semibold text-dark">
-                  {formattedPrice}
-                </span>{' '}
-                per night
+                {formattedPrice != null ? (
+                  <>
+                    <span className="text-lg font-semibold text-dark">{formattedPrice}</span>
+                    {' '}per night
+                  </>
+                ) : (
+                  <span className="text-sm text-muted italic">Price unavailable</span>
+                )}
               </p>
             </div>
 
@@ -276,8 +265,14 @@ export default function PropertyCard({ property, index = 0, variant = 'default' 
           <p className="text-muted text-sm truncate">{property.title}</p>
           <p className="text-muted text-sm">{property.dates}</p>
           <p className="text-[15px] mt-1">
-            <span className="font-semibold">{formatCurrency(getDisplayPrice(property))}</span>
-            <span className="text-muted font-normal"> night</span>
+            {getDisplayPrice(property) != null ? (
+              <>
+                <span className="font-semibold">{formatCurrency(getDisplayPrice(property))}</span>
+                <span className="text-muted font-normal"> night</span>
+              </>
+            ) : (
+              <span className="text-sm text-muted italic">Price unavailable</span>
+            )}
           </p>
         </div>
       </Link>

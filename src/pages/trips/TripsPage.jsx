@@ -1,14 +1,14 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { CalendarClock, MapPin } from 'lucide-react'
-import { format, parseISO } from 'date-fns'
+import { format, isBefore, parseISO, startOfDay } from 'date-fns'
 import {
   PortalShell,
   SectionCard,
   SectionHeading,
   StatusPill,
 } from '../../components/portal/PortalUI'
-import { listBookings } from '../../services/bookingsApi'
+import { listBookings, refreshBookingStatuses } from '../../services/bookingsApi'
 import { getHotel } from '../../services/hotelsApi'
 import useAuthStore from '../../stores/useAuthStore'
 import useCurrency from '../../hooks/useCurrency'
@@ -24,11 +24,18 @@ const PLACEHOLDER_IMAGES = [
   'https://images.unsplash.com/photo-1533929736458-ca588d08c8be?w=800&auto=format&fit=crop',
 ]
 
-const API_STATUS_MAP = {
-  PENDING: 'upcoming',
-  CONFIRMED: 'upcoming',
-  COMPLETED: 'completed',
-  CANCELLED: 'cancelled',
+// Derive display status from dates — never trust a stale DB value for the traveller view.
+// Rules:
+//   CANCELLED              → always 'cancelled'
+//   checkOutDate in past   → 'completed'  (stay ended regardless of host approval state)
+//   checkInDate in past    → 'upcoming'   (in progress / currently staying)
+//   otherwise              → map from DB status (PENDING/CONFIRMED → 'upcoming')
+function resolveDisplayStatus(booking) {
+  if (booking.status === 'CANCELLED') return 'cancelled'
+  const today = startOfDay(new Date())
+  const checkOut = booking.checkOutDate ? parseISO(booking.checkOutDate) : null
+  if (checkOut && isBefore(checkOut, today)) return 'completed'
+  return 'upcoming'
 }
 
 const STATUS_TONE = {
@@ -58,7 +65,7 @@ function formatDateLabel(checkIn, checkOut) {
 
 function adaptBooking(booking, hotelMap) {
   const hotel = hotelMap[booking.hotelId] || {}
-  const status = API_STATUS_MAP[booking.status] ?? 'upcoming'
+  const status = resolveDisplayStatus(booking)
   return {
     id: String(booking.id),
     status,
@@ -66,17 +73,19 @@ function adaptBooking(booking, hotelMap) {
     dateLabel: formatDateLabel(booking.checkInDate, booking.checkOutDate),
     rawTotal: Number(booking.totalPrice ?? 0),
     paymentStatus:
-      booking.status === 'PENDING' ? 'Payment pending'
-      : booking.status === 'CONFIRMED' ? 'Payment confirmed'
+      status === 'completed' ? 'Stay completed'
+      : booking.status === 'PENDING' ? 'Awaiting confirmation'
+      : booking.status === 'CONFIRMED' ? 'Confirmed'
       : booking.status,
     tripMood:
-      status === 'upcoming' ? 'Ready for check-in'
-      : status === 'completed' ? 'Stay completed'
-      : 'Trip cancelled',
+      status === 'completed' ? 'Stay completed'
+      : status === 'cancelled' ? 'Trip cancelled'
+      : 'Ready for check-in',
     timeline: [
-      { label: 'Check-in', value: booking.checkInDate },
+      { label: 'Check-in',  value: booking.checkInDate },
       { label: 'Check-out', value: booking.checkOutDate },
-      { label: 'Status', value: booking.status },
+      // Show the resolved display status, not the raw DB value, so it's always accurate
+      { label: 'Status', value: status.charAt(0).toUpperCase() + status.slice(1) },
     ],
     property: {
       title: hotel.name || `Hotel #${booking.hotelId}`,
@@ -92,27 +101,48 @@ export default function TripsPage() {
   const [bookings, setBookings] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
-  const { user } = useAuthStore()
+  const { user, backendUserId } = useAuthStore()
   const { formatCurrency } = useCurrency()
 
   useEffect(() => {
+    let cancelled = false
     async function load() {
       try {
-        const raw = await listBookings(user?.email)
+        // Fetch by userId (new bookings) AND by guestEmail (existing/older bookings),
+        // Trigger server-side status refresh first so past bookings are COMPLETED in DB
+        await refreshBookingStatuses()
+
+        // then deduplicate by id so neither set is lost.
+        const queries = []
+        if (backendUserId) queries.push(listBookings({ userId: backendUserId }))
+        if (user?.email)   queries.push(listBookings({ guestEmail: user.email }))
+        if (queries.length === 0) { setLoading(false); return }
+
+        const results = await Promise.all(queries)
+        const seen = new Set()
+        const raw = results.flat().filter((b) => {
+          if (seen.has(b.id)) return false
+          seen.add(b.id)
+          return true
+        })
+
+        if (cancelled) return
         const hotelIds = [...new Set(raw.map((b) => b.hotelId).filter(Boolean))]
         const hotels = await Promise.all(
           hotelIds.map((id) => getHotel(id).catch(() => ({ id })))
         )
+        if (cancelled) return
         const hotelMap = Object.fromEntries(hotels.map((h) => [h.id, h]))
         setBookings(raw.map((b) => adaptBooking(b, hotelMap)))
       } catch {
-        setError('Could not load your bookings. Make sure the backend is running.')
+        if (!cancelled) setError('Could not load your bookings. Make sure the backend is running.')
       } finally {
-        setLoading(false)
+        if (!cancelled) setLoading(false)
       }
     }
     load()
-  }, [user])
+    return () => { cancelled = true }
+  }, [backendUserId, user?.email])
 
   const visibleTrips = useMemo(
     () => {

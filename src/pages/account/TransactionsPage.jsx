@@ -10,6 +10,7 @@ import {
 import { listBookings } from '../../services/bookingsApi'
 import { getReceipt } from '../../services/paymentsApi'
 import usePortalViewer from '../../hooks/usePortalViewer'
+import useAuthStore from '../../stores/useAuthStore'
 import useCurrency from '../../hooks/useCurrency'
 
 const STATUS_TONE = {
@@ -39,6 +40,7 @@ function adaptBooking(b) {
 
 export default function TransactionsPage() {
   const { viewer } = usePortalViewer()
+  const backendUserId = useAuthStore((s) => s.backendUserId)
   const [bookings, setBookings] = useState([])
   const [loading, setLoading] = useState(true)
   const [query, setQuery] = useState('')
@@ -46,11 +48,19 @@ export default function TransactionsPage() {
   const { formatCurrency } = useCurrency()
 
   useEffect(() => {
-    listBookings(viewer.email || undefined)
-      .then((data) => setBookings(data))
+    const queries = []
+    if (backendUserId)   queries.push(listBookings({ userId: backendUserId }))
+    if (viewer.email)    queries.push(listBookings({ guestEmail: viewer.email }))
+    if (queries.length === 0) { setLoading(false); return }
+    Promise.all(queries)
+      .then((results) => {
+        const seen = new Set()
+        const all = results.flat().filter((b) => { if (seen.has(b.id)) return false; seen.add(b.id); return true })
+        setBookings(all)
+      })
       .catch(() => {})
       .finally(() => setLoading(false))
-  }, [viewer.email])
+  }, [backendUserId, viewer.email])
 
   const handleReceipt = async (bookingId) => {
     setReceiptError(null)

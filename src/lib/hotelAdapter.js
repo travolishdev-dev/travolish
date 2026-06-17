@@ -80,7 +80,10 @@ export function adaptHotel(hotel, priceMap = {}, capacityMap = {}) {
     minimumStay: hotel.minimumStay ?? 1,
     checkInTime: hotel.checkInTime ?? null,
     checkOutTime: hotel.checkOutTime ?? null,
-    coordinates: [hotel.latitude || 0, hotel.longitude || 0],
+    coordinates: {
+      lat: hotel.latitude != null ? Number(hotel.latitude) : null,
+      lng: hotel.longitude != null ? Number(hotel.longitude) : null,
+    },
     category: 'city',
     dates: null,
   }

@@ -52,7 +52,7 @@ function CounterControl({ label, value, min = 0, onChange }) {
 
 export default function HomeSearchPanel() {
   const navigate = useNavigate()
-  const { t } = useTranslation()
+  const { t } = useTranslation('home')
   const { searchDraft, updateSearchDraft } = useSearchContext()
   const [activePanel, setActivePanel] = useState(null)
   const panelRef = useRef(null)
@@ -69,13 +69,13 @@ export default function HomeSearchPanel() {
 
   const matchingDestinations = useMemo(() => {
     const query = searchDraft.destination.trim().toLowerCase()
-    if (!query) return indianDestinations.slice(0, 6)
+    if (!query) return indianDestinations.slice(0, 5)
 
     return indianDestinations
       .filter((destination) =>
         `${destination.name} ${destination.region}`.toLowerCase().includes(query),
       )
-      .slice(0, 6)
+      .slice(0, 5)
   }, [searchDraft.destination])
 
   const handleSubmit = (event) => {
@@ -89,15 +89,15 @@ export default function HomeSearchPanel() {
     <section className="home-search-hero border-b border-gray-100 pt-24">
       <div className="relative z-10 mx-auto max-w-[1760px] px-6 pb-12 pt-10 md:px-10 md:pb-16 md:pt-14 xl:px-20">
         <div className="mx-auto max-w-4xl text-center">
-            <TravolishWordmark className="text-[72px] text-brand md:text-[104px]" />
+            <TravolishWordmark className="h-28 md:h-36 mx-auto" />
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted">
-            {t('homeSearch.eyebrow')}
+            {t('eyebrow')}
           </p>
           <h1 className="mt-3 text-[34px] font-semibold tracking-tight text-dark md:text-[46px]">
-            {t('homeSearch.title')}
+            {t('title')}
           </h1>
           <p className="mx-auto mt-3 max-w-2xl text-sm leading-6 text-muted md:text-base">
-            {t('homeSearch.description')}
+            {t('description')}
           </p>
         </div>
 
@@ -113,7 +113,7 @@ export default function HomeSearchPanel() {
               </span>
               <span className="min-w-0 flex-1 text-left">
                 <span className="block text-xs font-semibold uppercase tracking-[0.12em] text-muted">
-                  {t('homeSearch.destination')}
+                  {t('destination')}
                 </span>
                 <span className="relative mt-1 block">
                   <input
@@ -123,7 +123,14 @@ export default function HomeSearchPanel() {
                       setActivePanel('destination')
                     }}
                     onFocus={() => setActivePanel('destination')}
-                    placeholder={t('homeSearch.destinationPlaceholder')}
+                    onBlur={() => {
+                      // Delay so a tap on a dropdown item registers before we close
+                      setTimeout(
+                        () => setActivePanel((prev) => (prev === 'destination' ? null : prev)),
+                        150,
+                      )
+                    }}
+                    placeholder={t('destinationPlaceholder')}
                     className="w-full bg-transparent pr-8 text-base font-semibold text-dark outline-none placeholder:text-gray-400"
                   />
                   {searchDraft.destination && (
@@ -145,8 +152,11 @@ export default function HomeSearchPanel() {
                       key={`${destination.name}-${destination.region}`}
                       type="button"
                       onClick={() => {
+                        const updatedDraft = { ...searchDraft, destination: destination.name }
                         updateSearchDraft({ destination: destination.name })
                         setActivePanel(null)
+                        saveSearch(updatedDraft)
+                        navigate('/search')
                       }}
                       className="flex w-full items-center gap-3 rounded-2xl px-3 py-3 text-left transition-colors hover:bg-gray-50"
                     >
@@ -180,7 +190,7 @@ export default function HomeSearchPanel() {
               </span>
               <span className="min-w-0">
                 <span className="block text-xs font-semibold uppercase tracking-[0.12em] text-muted">
-                  {t('homeSearch.checkInOut')}
+                  {t('checkInOut')}
                 </span>
                 <span className="mt-1 block truncate text-base font-semibold text-dark">
                   {formatDateRange(searchDraft.checkIn, searchDraft.checkOut)}
@@ -210,7 +220,7 @@ export default function HomeSearchPanel() {
               </span>
               <span className="min-w-0">
                 <span className="block text-xs font-semibold uppercase tracking-[0.12em] text-muted">
-                  {t('homeSearch.guests')}
+                  {t('guests')}
                 </span>
                 <span className="mt-1 block truncate text-base font-semibold text-dark">
                   {formatGuestSummary(searchDraft.adults, searchDraft.children)}
@@ -220,13 +230,13 @@ export default function HomeSearchPanel() {
               {activePanel === 'guests' && (
                 <div className="absolute left-0 right-0 top-[calc(100%+10px)] z-30 space-y-5 rounded-[20px] border border-gray-200 bg-white p-4 shadow-[0_18px_50px_rgba(15,23,42,0.16)] lg:w-[320px]">
                   <CounterControl
-                    label={t('homeSearch.adults')}
+                    label={t('adults')}
                     value={searchDraft.adults}
                     min={1}
                     onChange={(adults) => updateSearchDraft({ adults })}
                   />
                   <CounterControl
-                    label={t('homeSearch.children')}
+                    label={t('children')}
                     value={searchDraft.children}
                     onChange={(children) => updateSearchDraft({ children })}
                   />
@@ -239,7 +249,7 @@ export default function HomeSearchPanel() {
               className="inline-flex min-h-[62px] items-center justify-center gap-2 rounded-[22px] bg-brand px-8 text-base font-semibold text-white transition-colors hover:bg-brand-dark lg:min-h-full"
             >
               <MapPin size={18} />
-              {t('homeSearch.search')}
+              {t('search')}
             </button>
           </div>
         </form>

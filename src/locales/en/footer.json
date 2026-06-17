@@ -1,0 +1,33 @@
+{
+  "tagline": "Discover and book unique stays at handpicked hotels around the world.",
+  "copyright": "© 2026 Travolish, Inc.",
+  "backToTop": "Back to top",
+  "sections": {
+    "discover": "Discover",
+    "support": "Support",
+    "hosting": "Hosting",
+    "travolish": "Travolish"
+  },
+  "links": {
+    "browseHotels": "Browse hotels",
+    "topDestinations": "Top destinations",
+    "weekendGetaways": "Weekend getaways",
+    "giftCards": "Gift cards",
+    "helpCentre": "Help centre",
+    "contactUs": "Contact us",
+    "trustSafety": "Trust & safety",
+    "cancellationOptions": "Cancellation options",
+    "listProperty": "List your property",
+    "hostDashboard": "Host dashboard",
+    "responsibleHosting": "Responsible hosting",
+    "hostResources": "Host resources",
+    "aboutUs": "About us",
+    "careers": "Careers",
+    "newsroom": "Newsroom",
+    "privacyPolicy": "Privacy policy",
+    "termsOfService": "Terms of service",
+    "privacy": "Privacy",
+    "terms": "Terms",
+    "sitemap": "Sitemap"
+  }
+}

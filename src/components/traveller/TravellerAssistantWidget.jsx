@@ -13,20 +13,6 @@ const QUICK_PROMPTS = [
   'Help me compare two properties',
 ]
 
-function buildReply(prompt) {
-  const text = prompt.toLowerCase()
-  if (text.includes('free cancellation')) {
-    return 'Use the Search filters panel and turn on Free cancellation. You can combine it with instant booking, amenities, and sort by price or rating.'
-  }
-  if (text.includes('compare')) {
-    return 'Compare the property type, cancellation policy, host response time, nearby attractions, and the price preview before entering checkout.'
-  }
-  if (text.includes('booking')) {
-    return 'Before booking, check the house rules, cancellation policy, total price preview, guest count, and whether the stay is instant book or request to book.'
-  }
-  return 'I can help with search filters, booking details, policies, offers, emergency contacts, and trip planning. Your message has been sent to our support team.'
-}
-
 function mapBackendMessages(messages, userId) {
   return messages.map((m) => ({
     id: String(m.id),
@@ -47,6 +33,7 @@ export default function TravellerAssistantWidget() {
   const [conversationId, setConversationId] = useState(null)
   const [loadingHistory, setLoadingHistory] = useState(false)
   const [sending, setSending] = useState(false)
+  const [isTyping, setIsTyping] = useState(false)
   const bottomRef = useRef(null)
 
   // Load conversation history when authenticated user opens the widget
@@ -89,30 +76,52 @@ export default function TravellerAssistantWidget() {
 
   const sendPrompt = async (prompt) => {
     const trimmed = prompt.trim()
-    if (!trimmed || sending) return
+    if (!trimmed || sending || isTyping) return
 
-    // Add user message optimistically
-    const userMsg = { id: `guest-${Date.now()}`, sender: 'guest', text: trimmed }
-    setMessages((prev) => [...prev, userMsg])
+    setMessages((prev) => [...prev, { id: `guest-${Date.now()}`, sender: 'guest', text: trimmed }])
     setInput('')
 
-    if (userId && conversationId) {
-      // Authenticated path — persist to backend
-      setSending(true)
-      try {
-        await sendMessage({ conversationId, receiverId: SUPPORT_USER_ID, messageText: trimmed })
-      } catch {
-        // Message failed to save — still show local reply below
-      } finally {
-        setSending(false)
-      }
+    if (!userId || !conversationId) {
+      // Anonymous user — nudge to sign in
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: `assistant-${Date.now()}`,
+          sender: 'assistant',
+          text: 'Sign in to chat with our AI travel assistant and save your conversation history.',
+        },
+      ])
+      return
     }
 
-    // Always show an immediate assistant reply for instant UX feedback
-    setMessages((prev) => [
-      ...prev,
-      { id: `assistant-${Date.now()}`, sender: 'assistant', text: buildReply(trimmed) },
-    ])
+    // Authenticated path — send to backend, then poll for the AI reply
+    setSending(true)
+    let sent = false
+    try {
+      await sendMessage({ conversationId, receiverId: SUPPORT_USER_ID, messageText: trimmed })
+      sent = true
+    } catch {
+      // Message failed to persist — don't show typing indicator
+    } finally {
+      setSending(false)
+    }
+
+    if (!sent) return
+
+    setIsTyping(true)
+    try {
+      // Give Gemini time to generate and save the reply
+      await new Promise((resolve) => setTimeout(resolve, 2500))
+      const history = await getMessages(conversationId, { pageSize: 50 })
+      const items = (history?.content ?? (Array.isArray(history) ? history : []))
+        .filter((m) => !m.isDeleted)
+        .reverse()
+      if (items.length > 0) setMessages(mapBackendMessages(items, userId))
+    } catch {
+      // Polling failed — messages will refresh next time the widget opens
+    } finally {
+      setIsTyping(false)
+    }
   }
 
   if (!isOpen) {
@@ -149,7 +158,7 @@ export default function TravellerAssistantWidget() {
       {/* Header */}
       <div className="flex items-start justify-between gap-4 border-b border-rose-100/80 bg-white/45 px-5 py-4 backdrop-blur-sm">
         <div className="flex items-center gap-3">
-          <TravolishWordmark className="text-[38px] leading-none text-brand" />
+          <TravolishWordmark className="h-8" />
           {userId && (
             <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700">
               Live
@@ -174,18 +183,29 @@ export default function TravellerAssistantWidget() {
             Loading conversation…
           </div>
         ) : (
-          messages.map((message) => (
-            <div
-              key={message.id}
-              className={`rounded-2xl px-4 py-3 text-sm leading-6 ${
-                message.sender === 'guest'
-                  ? 'ml-8 bg-dark text-white'
-                  : 'mr-8 border border-rose-100 bg-white/78 text-dark shadow-sm backdrop-blur-sm'
-              }`}
-            >
-              {message.text}
-            </div>
-          ))
+          <>
+            {messages.map((message) => (
+              <div
+                key={message.id}
+                className={`rounded-2xl px-4 py-3 text-sm leading-6 ${
+                  message.sender === 'guest'
+                    ? 'ml-8 bg-dark text-white'
+                    : 'mr-8 border border-rose-100 bg-white/78 text-dark shadow-sm backdrop-blur-sm'
+                }`}
+              >
+                {message.text}
+              </div>
+            ))}
+            {isTyping && (
+              <div className="mr-8 rounded-2xl border border-rose-100 bg-white/78 px-4 py-3 shadow-sm backdrop-blur-sm">
+                <div className="flex items-center gap-1.5">
+                  <span className="h-2 w-2 animate-bounce rounded-full bg-rose-300 [animation-delay:0ms]" />
+                  <span className="h-2 w-2 animate-bounce rounded-full bg-rose-300 [animation-delay:150ms]" />
+                  <span className="h-2 w-2 animate-bounce rounded-full bg-rose-300 [animation-delay:300ms]" />
+                </div>
+              </div>
+            )}
+          </>
         )}
         <div ref={bottomRef} />
       </div>
@@ -198,7 +218,7 @@ export default function TravellerAssistantWidget() {
               key={prompt}
               type="button"
               onClick={() => sendPrompt(prompt)}
-              disabled={sending}
+              disabled={sending || isTyping}
               className="rounded-full border border-gray-200 bg-[#fcfbf8] px-3 py-1.5 text-xs font-semibold text-dark disabled:opacity-50"
             >
               {prompt}
@@ -223,11 +243,11 @@ export default function TravellerAssistantWidget() {
           />
           <button
             type="submit"
-            disabled={sending || !input.trim()}
+            disabled={sending || isTyping || !input.trim()}
             className="inline-flex h-10 w-10 items-center justify-center rounded-2xl bg-dark text-white disabled:opacity-50"
             aria-label="Send assistant message"
           >
-            {sending ? <Loader2 size={14} className="animate-spin" /> : <Send size={15} />}
+            {(sending || isTyping) ? <Loader2 size={14} className="animate-spin" /> : <Send size={15} />}
           </button>
         </form>
         {userId && (

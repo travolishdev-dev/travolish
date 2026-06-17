@@ -1,0 +1,38 @@
+{
+  "eyebrow": "Admin dashboard",
+  "title": "Hotel booking control center",
+  "desc": "A real-time overview for platform performance, pending approvals, revenue movement, reports, and urgent operational actions.",
+  "stats": {
+    "totalUsers": "Total users",
+    "registeredAccounts": "Registered accounts",
+    "activeListings": "Active listings",
+    "flaggedContent": "Flagged content",
+    "awaitingModeration": "Awaiting moderation",
+    "kycPending": "KYC pending",
+    "verificationQueue": "Verification queue"
+  },
+  "actions": {
+    "hotelRequests": "Hotel requests",
+    "changeRequests": "Change requests",
+    "kycDocuments": "KYC documents",
+    "moderationReports": "Moderation reports",
+    "flaggedContent": "Flagged content",
+    "registeredUsers": "Registered users",
+    "totalAccounts": "Total accounts"
+  },
+  "table": {
+    "kycReview": "KYC Review",
+    "pending": "pending",
+    "reviewQueue": "Review queue",
+    "hotelRequests": "Hotel Requests",
+    "listed": "listed",
+    "openRequests": "Open requests",
+    "contentReports": "Content Reports",
+    "flagged": "flagged",
+    "moderateNow": "Moderate now",
+    "bookings": "Bookings",
+    "total": "total",
+    "confirmed": "confirmed",
+    "viewBookings": "View bookings"
+  }
+}

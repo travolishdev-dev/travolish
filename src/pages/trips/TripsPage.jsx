@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
 import { CalendarClock, MapPin } from 'lucide-react'
 import { format, isBefore, parseISO, startOfDay } from 'date-fns'
@@ -45,10 +46,10 @@ const STATUS_TONE = {
 }
 
 const filters = [
-  { id: 'all', label: 'All trips' },
-  { id: 'upcoming', label: 'Upcoming' },
-  { id: 'completed', label: 'Completed' },
-  { id: 'cancelled', label: 'Cancelled' },
+  { id: 'all', labelKey: 'filters.all' },
+  { id: 'upcoming', labelKey: 'filters.upcoming' },
+  { id: 'completed', labelKey: 'filters.completed' },
+  { id: 'cancelled', labelKey: 'filters.cancelled' },
 ]
 
 function placeholderImage(hotelId) {
@@ -63,7 +64,7 @@ function formatDateLabel(checkIn, checkOut) {
   }
 }
 
-function adaptBooking(booking, hotelMap) {
+function adaptBooking(booking, hotelMap, t) {
   const hotel = hotelMap[booking.hotelId] || {}
   const status = resolveDisplayStatus(booking)
   return {
@@ -73,19 +74,19 @@ function adaptBooking(booking, hotelMap) {
     dateLabel: formatDateLabel(booking.checkInDate, booking.checkOutDate),
     rawTotal: Number(booking.totalPrice ?? 0),
     paymentStatus:
-      status === 'completed' ? 'Stay completed'
-      : booking.status === 'PENDING' ? 'Awaiting confirmation'
-      : booking.status === 'CONFIRMED' ? 'Confirmed'
+      status === 'completed' ? t('status.completed')
+      : booking.status === 'PENDING' ? t('status.awaiting')
+      : booking.status === 'CONFIRMED' ? t('status.confirmed')
       : booking.status,
     tripMood:
-      status === 'completed' ? 'Stay completed'
-      : status === 'cancelled' ? 'Trip cancelled'
-      : 'Ready for check-in',
+      status === 'completed' ? t('status.completed')
+      : status === 'cancelled' ? t('status.cancelled')
+      : t('status.readyCheckIn'),
     timeline: [
-      { label: 'Check-in',  value: booking.checkInDate },
-      { label: 'Check-out', value: booking.checkOutDate },
+      { label: t('labels.checkIn'),  value: booking.checkInDate },
+      { label: t('labels.checkOut'), value: booking.checkOutDate },
       // Show the resolved display status, not the raw DB value, so it's always accurate
-      { label: 'Status', value: status.charAt(0).toUpperCase() + status.slice(1) },
+      { label: t('labels.status'), value: status.charAt(0).toUpperCase() + status.slice(1) },
     ],
     property: {
       title: hotel.name || `Hotel #${booking.hotelId}`,
@@ -97,6 +98,7 @@ function adaptBooking(booking, hotelMap) {
 }
 
 export default function TripsPage() {
+  const { t } = useTranslation(['trips', 'common'])
   const [activeFilter, setActiveFilter] = useState('all')
   const [bookings, setBookings] = useState([])
   const [loading, setLoading] = useState(true)
@@ -133,7 +135,7 @@ export default function TripsPage() {
         )
         if (cancelled) return
         const hotelMap = Object.fromEntries(hotels.map((h) => [h.id, h]))
-        setBookings(raw.map((b) => adaptBooking(b, hotelMap)))
+        setBookings(raw.map((b) => adaptBooking(b, hotelMap, t)))
       } catch {
         if (!cancelled) setError('Could not load your bookings. Make sure the backend is running.')
       } finally {
@@ -161,21 +163,21 @@ export default function TripsPage() {
     const upcoming = bookings.filter((b) => b.status === 'upcoming')
     const completed = bookings.filter((b) => b.status === 'completed')
     return [
-      { label: 'Upcoming stays', value: String(upcoming.length), note: upcoming[0]?.property.title || '—' },
-      { label: 'Completed stays', value: String(completed.length), note: 'All time' },
-      { label: 'Total bookings', value: String(bookings.length), note: 'Across all statuses' },
+      { label: t('stats.upcoming'), value: String(upcoming.length), note: upcoming[0]?.property.title || '—' },
+      { label: t('stats.completed'), value: String(completed.length), note: t('stats.allTime') },
+      { label: t('stats.total'), value: String(bookings.length), note: 'Across all statuses' },
     ]
-  }, [bookings])
+  }, [bookings, t])
 
   return (
     <PortalShell
       eyebrow="Trips"
-      title="Manage every trip in one place."
+      title={t('heading')}
       mobileTitle="Trips"
-      description="All your bookings in one view — filter by status to see what's coming up, done, or cancelled."
+      description={t('desc')}
       actions={[
-        { label: 'Open messages', href: '/messages', secondary: true },
-        { label: 'Browse stays', href: '/search' },
+        { label: t('openMessages'), href: '/messages', secondary: true },
+        { label: t('browseStays'), href: '/search' },
       ]}
       stats={tripStats}
       accent="from-amber-50 via-white to-rose-50"
@@ -184,7 +186,7 @@ export default function TripsPage() {
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <SectionHeading
             eyebrow="Reservations"
-            title="Trip library"
+            title={t('title')}
             description="Filter by stage to see what the travel experience looks like before, during, and after a stay."
           />
 
@@ -201,7 +203,7 @@ export default function TripsPage() {
                       : 'border border-gray-200 bg-white text-dark hover:bg-gray-50'
                   }`}
                 >
-                  {filter.label}
+                  {t(filter.labelKey)}
                 </button>
               ))}
             </div>
@@ -209,7 +211,7 @@ export default function TripsPage() {
         </div>
 
         {loading && (
-          <div className="py-16 text-center text-sm text-muted">Loading trips…</div>
+          <div className="py-16 text-center text-sm text-muted">{t('loading')}</div>
         )}
 
         {error && (
@@ -218,9 +220,9 @@ export default function TripsPage() {
 
         {!loading && !error && visibleTrips.length === 0 && (
           <div className="py-16 text-center text-sm text-muted">
-            No {activeFilter !== 'all' ? activeFilter + ' ' : ''}trips found.{' '}
+            {t('empty')}{' '}
             <Link to="/search" className="font-semibold underline">
-              Browse stays
+              {t('browseStays')}
             </Link>
           </div>
         )}

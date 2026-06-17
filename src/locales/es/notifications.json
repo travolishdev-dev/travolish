@@ -1,0 +1,27 @@
+{
+  "heading": "Actualizaciones recientes.",
+  "desc": "Hitos de reservas, recordatorios y alertas de cuenta en un solo lugar.",
+  "latest": "Últimas actualizaciones",
+  "latestDesc": "Agrupadas por recencia para facilitar el escaneo en móvil.",
+  "stats": {
+    "unread": "Actualizaciones no leídas",
+    "acrossTrips": "En viajes y mensajes",
+    "total": "Total",
+    "all": "Todas las notificaciones",
+    "deliveryMode": "Modo de entrega",
+    "smart": "Inteligente",
+    "smartDesc": "Mezcla de push y correo"
+  },
+  "filters": { "all": "Todas las notificaciones", "unread": "Solo no leídas" },
+  "markAllRead": "Marcar todo como leído",
+  "settings": "Configuración de notificaciones",
+  "loading": "Cargando notificaciones…",
+  "noUnread": "No hay notificaciones no leídas.",
+  "empty": "Aún no hay notificaciones.",
+  "read": "Leído",
+  "new": "Nuevo",
+  "markRead": "Marcar como leído",
+  "dismiss": "Descartar",
+  "groups": { "today": "Hoy", "thisWeek": "Esta semana", "earlier": "Antes" },
+  "actions": { "viewBooking": "Ver reserva", "browseStays": "Buscar estancias", "leaveReview": "Dejar reseña", "viewTrips": "Ver viajes" }
+}

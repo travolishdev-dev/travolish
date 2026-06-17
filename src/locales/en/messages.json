@@ -1,0 +1,28 @@
+{
+  "heading": "Stay messages, host by host.",
+  "desc": "Your conversations — tap any thread to read and reply.",
+  "inbox": "Inbox",
+  "recent": "Recent conversations",
+  "recentDesc": "Each thread stays connected to the stay it belongs to.",
+  "stats": {
+    "openThreads": "Open threads",
+    "activeConversations": "Active conversations",
+    "unread": "Unread",
+    "acrossThreads": "Across all threads",
+    "responseStyle": "Response style",
+    "fast": "Fast",
+    "fastDesc": "Usually within 30 min"
+  },
+  "trips": "Trips",
+  "openLatest": "Open latest thread",
+  "search": "Search conversations",
+  "loading": "Loading conversations…",
+  "noMatch": "No conversations match your search.",
+  "empty": "No conversations yet.",
+  "activeThread": "Active thread",
+  "inactiveThread": "Inactive thread",
+  "updated": "Updated",
+  "openThread": "Open thread",
+  "unread": "Unread",
+  "acrossAll": "Across all threads"
+}

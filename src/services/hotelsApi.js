@@ -7,6 +7,10 @@ export async function searchHotels({
   country,
   minRating,
   maxRating,
+  latMin,
+  latMax,
+  lngMin,
+  lngMax,
   pageNumber = 0,
   pageSize = 12,
 } = {}) {
@@ -17,6 +21,10 @@ export async function searchHotels({
     country,
     minRating,
     maxRating,
+    latMin,
+    latMax,
+    lngMin,
+    lngMax,
     pageNumber,
     pageSize,
   })

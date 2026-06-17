@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { ArrowRight, Clock3, Search } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { getRecentSearches } from '../../lib/searchHistory'
+import { useSearchContext } from '../../hooks/useSearchContext'
 
 const FALLBACK_SEARCHES = [
   {
@@ -26,6 +27,7 @@ const FALLBACK_SEARCHES = [
 
 export default function RecentSearches() {
   const navigate = useNavigate()
+  const { updateSearchDraft } = useSearchContext()
   const [searches, setSearches] = useState([])
 
   useEffect(() => {
@@ -63,7 +65,10 @@ export default function RecentSearches() {
           <button
             key={item.city}
             type="button"
-            onClick={() => navigate('/search')}
+            onClick={() => {
+              updateSearchDraft({ destination: item.city })
+              navigate('/search')
+            }}
             className="group w-[272px] flex-shrink-0 overflow-hidden rounded-card border border-gray-200 bg-white text-left shadow-[0_14px_34px_rgba(15,23,42,0.08)] transition-all hover:-translate-y-0.5 hover:shadow-[0_18px_42px_rgba(15,23,42,0.12)]"
           >
             <div className="flex items-start justify-between gap-3 px-4 pb-3 pt-4">

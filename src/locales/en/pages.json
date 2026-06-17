@@ -1,0 +1,66 @@
+{
+  "about": {
+    "eyebrow": "Our story",
+    "heading": "Travel should feel like home.",
+    "body": "Travolish was founded with a simple belief: every journey deserves a stay worth remembering. We connect travellers with handpicked hotels, boutique guesthouses, and unique stays that match how they actually travel — not just where they're going.",
+    "missionEyebrow": "Our mission",
+    "mission": "To make exceptional stays accessible to every traveller — not just the ones who know where to look.",
+    "valuesEyebrow": "What we stand for",
+    "valuesHeading": "Our values",
+    "cta": "Ready to explore?",
+    "ctaDesc": "Browse thousands of handpicked stays across India and beyond.",
+    "browseHotels": "Browse hotels",
+    "stats": {
+      "properties": "Properties listed",
+      "cities": "Cities covered",
+      "rating": "Average guest rating",
+      "responseRate": "Host response rate"
+    },
+    "values": {
+      "guestFirst": "Guest-first always",
+      "india": "Built for India and beyond",
+      "trust": "Trust at every step",
+      "community": "Community over transaction"
+    }
+  },
+  "emergency": {
+    "eyebrow": "Emergency",
+    "title": "Guest safety and SOS.",
+    "desc": "Traveller-side emergency contacts, active-stay safety details, and one-touch support UI.",
+    "messages": "Messages",
+    "trips": "Trips",
+    "stats": {
+      "safetyDesk": "Safety desk",
+      "alwaysAvailable": "Always available",
+      "localSOS": "Local SOS",
+      "indiaLine": "India emergency line",
+      "activeIncidents": "Active incidents",
+      "noOpenCase": "No open safety case"
+    },
+    "sosEyebrow": "SOS",
+    "sosTitle": "One-touch emergency actions",
+    "contacts": {
+      "local": "Local emergency",
+      "localNumber": "112",
+      "localDesc": "Police, fire, ambulance",
+      "medical": "Medical help",
+      "medicalNumber": "108",
+      "medicalDesc": "Ambulance support",
+      "travolish": "Travolish safety desk",
+      "travolishNumber": "+91 80 5555 0199",
+      "travolishDesc": "24/7 traveller support"
+    },
+    "call": "Call",
+    "activeStayEyebrow": "Active stay",
+    "tripSafetyCard": "Trip safety card",
+    "tripSafetyDesc": "Relevant safety details will follow the traveller's active booking.",
+    "hostContactsNote": "Host and property contacts appear here during an active stay.",
+    "checklistEyebrow": "Checklist",
+    "beforeCalling": "Before calling",
+    "checklist": {
+      "one": "Share your booking ID and current location.",
+      "two": "Contact the property host through messages if it is safe.",
+      "three": "Use local emergency services first for immediate danger."
+    }
+  }
+}

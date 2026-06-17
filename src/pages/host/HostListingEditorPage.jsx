@@ -67,6 +67,7 @@ const EMPTY_LISTING_DRAFT = {
 }
 
 const propertyTypes = [
+  { id: 'hotel', label: 'Hotel', icon: Hotel },
   { id: 'house', label: 'House', icon: Home },
   { id: 'apartment', label: 'Apartment', icon: Building2 },
   { id: 'guesthouse', label: 'Guesthouse', icon: Hotel },
@@ -223,16 +224,24 @@ export default function HostListingEditorPage() {
   async function handleGenerateDescription() {
     setGeneratingDesc(true)
     try {
+      const amenityList = (formState.amenities ?? []).join(', ')
+      const location = [formState.location?.city, formState.location?.country].filter(Boolean).join(', ')
+      const originalDescription =
+        `${formState.title || 'A lovely property'}. ` +
+        `Type: ${formState.propertyType || 'room'}. ` +
+        `Location: ${location || 'great location'}. ` +
+        `Sleeps ${formState.basics?.guests ?? 1}, ${formState.basics?.bedrooms ?? 1} bedroom(s), ${formState.basics?.bathrooms ?? 1} bathroom(s). ` +
+        (amenityList ? `Amenities: ${amenityList}.` : '')
+
       const result = await generateListingDescription({
-        title: formState.title,
-        propertyType: formState.propertyType,
-        amenities: formState.amenities,
-        location: formState.location,
-        guests: formState.basics.guests,
-        bedrooms: formState.basics.bedrooms,
-        bathrooms: formState.basics.bathrooms,
+        hotelId: 0,
+        roomId: 0,
+        originalDescription,
+        descriptionType: 'ROOM_DESCRIPTION',
+        sourceLanguage: 'ENGLISH',
+        targetLanguage: 'ENGLISH',
       })
-      const generated = result?.description ?? result?.text ?? result?.content
+      const generated = result?.generatedDescription
       if (generated) {
         setFormState((current) => ({ ...current, description: generated }))
       }
@@ -824,6 +833,24 @@ export default function HostListingEditorPage() {
               {saveError}
             </p>
           )}
+
+          <div className="flex items-center justify-end gap-3 pt-2">
+            <button
+              type="button"
+              onClick={() => navigate(id ? `/host/listings/${id}/rooms` : '/host/listings')}
+              className="rounded-full border border-gray-200 bg-white px-5 py-2.5 text-sm font-semibold text-dark transition-colors hover:bg-gray-50"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={handleSave}
+              disabled={saving}
+              className="rounded-full bg-dark px-6 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-gray-800 disabled:opacity-60"
+            >
+              {saving ? 'Saving…' : id ? 'Save changes' : 'Save listing'}
+            </button>
+          </div>
         </div>
 
         <div className="space-y-5">

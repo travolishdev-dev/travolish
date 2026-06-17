@@ -1,240 +1,29 @@
 import i18n from 'i18next'
 import { initReactI18next } from 'react-i18next'
 
-const resources = {
-  en: {
-    translation: {
-      nav: {
-        hostHome: 'Travolish your home',
-        account: 'Account',
-        trips: 'Trips',
-        messages: 'Messages',
-        notifications: 'Notifications',
-        hostDashboard: 'Host dashboard',
-        hostProperty: 'Host your property',
-        wishlists: 'Wishlists',
-        logout: 'Log out',
-        signup: 'Sign up',
-        login: 'Log in',
-        anywhere: 'Anywhere',
-        anyWeek: 'Any week',
-        addGuests: 'Add guests',
-      },
-      homeSearch: {
-        eyebrow: 'Compare stays faster',
-        title: 'Find a stay that fits your trip.',
-        description:
-          'Search hotels, compare useful details, and keep browsing without losing the clean Travolish experience.',
-        destination: 'Destination',
-        destinationPlaceholder: 'Search Indian cities or hotels',
-        checkInOut: 'Check-in/out',
-        guests: 'Guests',
-        adults: 'Adults',
-        children: 'Children',
-        search: 'Search',
-        flexibleDates: 'Flexible dates',
-        selectCheckout: 'Select checkout',
-      },
-      region: {
-        title: 'Language and region',
-        subtitle: 'Choose how Travolish should appear on this device.',
-        language: 'Language',
-        country: 'Country or region',
-        save: 'Done',
-      },
-      booking: {
-        confirmReserve: 'Confirm and reserve',
-        requestToBook: 'Request to book',
-        instantConfirm: 'Instant confirmation',
-        hostApproval: 'Host approval required',
-        checkIn: 'Check-in',
-        checkOut: 'Check-out',
-        nights: 'night',
-        nights_plural: 'nights',
-        totalBeforeTaxes: 'Total before taxes',
-        serviceFee: 'Service fee',
-        taxes: 'Taxes',
-        total: 'Total',
-        promoCode: 'Promo code',
-        apply: 'Apply',
-        discount: 'Discount',
-        freeCancellation: 'Free cancellation',
-        cancellationPolicy: 'Cancellation policy',
-        guestDetails: 'Guest details',
-        paymentMethod: 'Payment method',
-        secureCheckout: 'Secure checkout',
-      },
-      property: {
-        perNight: 'per night',
-        amenities: 'Amenities',
-        houseRules: 'House rules',
-        hostProfile: 'Hosted by',
-        nearbyAttractions: 'Nearby attractions',
-        reviews: 'Reviews',
-        location: 'Location',
-        availability: 'Availability',
-        viewAllPhotos: 'View all photos',
-        reserve: 'Reserve',
-        saveToWishlist: 'Save',
-      },
-      errors: {
-        searchFailed: 'Search failed. Please try again.',
-        bookingFailed: 'Booking failed. Please check your details.',
-        paymentFailed: 'Payment failed. Please try a different method.',
-        networkError: 'Connection error. Please check your internet.',
-        notFound: 'Not found. This page may have been removed.',
-        unauthorized: 'Please sign in to continue.',
-        sessionExpired: 'Your session expired. Please sign in again.',
-      },
-      status: {
-        loading: 'Loading…',
-        saving: 'Saving…',
-        submitting: 'Submitting…',
-        success: 'Done!',
-        confirmed: 'Confirmed',
-        pending: 'Pending',
-        cancelled: 'Cancelled',
-        completed: 'Completed',
-      },
-    },
-  },
-  hi: {
-    translation: {
-      nav: {
-        hostHome: 'अपना घर Travolish पर दें',
-        account: 'खाता',
-        trips: 'यात्राएं',
-        messages: 'संदेश',
-        notifications: 'सूचनाएं',
-        hostDashboard: 'होस्ट डैशबोर्ड',
-        hostProperty: 'अपनी प्रॉपर्टी होस्ट करें',
-        wishlists: 'इच्छा सूची',
-        logout: 'लॉग आउट',
-        signup: 'साइन अप',
-        login: 'लॉग इन',
-        anywhere: 'कहीं भी',
-        anyWeek: 'कोई भी सप्ताह',
-        addGuests: 'मेहमान जोड़ें',
-      },
-      homeSearch: {
-        eyebrow: 'तेजी से स्टे तुलना करें',
-        title: 'अपनी यात्रा के लिए सही स्टे खोजें.',
-        description:
-          'होटल खोजें, जरूरी विवरणों की तुलना करें, और साफ Travolish अनुभव में ब्राउज करते रहें.',
-        destination: 'गंतव्य',
-        destinationPlaceholder: 'भारतीय शहर या होटल खोजें',
-        checkInOut: 'चेक-इन/आउट',
-        guests: 'मेहमान',
-        adults: 'वयस्क',
-        children: 'बच्चे',
-        search: 'खोजें',
-        flexibleDates: 'लचीली तारीखें',
-        selectCheckout: 'चेकआउट चुनें',
-      },
-      region: {
-        title: 'भाषा और क्षेत्र',
-        subtitle: 'इस डिवाइस पर Travolish कैसे दिखे, यह चुनें.',
-        language: 'भाषा',
-        country: 'देश या क्षेत्र',
-        save: 'पूर्ण',
-      },
-      booking: { confirmReserve: 'बुक करें और कन्फर्म करें', requestToBook: 'बुकिंग अनुरोध', checkIn: 'चेक-इन', checkOut: 'चेक-आउट', nights: 'रात', nights_plural: 'रातें', totalBeforeTaxes: 'कर से पहले कुल', serviceFee: 'सेवा शुल्क', taxes: 'कर', total: 'कुल', promoCode: 'प्रोमो कोड', apply: 'लागू करें', freeCancellation: 'मुफ्त रद्दीकरण', secureCheckout: 'सुरक्षित चेकआउट', },
-      property: { perNight: 'प्रति रात', amenities: 'सुविधाएं', houseRules: 'घर के नियम', hostProfile: 'होस्ट', nearbyAttractions: 'आस-पास के आकर्षण', reviews: 'समीक्षाएं', location: 'स्थान', reserve: 'बुक करें', saveToWishlist: 'सेव करें', },
-      errors: { searchFailed: 'खोज विफल। कृपया पुनः प्रयास करें।', bookingFailed: 'बुकिंग विफल।', paymentFailed: 'भुगतान विफल।', networkError: 'कनेक्शन त्रुटि।', unauthorized: 'जारी रखने के लिए साइन इन करें।', },
-      status: { loading: 'लोड हो रहा है…', saving: 'सेव हो रहा है…', confirmed: 'पुष्टि हो गई', pending: 'लंबित', cancelled: 'रद्द', completed: 'पूर्ण', },
-    },
-  },
-  es: {
-    translation: {
-      nav: {
-        hostHome: 'Publica tu alojamiento',
-        account: 'Cuenta',
-        trips: 'Viajes',
-        messages: 'Mensajes',
-        notifications: 'Notificaciones',
-        hostDashboard: 'Panel de anfitrión',
-        hostProperty: 'Publicar propiedad',
-        wishlists: 'Favoritos',
-        logout: 'Cerrar sesión',
-        signup: 'Registrarse',
-        login: 'Iniciar sesión',
-        anywhere: 'Cualquier lugar',
-        anyWeek: 'Cualquier semana',
-        addGuests: 'Agregar huéspedes',
-      },
-      homeSearch: {
-        eyebrow: 'Compara estancias más rápido',
-        title: 'Encuentra una estancia para tu viaje.',
-        description:
-          'Busca hoteles, compara detalles útiles y sigue explorando con la experiencia limpia de Travolish.',
-        destination: 'Destino',
-        destinationPlaceholder: 'Busca ciudades u hoteles',
-        checkInOut: 'Entrada/salida',
-        guests: 'Huéspedes',
-        adults: 'Adultos',
-        children: 'Niños',
-        search: 'Buscar',
-        flexibleDates: 'Fechas flexibles',
-        selectCheckout: 'Elige salida',
-      },
-      region: {
-        title: 'Idioma y región',
-        subtitle: 'Elige cómo debe verse Travolish en este dispositivo.',
-        language: 'Idioma',
-        country: 'País o región',
-        save: 'Listo',
-      },
-      booking: { confirmReserve: 'Confirmar y reservar', requestToBook: 'Solicitar reserva', checkIn: 'Entrada', checkOut: 'Salida', nights: 'noche', nights_plural: 'noches', totalBeforeTaxes: 'Total antes de impuestos', serviceFee: 'Cargo por servicio', taxes: 'Impuestos', total: 'Total', promoCode: 'Código promocional', apply: 'Aplicar', freeCancellation: 'Cancelación gratuita', secureCheckout: 'Pago seguro', },
-      property: { perNight: 'por noche', amenities: 'Servicios', houseRules: 'Normas de la casa', hostProfile: 'Anfitrión', nearbyAttractions: 'Atracciones cercanas', reviews: 'Reseñas', location: 'Ubicación', reserve: 'Reservar', saveToWishlist: 'Guardar', },
-      errors: { searchFailed: 'Búsqueda fallida. Inténtelo de nuevo.', bookingFailed: 'Reserva fallida.', paymentFailed: 'Pago fallido.', networkError: 'Error de conexión.', unauthorized: 'Inicia sesión para continuar.', },
-      status: { loading: 'Cargando…', saving: 'Guardando…', confirmed: 'Confirmado', pending: 'Pendiente', cancelled: 'Cancelado', completed: 'Completado', },
-    },
-  },
-  fr: {
-    translation: {
-      nav: {
-        hostHome: 'Mettre mon logement sur Travolish',
-        account: 'Compte',
-        trips: 'Voyages',
-        messages: 'Messages',
-        notifications: 'Notifications',
-        hostDashboard: 'Tableau hôte',
-        hostProperty: 'Ajouter une propriété',
-        wishlists: 'Favoris',
-        logout: 'Se déconnecter',
-        signup: "S'inscrire",
-        login: 'Se connecter',
-        anywhere: 'Partout',
-        anyWeek: 'Toute semaine',
-        addGuests: 'Ajouter des voyageurs',
-      },
-      homeSearch: {
-        eyebrow: 'Comparez plus vite',
-        title: 'Trouvez un séjour adapté.',
-        description:
-          'Recherchez des hôtels, comparez les détails utiles et continuez avec une expérience Travolish claire.',
-        destination: 'Destination',
-        destinationPlaceholder: 'Rechercher villes ou hôtels',
-        checkInOut: 'Arrivée/départ',
-        guests: 'Voyageurs',
-        adults: 'Adultes',
-        children: 'Enfants',
-        search: 'Rechercher',
-        flexibleDates: 'Dates flexibles',
-        selectCheckout: 'Choisir le départ',
-      },
-      region: {
-        title: 'Langue et région',
-        subtitle: 'Choisissez comment Travolish doit apparaître sur cet appareil.',
-        language: 'Langue',
-        country: 'Pays ou région',
-        save: 'Terminé',
-      },
-      booking: { confirmReserve: 'Confirmer et réserver', requestToBook: 'Demander à réserver', checkIn: 'Arrivée', checkOut: 'Départ', nights: 'nuit', nights_plural: 'nuits', totalBeforeTaxes: 'Total avant taxes', serviceFee: 'Frais de service', taxes: 'Taxes', total: 'Total', promoCode: 'Code promo', apply: 'Appliquer', freeCancellation: 'Annulation gratuite', secureCheckout: 'Paiement sécurisé', },
-      property: { perNight: 'par nuit', amenities: 'Équipements', houseRules: 'Règles de la maison', hostProfile: 'Hébergeur', nearbyAttractions: 'Attractions à proximité', reviews: 'Avis', location: 'Emplacement', reserve: 'Réserver', saveToWishlist: 'Enregistrer', },
-      errors: { searchFailed: 'Recherche échouée. Réessayez.', bookingFailed: 'Réservation échouée.', paymentFailed: 'Paiement échoué.', networkError: 'Erreur de connexion.', unauthorized: 'Connectez-vous pour continuer.', },
-      status: { loading: 'Chargement…', saving: 'Enregistrement…', confirmed: 'Confirmé', pending: 'En attente', cancelled: 'Annulé', completed: 'Terminé', },
-    },
+const ALL_NS = [
+  'common', 'nav', 'home', 'search', 'property',
+  'booking', 'trips', 'messages', 'wishlist',
+  'notifications', 'offers', 'account',
+  'host', 'admin', 'footer', 'pages',
+]
+
+const TRANSLATED_LANGS = ['en', 'hi', 'es', 'fr']
+// host and admin are English-only
+const EN_ONLY_NS = new Set(['host', 'admin'])
+
+const backendPlugin = {
+  type: 'backend',
+  read(lng, ns, callback) {
+    const lang = TRANSLATED_LANGS.includes(lng) ? lng : 'en'
+    const resolvedLng = EN_ONLY_NS.has(ns) ? 'en' : lang
+    import(`./locales/${resolvedLng}/${ns}.json`)
+      .then(m => callback(null, m.default))
+      .catch(() =>
+        import(`./locales/en/${ns}.json`)
+          .then(m => callback(null, m.default))
+          .catch(err => callback(err, null))
+      )
   },
 }
 
@@ -243,18 +32,21 @@ const storedLanguage =
     ? window.localStorage.getItem('travolish.language')
     : null
 
-i18n.use(initReactI18next).init({
-  resources,
-  lng: storedLanguage || 'en',
-  fallbackLng: 'en',
-  interpolation: {
-    escapeValue: false,
-  },
-})
+i18n
+  .use(backendPlugin)
+  .use(initReactI18next)
+  .init({
+    lng: storedLanguage || 'en',
+    fallbackLng: 'en',
+    ns: ALL_NS,
+    defaultNS: 'common',
+    interpolation: { escapeValue: false },
+    react: { useSuspense: true },
+  })
 
-i18n.on('languageChanged', (language) => {
+i18n.on('languageChanged', lng => {
   if (typeof window !== 'undefined') {
-    window.localStorage.setItem('travolish.language', language)
+    window.localStorage.setItem('travolish.language', lng)
   }
 })
 

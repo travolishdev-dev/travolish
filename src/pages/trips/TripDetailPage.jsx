@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Link, useParams } from 'react-router-dom'
 import {
   ArrowLeft,
@@ -24,6 +25,7 @@ import {
 import { cancelBooking, getBooking } from '../../services/bookingsApi'
 import { getHotel } from '../../services/hotelsApi'
 import useCurrency from '../../hooks/useCurrency'
+import { printReceipt } from '../../lib/receiptPrinter'
 
 const PLACEHOLDER_IMAGES = [
   'https://images.unsplash.com/photo-1542314831-068cd1dbfeeb?w=800&auto=format&fit=crop',
@@ -57,16 +59,16 @@ function fmt(dateStr) {
   try { return format(parseISO(dateStr), 'MMM d, yyyy') } catch { return dateStr }
 }
 
-function buildCountdown(dateStr) {
+function buildCountdown(dateStr, t) {
   try {
     const checkIn = parseISO(dateStr)
     const days = differenceInCalendarDays(checkIn, startOfToday())
     const hours = differenceInHours(checkIn, new Date())
 
-    if (days > 1) return `${days} days to check-in`
-    if (days === 1) return 'Check-in tomorrow'
+    if (days > 1) return t('detail.daysToCheckIn', { count: days })
+    if (days === 1) return t('detail.checkInTomorrow')
     if (hours > 0) return `${hours} hours to check-in`
-    return 'Check-in window is open'
+    return t('detail.checkInOpen')
   } catch {
     return 'Countdown unavailable'
   }
@@ -79,6 +81,7 @@ function buildRefundEstimate(booking) {
 }
 
 export default function TripDetailPage() {
+  const { t } = useTranslation(['trips', 'common'])
   const { id } = useParams()
   const [booking, setBooking] = useState(null)
   const [hotel, setHotel] = useState(null)
@@ -87,8 +90,9 @@ export default function TripDetailPage() {
   const [confirmCancel, setConfirmCancel] = useState(false)
   const [cancelling, setCancelling] = useState(false)
   const [cancelError, setCancelError] = useState(null)
-  const [tripNotice, setTripNotice] = useState('')
   const { formatCurrency } = useCurrency()
+
+  const handleDownloadReceipt = () => printReceipt(booking, hotel, formatCurrency)
 
   useEffect(() => {
     async function load() {
@@ -98,7 +102,7 @@ export default function TripDetailPage() {
         setBooking(b)
         setHotel(h)
       } catch {
-        setError('Booking not found.')
+        setError(t('detail.notFound'))
       } finally {
         setLoading(false)
       }
@@ -108,9 +112,9 @@ export default function TripDetailPage() {
 
   if (loading) {
     return (
-      <PortalShell eyebrow="Trip" title="Loading…" actions={[{ label: 'Back to trips', href: '/trips', secondary: true }]}>
+      <PortalShell eyebrow="Trip" title={t('common:status.loading')} actions={[{ label: t('browseStays'), href: '/trips', secondary: true }]}>
         <SectionCard>
-          <div className="py-16 text-center text-sm text-muted">Fetching booking…</div>
+          <div className="py-16 text-center text-sm text-muted">{t('common:status.loading')}</div>
         </SectionCard>
       </PortalShell>
     )
@@ -118,9 +122,9 @@ export default function TripDetailPage() {
 
   if (error || !booking) {
     return (
-      <PortalShell eyebrow="Trip" title="Booking not found." actions={[{ label: 'Back to trips', href: '/trips' }]}>
+      <PortalShell eyebrow="Trip" title={t('detail.notFound')} actions={[{ label: t('browseStays'), href: '/trips' }]}>
         <SectionCard>
-          <p className="text-sm text-muted">{error || 'This booking does not exist.'}</p>
+          <p className="text-sm text-muted">{error || t('detail.notFoundDesc')}</p>
         </SectionCard>
       </PortalShell>
     )
@@ -144,30 +148,30 @@ export default function TripDetailPage() {
   const hotelName = hotel?.name || `Hotel #${booking.hotelId}`
   const image = placeholderImage(booking.hotelId)
   const paymentStatus =
-    booking.status === 'PENDING' ? 'Payment pending'
-    : booking.status === 'CONFIRMED' ? 'Payment confirmed'
+    booking.status === 'PENDING' ? t('detail.paymentPending')
+    : booking.status === 'CONFIRMED' ? t('detail.paymentConfirmed')
     : booking.status
   const canReview = status === 'completed'
-  const countdownLabel = buildCountdown(booking.checkInDate)
+  const countdownLabel = buildCountdown(booking.checkInDate, t)
   const refundEstimate = buildRefundEstimate(booking)
 
   return (
     <PortalShell
-      eyebrow="Trip Detail"
+      eyebrow={t('detail.eyebrow')}
       title={hotelName}
-      mobileTitle="Trip details"
-      description="Your booking details — dates, payment, and property info all in one place."
+      mobileTitle={t('detail.mobiletitle')}
+      description={t('detail.desc')}
       actions={[
-        { label: 'Back to trips', href: '/trips', secondary: true },
+        { label: t('browseStays'), href: '/trips', secondary: true },
         {
-          label: 'Download receipt',
-          onClick: () => setTripNotice('Receipt download prepared. PDF generation remains wired to the payments receipt endpoint.'),
+          label: t('detail.downloadReceipt'),
+          onClick: handleDownloadReceipt,
         },
       ]}
       stats={[
-        { label: 'Status', value: booking.status, note: paymentStatus },
-        { label: 'Total', value: formatCurrency(Number(booking.totalPrice ?? 0)), note: `Booking #${booking.id}` },
-        { label: 'Check-in', value: fmt(booking.checkInDate), note: countdownLabel },
+        { label: t('labels.status'), value: booking.status, note: paymentStatus },
+        { label: t('detail.total'), value: formatCurrency(Number(booking.totalPrice ?? 0)), note: `Booking #${booking.id}` },
+        { label: t('labels.checkIn'), value: fmt(booking.checkInDate), note: countdownLabel },
       ]}
       accent="from-sky-50 via-white to-amber-50"
     >
@@ -176,7 +180,7 @@ export default function TripDetailPage() {
         className="inline-flex items-center gap-2 self-start text-sm font-semibold text-dark transition-colors hover:text-muted"
       >
         <ArrowLeft size={16} />
-        Back to trips
+        {t('browseStays')}
       </Link>
 
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)]">
@@ -198,7 +202,7 @@ export default function TripDetailPage() {
             <div className="rounded-[24px] border border-gray-200 bg-[#fcfcfb] p-4">
               <p className="inline-flex items-center gap-2 text-sm font-semibold text-dark">
                 <CalendarRange size={16} />
-                Dates
+                {t('detail.dates')}
               </p>
               <p className="mt-3 text-sm leading-6 text-muted">
                 {fmt(booking.checkInDate)} → {fmt(booking.checkOutDate)}
@@ -207,7 +211,7 @@ export default function TripDetailPage() {
             <div className="rounded-[24px] border border-gray-200 bg-[#fcfcfb] p-4">
               <p className="inline-flex items-center gap-2 text-sm font-semibold text-dark">
                 <CreditCard size={16} />
-                Guest
+                {t('detail.guest')}
               </p>
               <p className="mt-3 text-sm leading-6 text-muted">
                 {booking.guestName}
@@ -217,7 +221,7 @@ export default function TripDetailPage() {
             <div className="rounded-[24px] border border-gray-200 bg-[#fcfcfb] p-4">
               <p className="inline-flex items-center gap-2 text-sm font-semibold text-dark">
                 <MapPinned size={16} />
-                Destination
+                {t('detail.destination')}
               </p>
               <p className="mt-3 text-sm leading-6 text-muted">
                 {[hotel?.city, hotel?.country].filter(Boolean).join(', ') || '—'}
@@ -228,7 +232,7 @@ export default function TripDetailPage() {
           <div className="mt-6 rounded-[28px] border border-gray-200 bg-[#fcfcfb] p-5">
             <div className="flex items-center gap-3">
               <Timer size={20} className="text-dark" />
-              <h2 className="text-lg font-semibold text-dark">Check-in instructions and itinerary</h2>
+              <h2 className="text-lg font-semibold text-dark">{t('detail.checkInInstructions')}</h2>
             </div>
             <div className="mt-5 grid gap-3 md:grid-cols-3">
               {[
@@ -253,14 +257,14 @@ export default function TripDetailPage() {
           <SectionCard>
             <SectionHeading
               eyebrow="Timeline"
-              title="Reservation progression"
+              title={t('detail.timeline')}
             />
             <div className="mt-6 space-y-4">
               {[
-                { label: 'Booking created', value: `#${booking.id}` },
-                { label: 'Check-in', value: fmt(booking.checkInDate) },
-                { label: 'Check-out', value: fmt(booking.checkOutDate) },
-                { label: 'Status', value: booking.status },
+                { label: t('detail.timelineItems.created'), value: `#${booking.id}` },
+                { label: t('detail.timelineItems.checkIn'), value: fmt(booking.checkInDate) },
+                { label: t('detail.timelineItems.checkOut'), value: fmt(booking.checkOutDate) },
+                { label: t('labels.status'), value: booking.status },
               ].map((item, index, arr) => (
                 <div key={item.label} className="flex gap-4">
                   <div className="flex flex-col items-center">
@@ -279,13 +283,13 @@ export default function TripDetailPage() {
           </SectionCard>
 
           <SectionCard>
-            <SectionHeading eyebrow="Payment" title="Cost and protection" />
+            <SectionHeading eyebrow="Payment" title={t('detail.payment')} />
 
             <div className="mt-6 rounded-[24px] bg-dark p-5 text-white">
               <div className="flex items-start justify-between gap-4">
                 <div>
                   <p className="text-xs font-semibold uppercase tracking-[0.18em] text-white/70">
-                    Reservation total
+                    {t('detail.reservationTotal')}
                   </p>
                   <p className="mt-2 text-3xl font-semibold">
                     {formatCurrency(Number(booking.totalPrice ?? 0))}
@@ -300,27 +304,21 @@ export default function TripDetailPage() {
 
             <button
               type="button"
-              onClick={() => setTripNotice('Receipt download prepared. PDF generation remains wired to the payments receipt endpoint.')}
+              onClick={handleDownloadReceipt}
               className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-full border border-gray-200 bg-white px-4 py-2.5 text-sm font-semibold text-dark transition-colors hover:bg-gray-50 sm:w-auto"
             >
               <Download size={15} />
-              Download receipt
+              {t('detail.downloadReceipt')}
             </button>
-
-            {tripNotice ? (
-              <div className="mt-4 rounded-2xl border border-brand/20 bg-rose-50 px-4 py-3 text-sm font-medium text-brand">
-                {tripNotice}
-              </div>
-            ) : null}
 
             {booking.basePrice && (
               <div className="mt-4 space-y-2 text-sm">
                 <div className="flex justify-between text-muted">
-                  <span>Base price / night</span>
+                  <span>{t('detail.basePrice')}</span>
                   <span className="font-medium text-dark">{formatCurrency(Number(booking.basePrice))}</span>
                 </div>
                 <div className="flex justify-between border-t border-gray-100 pt-2 font-semibold text-dark">
-                  <span>Total</span>
+                  <span>{t('detail.total')}</span>
                   <span>{formatCurrency(Number(booking.totalPrice ?? 0))}</span>
                 </div>
               </div>
@@ -334,15 +332,15 @@ export default function TripDetailPage() {
                 className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-full border border-red-200 bg-white px-4 py-2.5 text-sm font-semibold text-red-600 transition-colors hover:bg-red-50 sm:w-auto"
               >
                 <XCircle size={15} />
-                Cancel booking
+                {t('detail.cancelBooking')}
               </button>
             )}
 
             {status === 'upcoming' && confirmCancel && (
               <div className="mt-5 rounded-[24px] border border-red-200 bg-red-50 p-4 space-y-3">
-                <p className="text-sm font-semibold text-red-700">Cancel this booking?</p>
+                <p className="text-sm font-semibold text-red-700">{t('detail.cancelConfirm')}</p>
                 <p className="text-sm text-red-600">
-                  Estimated refund before confirmation: {formatCurrency(refundEstimate)}. Final refund depends on the live cancellation policy and payment processor result.
+                  {t('detail.estimatedRefund')} {formatCurrency(refundEstimate)}. Final refund depends on the live cancellation policy and payment processor result.
                 </p>
                 {cancelError && <p className="text-xs text-red-600">{cancelError}</p>}
                 <div className="flex gap-3">
@@ -352,7 +350,7 @@ export default function TripDetailPage() {
                     disabled={cancelling}
                     className="inline-flex items-center gap-2 rounded-full bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700 disabled:opacity-50 transition-colors"
                   >
-                    {cancelling ? <><Loader2 size={13} className="animate-spin" /> Cancelling…</> : 'Yes, cancel'}
+                    {cancelling ? <><Loader2 size={13} className="animate-spin" /> Cancelling…</> : t('detail.yesCancel')}
                   </button>
                   <button
                     type="button"
@@ -360,7 +358,7 @@ export default function TripDetailPage() {
                     disabled={cancelling}
                     className="rounded-full border border-red-200 bg-white px-4 py-2 text-sm font-semibold text-red-600 hover:bg-red-50 disabled:opacity-50 transition-colors"
                   >
-                    Keep booking
+                    {t('detail.keepBooking')}
                   </button>
                 </div>
               </div>
@@ -371,7 +369,7 @@ export default function TripDetailPage() {
                 <div className="rounded-2xl bg-gray-100 p-3 text-gray-500">
                   <XCircle size={18} />
                 </div>
-                <p className="text-sm leading-6 text-muted">This booking has been cancelled.</p>
+                <p className="text-sm leading-6 text-muted">{t('detail.cancelled')}</p>
               </div>
             )}
 
@@ -381,7 +379,7 @@ export default function TripDetailPage() {
                   <div className="rounded-2xl bg-emerald-50 p-3 text-emerald-700">
                     <ShieldCheck size={18} />
                   </div>
-                  <p className="text-sm leading-6 text-muted">Stay completed. Thank you for travelling with Travolish.</p>
+                  <p className="text-sm leading-6 text-muted">{t('detail.completed')}</p>
                 </div>
               </div>
             )}
@@ -392,7 +390,7 @@ export default function TripDetailPage() {
                 className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-full bg-dark px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-gray-800 sm:w-auto"
               >
                 <Star size={16} />
-                Leave a review
+                {t('detail.leaveReview')}
               </Link>
             )}
           </SectionCard>

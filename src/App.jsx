@@ -45,6 +45,20 @@ import HostKycPage from './pages/host/HostKycPage'
 import HostBankAccountsPage from './pages/host/HostBankAccountsPage'
 import HostAutoRepliesPage from './pages/host/HostAutoRepliesPage'
 import HostEmergencyPage from './pages/host/HostEmergencyPage'
+import AboutPage from './pages/AboutPage'
+import CareersPage from './pages/CareersPage'
+import NewsroomPage from './pages/NewsroomPage'
+import PrivacyPage from './pages/PrivacyPage'
+import TermsPage from './pages/TermsPage'
+import HelpPage from './pages/HelpPage'
+import ContactPage from './pages/ContactPage'
+import TrustSafetyPage from './pages/TrustSafetyPage'
+import CancellationPolicyPage from './pages/CancellationPolicyPage'
+import DestinationsPage from './pages/DestinationsPage'
+import WeekendGetawaysPage from './pages/WeekendGetawaysPage'
+import GiftCardsPage from './pages/GiftCardsPage'
+import ResponsibleHostingPage from './pages/ResponsibleHostingPage'
+import HostResourcesPage from './pages/HostResourcesPage'
 import AdminDashboardPage from './pages/admin/AdminDashboardPage'
 import AdminUsersPage from './pages/admin/AdminUsersPage'
 import AdminVerificationPage from './pages/admin/AdminVerificationPage'
@@ -55,6 +69,7 @@ import AdminPricingRulesPage from './pages/admin/AdminPricingRulesPage'
 import AdminBookingsPage from './pages/admin/AdminBookingsPage'
 import useAuthStore from './stores/useAuthStore'
 import useNativeAppLocationStore from './stores/useNativeAppLocationStore'
+import ProtectedRoute from './components/auth/ProtectedRoute'
 
 function ScrollToTop() {
   const { pathname } = useLocation()
@@ -165,7 +180,9 @@ export default function App() {
           path="/wishlists"
           element={
             <AppLayout>
-              <WishlistPage />
+              <ProtectedRoute requireAuth>
+                <WishlistPage />
+              </ProtectedRoute>
             </AppLayout>
           }
         />
@@ -181,7 +198,9 @@ export default function App() {
           path="/offers"
           element={
             <AppLayout>
-              <OffersPage />
+              <ProtectedRoute requireAuth>
+                <OffersPage />
+              </ProtectedRoute>
             </AppLayout>
           }
         />
@@ -189,7 +208,9 @@ export default function App() {
           path="/emergency"
           element={
             <AppLayout>
-              <TravellerEmergencyPage />
+              <ProtectedRoute requireAuth>
+                <TravellerEmergencyPage />
+              </ProtectedRoute>
             </AppLayout>
           }
         />
@@ -197,7 +218,9 @@ export default function App() {
           path="/account"
           element={
             <AppLayout>
-              <AccountPage />
+              <ProtectedRoute requireAuth>
+                <AccountPage />
+              </ProtectedRoute>
             </AppLayout>
           }
         />
@@ -205,7 +228,9 @@ export default function App() {
           path="/account/edit"
           element={
             <AppLayout>
-              <EditProfilePage />
+              <ProtectedRoute requireAuth>
+                <EditProfilePage />
+              </ProtectedRoute>
             </AppLayout>
           }
         />
@@ -213,7 +238,9 @@ export default function App() {
           path="/account/security"
           element={
             <AppLayout>
-              <SecurityPage />
+              <ProtectedRoute requireAuth>
+                <SecurityPage />
+              </ProtectedRoute>
             </AppLayout>
           }
         />
@@ -221,7 +248,9 @@ export default function App() {
           path="/account/payments"
           element={
             <AppLayout>
-              <PaymentMethodsPage />
+              <ProtectedRoute requireAuth>
+                <PaymentMethodsPage />
+              </ProtectedRoute>
             </AppLayout>
           }
         />
@@ -229,7 +258,9 @@ export default function App() {
           path="/account/transactions"
           element={
             <AppLayout>
-              <TransactionsPage />
+              <ProtectedRoute requireAuth>
+                <TransactionsPage />
+              </ProtectedRoute>
             </AppLayout>
           }
         />
@@ -237,7 +268,9 @@ export default function App() {
           path="/account/notification-settings"
           element={
             <AppLayout>
-              <NotificationSettingsPage />
+              <ProtectedRoute requireAuth>
+                <NotificationSettingsPage />
+              </ProtectedRoute>
             </AppLayout>
           }
         />
@@ -245,7 +278,9 @@ export default function App() {
           path="/notifications"
           element={
             <AppLayout>
-              <NotificationsPage />
+              <ProtectedRoute requireAuth>
+                <NotificationsPage />
+              </ProtectedRoute>
             </AppLayout>
           }
         />
@@ -253,7 +288,9 @@ export default function App() {
           path="/trips"
           element={
             <AppLayout>
-              <TripsPage />
+              <ProtectedRoute requireAuth>
+                <TripsPage />
+              </ProtectedRoute>
             </AppLayout>
           }
         />
@@ -261,7 +298,9 @@ export default function App() {
           path="/trips/:id"
           element={
             <AppLayout>
-              <TripDetailPage />
+              <ProtectedRoute requireAuth>
+                <TripDetailPage />
+              </ProtectedRoute>
             </AppLayout>
           }
         />
@@ -269,7 +308,9 @@ export default function App() {
           path="/checkout/:propertyId"
           element={
             <AppLayout>
-              <CheckoutPage />
+              <ProtectedRoute requireAuth>
+                <CheckoutPage />
+              </ProtectedRoute>
             </AppLayout>
           }
         />
@@ -277,7 +318,9 @@ export default function App() {
           path="/messages"
           element={
             <AppLayout>
-              <MessagesPage />
+              <ProtectedRoute requireAuth>
+                <MessagesPage />
+              </ProtectedRoute>
             </AppLayout>
           }
         />
@@ -285,7 +328,9 @@ export default function App() {
           path="/messages/:id"
           element={
             <AppLayout>
-              <ConversationPage />
+              <ProtectedRoute requireAuth>
+                <ConversationPage />
+              </ProtectedRoute>
             </AppLayout>
           }
         />
@@ -293,7 +338,9 @@ export default function App() {
           path="/reviews/me"
           element={
             <AppLayout>
-              <MyReviewsPage />
+              <ProtectedRoute requireAuth>
+                <MyReviewsPage />
+              </ProtectedRoute>
             </AppLayout>
           }
         />
@@ -301,7 +348,9 @@ export default function App() {
           path="/reviews/new"
           element={
             <AppLayout>
-              <ReviewEditorPage />
+              <ProtectedRoute requireAuth>
+                <ReviewEditorPage />
+              </ProtectedRoute>
             </AppLayout>
           }
         />
@@ -309,7 +358,9 @@ export default function App() {
           path="/reviews/:reviewId/edit"
           element={
             <AppLayout>
-              <ReviewEditorPage />
+              <ProtectedRoute requireAuth>
+                <ReviewEditorPage />
+              </ProtectedRoute>
             </AppLayout>
           }
         />
@@ -317,7 +368,9 @@ export default function App() {
           path="/host"
           element={
             <AppLayout>
-              <HostDashboardPage />
+              <ProtectedRoute requireRole="host">
+                <HostDashboardPage />
+              </ProtectedRoute>
             </AppLayout>
           }
         />
@@ -325,7 +378,9 @@ export default function App() {
           path="/host/listings"
           element={
             <AppLayout>
-              <HostListingsPage />
+              <ProtectedRoute requireRole="host">
+                <HostListingsPage />
+              </ProtectedRoute>
             </AppLayout>
           }
         />
@@ -333,7 +388,9 @@ export default function App() {
           path="/host/bookings"
           element={
             <AppLayout>
-              <HostBookingsPage />
+              <ProtectedRoute requireRole="host">
+                <HostBookingsPage />
+              </ProtectedRoute>
             </AppLayout>
           }
         />
@@ -341,7 +398,9 @@ export default function App() {
           path="/host/listings/new"
           element={
             <AppLayout>
-              <HostListingEditorPage />
+              <ProtectedRoute requireRole="host">
+                <HostListingEditorPage />
+              </ProtectedRoute>
             </AppLayout>
           }
         />
@@ -349,7 +408,9 @@ export default function App() {
           path="/host/listings/:id/edit"
           element={
             <AppLayout>
-              <HostListingEditorPage />
+              <ProtectedRoute requireRole="host">
+                <HostListingEditorPage />
+              </ProtectedRoute>
             </AppLayout>
           }
         />
@@ -357,7 +418,9 @@ export default function App() {
           path="/host/listings/:id/rooms"
           element={
             <AppLayout>
-              <HostRoomsPage />
+              <ProtectedRoute requireRole="host">
+                <HostRoomsPage />
+              </ProtectedRoute>
             </AppLayout>
           }
         />
@@ -365,7 +428,9 @@ export default function App() {
           path="/host/rooms/new"
           element={
             <AppLayout>
-              <HostRoomEditorPage />
+              <ProtectedRoute requireRole="host">
+                <HostRoomEditorPage />
+              </ProtectedRoute>
             </AppLayout>
           }
         />
@@ -373,7 +438,9 @@ export default function App() {
           path="/host/rooms/:id/edit"
           element={
             <AppLayout>
-              <HostRoomEditorPage />
+              <ProtectedRoute requireRole="host">
+                <HostRoomEditorPage />
+              </ProtectedRoute>
             </AppLayout>
           }
         />
@@ -381,7 +448,9 @@ export default function App() {
           path="/host/availability"
           element={
             <AppLayout>
-              <HostAvailabilityPage />
+              <ProtectedRoute requireRole="host">
+                <HostAvailabilityPage />
+              </ProtectedRoute>
             </AppLayout>
           }
         />
@@ -389,7 +458,9 @@ export default function App() {
           path="/host/inventory"
           element={
             <AppLayout>
-              <HostInventoryPage />
+              <ProtectedRoute requireRole="host">
+                <HostInventoryPage />
+              </ProtectedRoute>
             </AppLayout>
           }
         />
@@ -397,7 +468,9 @@ export default function App() {
           path="/host/reports"
           element={
             <AppLayout>
-              <HostReportsPage />
+              <ProtectedRoute requireRole="host">
+                <HostReportsPage />
+              </ProtectedRoute>
             </AppLayout>
           }
         />
@@ -405,7 +478,9 @@ export default function App() {
           path="/host/pricing"
           element={
             <AppLayout>
-              <HostPricingRulesPage />
+              <ProtectedRoute requireRole="host">
+                <HostPricingRulesPage />
+              </ProtectedRoute>
             </AppLayout>
           }
         />
@@ -413,7 +488,9 @@ export default function App() {
           path="/host/promotions"
           element={
             <AppLayout>
-              <HostPromotionsPage />
+              <ProtectedRoute requireRole="host">
+                <HostPromotionsPage />
+              </ProtectedRoute>
             </AppLayout>
           }
         />
@@ -421,7 +498,9 @@ export default function App() {
           path="/host/pricing-ai"
           element={
             <AppLayout>
-              <HostPricingAIPage />
+              <ProtectedRoute requireRole="host">
+                <HostPricingAIPage />
+              </ProtectedRoute>
             </AppLayout>
           }
         />
@@ -429,7 +508,9 @@ export default function App() {
           path="/host/payouts"
           element={
             <AppLayout>
-              <HostPayoutsPage />
+              <ProtectedRoute requireRole="host">
+                <HostPayoutsPage />
+              </ProtectedRoute>
             </AppLayout>
           }
         />
@@ -437,7 +518,9 @@ export default function App() {
           path="/host/kyc"
           element={
             <AppLayout>
-              <HostKycPage />
+              <ProtectedRoute requireRole="host">
+                <HostKycPage />
+              </ProtectedRoute>
             </AppLayout>
           }
         />
@@ -445,7 +528,9 @@ export default function App() {
           path="/host/bank-accounts"
           element={
             <AppLayout>
-              <HostBankAccountsPage />
+              <ProtectedRoute requireRole="host">
+                <HostBankAccountsPage />
+              </ProtectedRoute>
             </AppLayout>
           }
         />
@@ -453,7 +538,9 @@ export default function App() {
           path="/host/auto-replies"
           element={
             <AppLayout>
-              <HostAutoRepliesPage />
+              <ProtectedRoute requireRole="host">
+                <HostAutoRepliesPage />
+              </ProtectedRoute>
             </AppLayout>
           }
         />
@@ -461,7 +548,9 @@ export default function App() {
           path="/host/emergency"
           element={
             <AppLayout>
-              <HostEmergencyPage />
+              <ProtectedRoute requireRole="host">
+                <HostEmergencyPage />
+              </ProtectedRoute>
             </AppLayout>
           }
         />
@@ -469,7 +558,9 @@ export default function App() {
           path="/admin"
           element={
             <AppLayout>
-              <AdminDashboardPage />
+              <ProtectedRoute requireRole="admin">
+                <AdminDashboardPage />
+              </ProtectedRoute>
             </AppLayout>
           }
         />
@@ -477,7 +568,9 @@ export default function App() {
           path="/admin/users"
           element={
             <AppLayout>
-              <AdminUsersPage />
+              <ProtectedRoute requireRole="admin">
+                <AdminUsersPage />
+              </ProtectedRoute>
             </AppLayout>
           }
         />
@@ -485,7 +578,9 @@ export default function App() {
           path="/admin/verification"
           element={
             <AppLayout>
-              <AdminVerificationPage />
+              <ProtectedRoute requireRole="admin">
+                <AdminVerificationPage />
+              </ProtectedRoute>
             </AppLayout>
           }
         />
@@ -493,7 +588,9 @@ export default function App() {
           path="/admin/listing-approvals"
           element={
             <AppLayout>
-              <AdminListingApprovalsPage />
+              <ProtectedRoute requireRole="admin">
+                <AdminListingApprovalsPage />
+              </ProtectedRoute>
             </AppLayout>
           }
         />
@@ -501,7 +598,9 @@ export default function App() {
           path="/admin/moderation"
           element={
             <AppLayout>
-              <AdminModerationPage />
+              <ProtectedRoute requireRole="admin">
+                <AdminModerationPage />
+              </ProtectedRoute>
             </AppLayout>
           }
         />
@@ -509,7 +608,9 @@ export default function App() {
           path="/admin/bookings"
           element={
             <AppLayout>
-              <AdminBookingsPage />
+              <ProtectedRoute requireRole="admin">
+                <AdminBookingsPage />
+              </ProtectedRoute>
             </AppLayout>
           }
         />
@@ -517,7 +618,9 @@ export default function App() {
           path="/admin/categories-amenities"
           element={
             <AppLayout>
-              <AdminCategoriesAmenitiesPage />
+              <ProtectedRoute requireRole="admin">
+                <AdminCategoriesAmenitiesPage />
+              </ProtectedRoute>
             </AppLayout>
           }
         />
@@ -525,10 +628,28 @@ export default function App() {
           path="/admin/pricing-rules"
           element={
             <AppLayout>
-              <AdminPricingRulesPage />
+              <ProtectedRoute requireRole="admin">
+                <AdminPricingRulesPage />
+              </ProtectedRoute>
             </AppLayout>
           }
         />
+
+        {/* Footer pages */}
+        <Route path="/about" element={<AppLayout><AboutPage /></AppLayout>} />
+        <Route path="/careers" element={<AppLayout><CareersPage /></AppLayout>} />
+        <Route path="/newsroom" element={<AppLayout><NewsroomPage /></AppLayout>} />
+        <Route path="/privacy" element={<AppLayout><PrivacyPage /></AppLayout>} />
+        <Route path="/terms" element={<AppLayout><TermsPage /></AppLayout>} />
+        <Route path="/help" element={<AppLayout><HelpPage /></AppLayout>} />
+        <Route path="/contact" element={<AppLayout><ContactPage /></AppLayout>} />
+        <Route path="/trust-safety" element={<AppLayout><TrustSafetyPage /></AppLayout>} />
+        <Route path="/cancellation-policy" element={<AppLayout><CancellationPolicyPage /></AppLayout>} />
+        <Route path="/destinations" element={<AppLayout><DestinationsPage /></AppLayout>} />
+        <Route path="/weekend-getaways" element={<AppLayout><WeekendGetawaysPage /></AppLayout>} />
+        <Route path="/gift-cards" element={<AppLayout><GiftCardsPage /></AppLayout>} />
+        <Route path="/responsible-hosting" element={<AppLayout><ResponsibleHostingPage /></AppLayout>} />
+        <Route path="/host-resources" element={<AppLayout><HostResourcesPage /></AppLayout>} />
 
         {/* Standalone pages (no Navbar/Footer) */}
         <Route path="/map-view" element={<MapViewPage />} />

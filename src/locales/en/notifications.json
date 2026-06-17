@@ -1,0 +1,39 @@
+{
+  "heading": "Recent updates.",
+  "desc": "Booking milestones, reminders, and account alerts all in one place.",
+  "latest": "Latest updates",
+  "latestDesc": "Grouped by recency so the page stays easy to scan on mobile.",
+  "filters": {
+    "all": "All notifications",
+    "unread": "Only unread"
+  },
+  "markAllRead": "Mark all read",
+  "stats": {
+    "unread": "Unread updates",
+    "acrossTrips": "Across trips and messages",
+    "total": "Total",
+    "all": "All notifications",
+    "deliveryMode": "Delivery mode",
+    "smart": "Smart",
+    "smartDesc": "Push + email mix"
+  },
+  "settings": "Notification settings",
+  "loading": "Loading notifications…",
+  "noUnread": "No unread notifications.",
+  "empty": "No notifications yet.",
+  "read": "Read",
+  "new": "New",
+  "markRead": "Mark read",
+  "dismiss": "Dismiss",
+  "groups": {
+    "today": "Today",
+    "thisWeek": "This week",
+    "earlier": "Earlier"
+  },
+  "actions": {
+    "viewBooking": "View booking",
+    "browseStays": "Browse stays",
+    "leaveReview": "Leave review",
+    "viewTrips": "View trips"
+  }
+}

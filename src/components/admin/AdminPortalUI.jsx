@@ -55,7 +55,7 @@ function AdminLogo() {
   return (
     <Link to="/admin" className="flex flex-col justify-center">
       <span>
-        <TravolishWordmark className="text-[44px] text-brand" />
+        <TravolishWordmark className="h-9" />
         <span className="-mt-1 block text-[10px] font-semibold uppercase tracking-[0.18em] text-muted">
           Admin
         </span>

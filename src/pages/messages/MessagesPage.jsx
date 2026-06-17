@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { MessageCircleMore, Search } from 'lucide-react'
 import { format, parseISO } from 'date-fns'
+import { useTranslation } from 'react-i18next'
 import {
   PortalShell,
   SectionCard,
@@ -44,6 +45,7 @@ function adaptConversation(c, userId) {
 }
 
 export default function MessagesPage() {
+  const { t } = useTranslation('messages')
   const userId = useAuthStore((s) => s.backendUserId)
   const [conversations, setConversations] = useState([])
   const [loading, setLoading] = useState(true)
@@ -68,25 +70,25 @@ export default function MessagesPage() {
   return (
     <PortalShell
       eyebrow="Messages"
-      title="Stay messages, host by host."
+      title={t('heading')}
       mobileTitle="Messages"
-      description="Your conversations — tap any thread to read and reply."
+      description={t('desc')}
       actions={[
-        { label: 'Trips', href: '/trips', secondary: true },
-        ...(visible[0] ? [{ label: 'Open latest thread', href: `/messages/${visible[0].id}` }] : []),
+        { label: t('trips'), href: '/trips', secondary: true },
+        ...(visible[0] ? [{ label: t('openLatest'), href: `/messages/${visible[0].id}` }] : []),
       ]}
       stats={[
-        { label: 'Open threads', value: String(conversations.length), note: 'Active conversations' },
-        { label: 'Unread', value: String(totalUnread), note: 'Across all threads' },
-        { label: 'Response style', value: 'Fast', note: 'Usually within 30 min' },
+        { label: t('stats.openThreads'), value: String(conversations.length), note: t('stats.activeConversations') },
+        { label: t('stats.unread'), value: String(totalUnread), note: t('stats.acrossThreads') },
+        { label: t('stats.responseStyle'), value: t('stats.fast'), note: t('stats.fastDesc') },
       ]}
       accent="from-sky-50 via-white to-violet-50"
     >
       <SectionCard>
         <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
           <SectionHeading
-            eyebrow="Inbox"
-            title="Recent conversations"
+            eyebrow={t('inbox')}
+            title={t('recent')}
             description="Each thread stays connected to the stay it belongs to."
           />
           <label className="relative w-full md:min-w-[300px] md:w-auto">
@@ -95,19 +97,19 @@ export default function MessagesPage() {
               type="text"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search conversations"
+              placeholder={t('search')}
               className="w-full rounded-full border border-gray-200 bg-[#fcfcfb] py-3 pl-11 pr-4 text-base text-dark outline-none transition-colors focus:border-dark md:text-sm"
             />
           </label>
         </div>
 
         {loading && (
-          <div className="py-16 text-center text-sm text-muted">Loading conversations…</div>
+          <div className="py-16 text-center text-sm text-muted">{t('loading')}</div>
         )}
 
         {!loading && visible.length === 0 && (
           <div className="py-16 text-center text-sm text-muted">
-            {query ? 'No conversations match your search.' : 'No conversations yet.'}
+            {query ? t('noMatch') : t('empty')}
           </div>
         )}
 
@@ -144,16 +146,16 @@ export default function MessagesPage() {
                       </p>
                     </div>
                     <p className="mt-2 text-sm leading-5 text-dark md:mt-3 md:leading-6">
-                      {conversation.isActive ? 'Active thread' : 'Inactive thread'}
+                      {conversation.isActive ? t('activeThread') : t('inactiveThread')}
                     </p>
                   </div>
 
                   <div className="hidden border-l border-gray-200 pl-5 lg:block">
-                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted">Updated</p>
+                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted">{t('updated')}</p>
                     <p className="mt-2 text-xl font-semibold tracking-tight text-dark">{conversation.updatedAt || '—'}</p>
                     <div className="mt-5 inline-flex items-center gap-2 rounded-full bg-sky-50 px-3 py-2 text-sm font-semibold text-sky-700">
                       <MessageCircleMore size={14} />
-                      Open thread
+                      {t('openThread')}
                     </div>
                   </div>
                 </div>

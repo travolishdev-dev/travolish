@@ -9,6 +9,7 @@ import {
   Sparkles,
 } from 'lucide-react'
 import { Link } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import {
   AccountShell,
   SectionCard,
@@ -18,10 +19,10 @@ import {
 import usePortalViewer from '../../hooks/usePortalViewer'
 
 export default function AccountPage() {
+  const { t } = useTranslation('account')
   const { viewer, isPreview } = usePortalViewer()
-  const verificationStatus = viewer.badges.includes('Identity verified') || isPreview
-    ? 'Verified'
-    : 'Not verified'
+  const isVerified = viewer.badges.includes('Identity verified') || isPreview
+  const verificationStatus = isVerified ? t('verified') : t('notVerified')
   const completenessItems = [
     Boolean(viewer.fullName),
     Boolean(viewer.email),
@@ -35,19 +36,19 @@ export default function AccountPage() {
 
   return (
     <AccountShell
-      title="Your travel profile."
+      title={t('heading')}
       mobileTitle="Account"
-      description="A summary of your identity, preferences, and trip history."
+      description={t('desc')}
       actions={[
-        { label: 'Edit profile', href: '/account/edit' },
-        { label: 'Review security', href: '/account/security', secondary: true },
+        { label: t('editProfile'), href: '/account/edit' },
+        { label: t('reviewSecurity'), href: '/account/security', secondary: true },
       ]}
     >
       <SectionCard className="hidden md:block">
         <div className="hidden md:block">
           <SectionHeading
-            eyebrow="Profile Snapshot"
-            title="Everything hosts need before arrival"
+            eyebrow={t('snapshot')}
+            title={t('snapshotDesc')}
             description="A fast summary of who you are, how you travel, and what usually matters when you book."
           />
         </div>
@@ -72,24 +73,24 @@ export default function AccountPage() {
         <div className="grid gap-5 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
           <div className="rounded-[28px] border border-gray-200 bg-[#fcfcfb] p-5">
             <div className="flex items-start gap-4">
-              <div className={`rounded-2xl p-3 ${verificationStatus === 'Verified' ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}`}>
+              <div className={`rounded-2xl p-3 ${isVerified ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}`}>
                 <IdCard size={22} />
               </div>
               <div>
                 <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted">
-                  ID verification
+                  {t('idVerification')}
                 </p>
                 <h2 className="mt-2 text-xl font-semibold text-dark">{verificationStatus}</h2>
                 <p className="mt-2 text-sm leading-6 text-muted">
-                  {verificationStatus === 'Verified'
-                    ? 'Government ID is marked as verified for host trust and smoother check-ins.'
-                    : 'Verify your government ID to improve host trust before booking.'}
+                  {isVerified
+                    ? t('verifiedNote')
+                    : t('verifyNote')}
                 </p>
                 <Link
                   to="/account/security"
                   className="mt-4 inline-flex items-center justify-center rounded-2xl bg-dark px-4 py-2.5 text-sm font-semibold text-white"
                 >
-                  Review verification
+                  {t('reviewVerification')}
                 </Link>
               </div>
             </div>
@@ -99,9 +100,9 @@ export default function AccountPage() {
             <div className="flex items-start justify-between gap-4">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted">
-                  Profile completeness
+                  {t('completeness')}
                 </p>
-                <h2 className="mt-2 text-xl font-semibold text-dark">{profileCompletion}% complete</h2>
+                <h2 className="mt-2 text-xl font-semibold text-dark">{profileCompletion}% {t('complete')}</h2>
               </div>
               <div className="rounded-2xl bg-rose-50 p-3 text-brand">
                 <ListChecks size={22} />
@@ -115,12 +116,12 @@ export default function AccountPage() {
             </div>
             <div className="mt-4 grid gap-2 sm:grid-cols-2">
               {[
-                ['Name and email', viewer.fullName && viewer.email],
-                ['Phone number', viewer.phone],
-                ['Bio', viewer.bio],
-                ['Travel preferences', viewer.preferences.length > 0],
-                ['Emergency contact', viewer.emergencyContact],
-                ['Identity status', verificationStatus === 'Verified'],
+                [t('fields.nameEmail'), viewer.fullName && viewer.email],
+                [t('fields.phone'), viewer.phone],
+                [t('fields.bio'), viewer.bio],
+                [t('fields.travelPrefs'), viewer.preferences.length > 0],
+                [t('fields.emergencyContact'), viewer.emergencyContact],
+                [t('fields.identity'), isVerified],
               ].map(([label, complete]) => (
                 <div key={label} className="flex items-center gap-2 text-sm">
                   <CheckCircle2 size={15} className={complete ? 'text-emerald-700' : 'text-gray-300'} />
@@ -135,7 +136,7 @@ export default function AccountPage() {
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)]">
         <SectionCard>
           <SectionHeading
-            eyebrow="Identity"
+            eyebrow={t('identity')}
             title="Trust signals and account tone"
             description="These badges, labels, and notes shape the first impression hosts see before they even open a chat thread."
           />
@@ -154,9 +155,9 @@ export default function AccountPage() {
             <p className="mt-6 text-[15px] leading-7 text-dark">{viewer.bio}</p>
           ) : (
             <p className="mt-6 text-sm text-muted">
-              No bio yet.{' '}
+              {t('noBio')}{' '}
               <Link to="/account/edit" className="font-medium text-dark underline underline-offset-2">
-                Add one on your profile page.
+                {t('addBio')}
               </Link>
             </p>
           )}
@@ -168,9 +169,9 @@ export default function AccountPage() {
                   <Compass size={20} />
                 </div>
                 <div>
-                  <p className="text-sm font-semibold text-dark">Travel style</p>
+                  <p className="text-sm font-semibold text-dark">{t('travelStyle')}</p>
                   <p className="text-sm text-muted">
-                    {viewer.travelStyle ?? 'Not configured'}
+                    {viewer.travelStyle ?? t('notConfigured')}
                   </p>
                 </div>
               </div>
@@ -194,7 +195,7 @@ export default function AccountPage() {
 
         <SectionCard>
           <SectionHeading
-            eyebrow="Preferences"
+            eyebrow={t('preferences')}
             title="Saved travel defaults"
             description="These choices can prefill checkout and host preferences."
           />
@@ -214,12 +215,12 @@ export default function AccountPage() {
               ))
             ) : (
               <div className="rounded-2xl border border-dashed border-gray-200 bg-[#fcfcfb] px-4 py-6 text-center">
-                <p className="text-sm text-muted">No preferences configured.</p>
+                <p className="text-sm text-muted">{t('noPrefs')}</p>
                 <Link
                   to="/account/edit"
                   className="mt-2 inline-block text-sm font-medium text-dark underline underline-offset-2"
                 >
-                  Add preferences
+                  {t('addPrefs')}
                 </Link>
               </div>
             )}
@@ -230,7 +231,7 @@ export default function AccountPage() {
       <div className="grid gap-6 lg:grid-cols-2">
         <SectionCard>
           <SectionHeading
-            eyebrow="Saved Addresses"
+            eyebrow={t('savedAddresses')}
             title="Frequent places"
             description="Useful for prefilled billing, traveler details, and upcoming trip planning."
           />
@@ -249,12 +250,12 @@ export default function AccountPage() {
               </div>
             ) : (
               <div className="rounded-2xl border border-dashed border-gray-200 bg-[#fcfcfb] px-4 py-6 text-center">
-                <p className="text-sm text-muted">No saved addresses yet.</p>
+                <p className="text-sm text-muted">{t('noAddresses')}</p>
                 <Link
                   to="/account/edit"
                   className="mt-2 inline-block text-sm font-medium text-dark underline underline-offset-2"
                 >
-                  Add an address
+                  {t('addAddress')}
                 </Link>
               </div>
             )}
@@ -264,7 +265,7 @@ export default function AccountPage() {
         <SectionCard>
           <SectionHeading
             eyebrow="Support"
-            title="Emergency and recovery contact"
+            title={t('emergency')}
             description="Used by booking and safety flows when an emergency contact is needed."
           />
 
@@ -290,12 +291,12 @@ export default function AccountPage() {
               </div>
             ) : (
               <div className="rounded-2xl border border-dashed border-gray-200 bg-[#fcfcfb] px-4 py-6 text-center">
-                <p className="text-sm text-muted">No emergency contact configured.</p>
+                <p className="text-sm text-muted">{t('noEmergency')}</p>
                 <Link
                   to="/account/edit"
                   className="mt-2 inline-block text-sm font-medium text-dark underline underline-offset-2"
                 >
-                  Add emergency contact
+                  {t('addEmergency')}
                 </Link>
               </div>
             )}

@@ -8,7 +8,7 @@ import {
   StatusPill,
 } from '../../components/portal/PortalUI'
 import { listBookings } from '../../services/bookingsApi'
-import { getReceipt } from '../../services/paymentsApi'
+import { printReceipt } from '../../lib/receiptPrinter'
 import usePortalViewer from '../../hooks/usePortalViewer'
 import useAuthStore from '../../stores/useAuthStore'
 import useCurrency from '../../hooks/useCurrency'
@@ -62,18 +62,12 @@ export default function TransactionsPage() {
       .finally(() => setLoading(false))
   }, [backendUserId, viewer.email])
 
-  const handleReceipt = async (bookingId) => {
+  const handleReceipt = (bookingId) => {
     setReceiptError(null)
-    try {
-      const receipt = await getReceipt(bookingId)
-      if (receipt.pdfUrl) {
-        window.open(receipt.pdfUrl, '_blank')
-      } else if (receipt.htmlUrl) {
-        window.open(receipt.htmlUrl, '_blank')
-      } else {
-        setReceiptError(`Receipt #${receipt.receiptNumber ?? bookingId} — no PDF available yet.`)
-      }
-    } catch {
+    const booking = bookings.find((b) => b.id === bookingId)
+    if (booking) {
+      printReceipt(booking, { id: booking.hotelId }, formatCurrency)
+    } else {
       setReceiptError('Receipt not available for this booking.')
     }
   }

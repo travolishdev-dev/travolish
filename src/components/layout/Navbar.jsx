@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { Link, useLocation } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import {
   Search,
   Globe,
@@ -18,7 +18,10 @@ import {
 import { AnimatePresence, motion as Motion } from 'framer-motion'
 import { useTranslation } from 'react-i18next'
 import TravolishWordmark from '../common/TravolishWordmark'
+import ThemeToggle from '../common/ThemeToggle'
 import useAuthStore from '../../stores/useAuthStore'
+import useRole from '../../hooks/useRole'
+import { getUnreadCount } from '../../services/notificationsApi'
 
 const countryOptions = [
   { code: 'IN', label: 'India', currency: 'INR' },
@@ -41,7 +44,7 @@ function readStoredCountry() {
 }
 
 function LanguageRegionModal({ country, onCountryChange, onClose }) {
-  const { t, i18n } = useTranslation()
+  const { t, i18n } = useTranslation(['nav', 'common'])
   const activeLanguage = i18n.resolvedLanguage || i18n.language
 
   const handleCountryChange = (countryCode) => {
@@ -69,9 +72,9 @@ function LanguageRegionModal({ country, onCountryChange, onClose }) {
         <div className="flex items-start justify-between gap-4 border-b border-gray-100 px-6 py-5">
           <div>
             <h2 className="text-xl font-semibold text-dark">
-              {t('region.title')}
+              {t('common:region.title')}
             </h2>
-            <p className="mt-1 text-sm text-muted">{t('region.subtitle')}</p>
+            <p className="mt-1 text-sm text-muted">{t('common:region.subtitle')}</p>
           </div>
           <button
             type="button"
@@ -85,7 +88,7 @@ function LanguageRegionModal({ country, onCountryChange, onClose }) {
         <div className="grid gap-8 px-6 py-6 md:grid-cols-2">
           <section>
             <h3 className="text-sm font-semibold text-dark">
-              {t('region.language')}
+              {t('common:region.language')}
             </h3>
             <div className="mt-3 space-y-2">
               {languageOptions.map((option) => (
@@ -119,7 +122,7 @@ function LanguageRegionModal({ country, onCountryChange, onClose }) {
 
           <section>
             <h3 className="text-sm font-semibold text-dark">
-              {t('region.country')}
+              {t('common:region.country')}
             </h3>
             <div className="mt-3 space-y-2">
               {countryOptions.map((option) => (
@@ -158,7 +161,7 @@ function LanguageRegionModal({ country, onCountryChange, onClose }) {
             onClick={onClose}
             className="rounded-full bg-dark px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-gray-800"
           >
-            {t('region.save')}
+            {t('common:region.save')}
           </button>
         </div>
       </Motion.div>
@@ -167,13 +170,17 @@ function LanguageRegionModal({ country, onCountryChange, onClose }) {
 }
 
 export default function Navbar() {
-  const { t } = useTranslation()
+  const { t } = useTranslation(['nav', 'common'])
   const { user, profile, openAuthModal, signOut } = useAuthStore()
+  const { isHost, isAdmin } = useRole()
+  const backendUserId = useAuthStore((s) => s.backendUserId)
   const [isScrolled, setIsScrolled] = useState(false)
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [isLocaleOpen, setIsLocaleOpen] = useState(false)
   const [country, setCountry] = useState(readStoredCountry)
+  const [unreadCount, setUnreadCount] = useState(0)
   const menuRef = useRef(null)
+  const navigate = useNavigate()
   const { pathname } = useLocation()
   const isHomePage = pathname === '/'
   const hideCompactSearch =
@@ -196,6 +203,13 @@ export default function Navbar() {
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
 
+  useEffect(() => {
+    if (!backendUserId) { setUnreadCount(0); return }
+    getUnreadCount(backendUserId)
+      .then((data) => setUnreadCount(typeof data === 'number' ? data : (data?.count ?? 0)))
+      .catch(() => {})
+  }, [backendUserId])
+
   const getInitial = () => {
     if (profile?.full_name) return profile.full_name[0].toUpperCase()
     if (user?.email) return user.email[0].toUpperCase()
@@ -212,20 +226,37 @@ export default function Navbar() {
         <div className="flex items-center justify-between h-20">
           {/* Logo */}
           <Link to="/" className="flex flex-shrink-0 items-center">
-            <TravolishWordmark className="text-[50px] text-brand sm:text-[62px]" />
+            <TravolishWordmark className="h-10 sm:h-12" />
           </Link>
 
          
           {/* Right Actions */}
           <div className="flex items-center gap-1 flex-shrink-0">
+            <ThemeToggle className="hidden md:flex" />
             <button
               type="button"
               onClick={() => setIsLocaleOpen(true)}
               className="hidden md:flex p-3 rounded-full hover:bg-gray-50 transition-colors"
-              aria-label={t('region.title')}
+              aria-label={t('common:region.title')}
             >
               <Globe size={18} />
             </button>
+
+            {user && (
+              <button
+                type="button"
+                onClick={() => navigate('/notifications')}
+                className="relative flex p-3 rounded-full hover:bg-gray-50 transition-colors"
+                aria-label="Notifications"
+              >
+                <Bell size={18} />
+                {unreadCount > 0 && (
+                  <span className="absolute right-1 top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-bold leading-none text-white">
+                    {unreadCount}
+                  </span>
+                )}
+              </button>
+            )}
 
             {/* User Menu */}
             <div className="relative" ref={menuRef}>
@@ -250,140 +281,126 @@ export default function Navbar() {
                     animate={{ opacity: 1, scale: 1, y: 0 }}
                     exit={{ opacity: 0, scale: 0.95, y: -5 }}
                     transition={{ duration: 0.15 }}
-                    className="absolute right-0 top-14 w-72 bg-white rounded-xl shadow-xl border border-gray-100 overflow-hidden z-50"
+                    className="absolute right-0 top-14 w-80 bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden z-50"
                   >
                     {user ? (
-                      <div className="py-2">
-                        <div className="px-4 py-3 border-b border-gray-100">
-                          <p className="text-sm font-semibold truncate">
-                            {profile?.full_name || user.email}
-                          </p>
-                          <p className="text-xs text-muted truncate">{user.email}</p>
+                      <div>
+                        {/* User header */}
+                        <div className="flex items-center gap-3 px-4 py-4 border-b border-gray-100">
+                          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-gray-600 to-gray-800 text-sm font-semibold text-white">
+                            {getInitial()}
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate text-sm font-semibold text-dark">
+                              {profile?.full_name || user.email}
+                            </p>
+                            <p className="truncate text-xs text-muted">{user.email}</p>
+                          </div>
+                          <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${
+                            profile?.role === 'admin'
+                              ? 'bg-red-100 text-red-600'
+                              : profile?.role === 'host'
+                              ? 'bg-green-100 text-green-700'
+                              : 'bg-gray-100 text-gray-500'
+                          }`}>
+                            {profile?.role || 'guest'}
+                          </span>
                         </div>
-                        <Link
-                          to="/account"
-                          onClick={() => setIsMenuOpen(false)}
-                          className="flex items-center gap-3 px-4 py-2.5 text-sm hover:bg-gray-50 transition-colors"
+
+                        {/* Traveller section */}
+                        <div className="px-2 pt-3 pb-1">
+                          <p className="mb-1 px-2 text-[10px] font-semibold uppercase tracking-widest text-muted/70">Traveller</p>
+                          <Link to="/account" onClick={() => setIsMenuOpen(false)}
+                            className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-dark transition-colors hover:bg-gray-50">
+                            <Settings2 size={15} className="text-gray-400" />
+                            {t('nav:account')}
+                          </Link>
+                          <Link to="/trips" onClick={() => setIsMenuOpen(false)}
+                            className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-dark transition-colors hover:bg-gray-50">
+                            <CalendarRange size={15} className="text-gray-400" />
+                            {t('nav:trips')}
+                          </Link>
+                          <Link to="/messages" onClick={() => setIsMenuOpen(false)}
+                            className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-dark transition-colors hover:bg-gray-50">
+                            <MessageCircleMore size={15} className="text-gray-400" />
+                            {t('nav:messages')}
+                          </Link>
+                          <Link to="/wishlists" onClick={() => setIsMenuOpen(false)}
+                            className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-dark transition-colors hover:bg-gray-50">
+                            <Heart size={15} className="text-gray-400" />
+                            {t('nav:wishlists')}
+                          </Link>
+                        </div>
+
+                        {/* Hosting section — host and admin only */}
+                        {(isHost || isAdmin) && (
+                          <div className="px-2 pt-2 pb-1">
+                            <p className="mb-1 px-2 text-[10px] font-semibold uppercase tracking-widest text-muted/70">Hosting</p>
+                            <Link to="/host" onClick={() => setIsMenuOpen(false)}
+                              className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-dark transition-colors hover:bg-gray-50">
+                              <LayoutDashboard size={15} className="text-gray-400" />
+                              {t('nav:hostDashboard')}
+                            </Link>
+                            <Link to="/host/listings/new" onClick={() => setIsMenuOpen(false)}
+                              className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-dark transition-colors hover:bg-gray-50">
+                              <Plus size={15} className="text-gray-400" />
+                              List a new property
+                            </Link>
+                          </div>
+                        )}
+
+                        {/* Admin section — admin only */}
+                        {isAdmin && (
+                          <div className="px-2 pt-2 pb-1">
+                            <p className="mb-1 px-2 text-[10px] font-semibold uppercase tracking-widest text-muted/70">Admin</p>
+                            <Link to="/admin" onClick={() => setIsMenuOpen(false)}
+                              className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-dark transition-colors hover:bg-gray-50">
+                              <LayoutDashboard size={15} className="text-red-400" />
+                              Admin dashboard
+                            </Link>
+                          </div>
+                        )}
+
+                        {/* Become a host — guests only */}
+                        {!isHost && !isAdmin && (
+                          <div className="px-2 pt-2 pb-1">
+                            <Link to="/host/onboarding" onClick={() => setIsMenuOpen(false)}
+                              className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-dark transition-colors hover:bg-gray-50">
+                              <Plus size={15} className="text-gray-400" />
+                              Become a host
+                            </Link>
+                          </div>
+                        )}
+
+                        {/* Sign out */}
+                        <div className="px-2 pb-2 pt-1 border-t border-gray-100 mt-1">
+                          <button
+                            onClick={() => { signOut(); setIsMenuOpen(false) }}
+                            className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-red-500 transition-colors hover:bg-red-50"
+                          >
+                            <LogOut size={15} className="text-red-400" />
+                            {t('nav:logout')}
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="p-3">
+                        <button
+                          onClick={() => { openAuthModal(); setIsMenuOpen(false) }}
+                          className="w-full rounded-xl bg-dark px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-gray-800"
                         >
-                          <Settings2 size={16} className="text-gray-600" />
-                          {t('nav.account')}
-                        </Link>
-                        <Link
-                          to="/trips"
-                          onClick={() => setIsMenuOpen(false)}
-                          className="flex items-center gap-3 px-4 py-2.5 text-sm hover:bg-gray-50 transition-colors"
-                        >
-                          <CalendarRange size={16} className="text-gray-600" />
-                          {t('nav.trips')}
-                        </Link>
-                        <Link
-                          to="/messages"
-                          onClick={() => setIsMenuOpen(false)}
-                          className="flex items-center gap-3 px-4 py-2.5 text-sm hover:bg-gray-50 transition-colors"
-                        >
-                          <MessageCircleMore size={16} className="text-gray-600" />
-                          {t('nav.messages')}
-                        </Link>
-                        <Link
-                          to="/notifications"
-                          onClick={() => setIsMenuOpen(false)}
-                          className="flex items-center gap-3 px-4 py-2.5 text-sm hover:bg-gray-50 transition-colors"
-                        >
-                          <Bell size={16} className="text-gray-600" />
-                          {t('nav.notifications')}
-                        </Link>
-                        <Link
-                          to="/host"
-                          onClick={() => setIsMenuOpen(false)}
-                          className="flex items-center gap-3 px-4 py-2.5 text-sm hover:bg-gray-50 transition-colors"
-                        >
-                          <LayoutDashboard size={16} className="text-gray-600" />
-                          {t('nav.hostDashboard')}
-                        </Link>
-                        <Link
-                          to="/host/listings/new"
-                          onClick={() => setIsMenuOpen(false)}
-                          className="flex items-center gap-3 px-4 py-2.5 text-sm hover:bg-gray-50 transition-colors"
-                        >
-                          <Plus size={16} className="text-gray-600" />
-                          {t('nav.hostProperty')}
-                        </Link>
-                        <Link
-                          to="/wishlists"
-                          onClick={() => setIsMenuOpen(false)}
-                          className="flex items-center gap-3 px-4 py-2.5 text-sm hover:bg-gray-50 transition-colors"
-                        >
-                          <Heart size={16} className="text-gray-600" />
-                          {t('nav.wishlists')}
-                        </Link>
-                        {!hideHostCta && (
+                          {t('nav:signup')} / {t('nav:login')}
+                        </button>
+                        <div className="mt-1">
                           <Link
                             to="/host/onboarding"
                             onClick={() => setIsMenuOpen(false)}
-                            className="flex items-center gap-3 px-4 py-2.5 text-sm hover:bg-gray-50 transition-colors"
+                            className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium text-dark transition-colors hover:bg-gray-50"
                           >
-                            <Plus size={16} className="text-gray-600" />
-                            {t('nav.hostHome')}
+                            <Plus size={15} className="text-gray-400" />
+                            Become a host
                           </Link>
-                        )}
-                        <hr className="my-1 border-gray-100" />
-                        <button
-                          onClick={() => {
-                            signOut()
-                            setIsMenuOpen(false)
-                          }}
-                          className="flex items-center gap-3 w-full text-left px-4 py-2.5 text-sm hover:bg-gray-50 transition-colors"
-                        >
-                          <LogOut size={16} className="text-gray-600" />
-                          {t('nav.logout')}
-                        </button>
-                      </div>
-                    ) : (
-                      <div className="py-2">
-                        <button
-                          onClick={() => {
-                            openAuthModal()
-                            setIsMenuOpen(false)
-                          }}
-                          className="w-full text-left px-4 py-2.5 text-sm font-semibold hover:bg-gray-50 transition-colors"
-                        >
-                          {t('nav.signup')}
-                        </button>
-                        <button
-                          onClick={() => {
-                            openAuthModal()
-                            setIsMenuOpen(false)
-                          }}
-                          className="w-full text-left px-4 py-2.5 text-sm hover:bg-gray-50 transition-colors"
-                        >
-                          {t('nav.login')}
-                        </button>
-                        <button
-                          onClick={() => {
-                            openAuthModal()
-                            setIsMenuOpen(false)
-                          }}
-                          className="flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm hover:bg-gray-50 transition-colors"
-                        >
-                          <Plus size={16} className="text-gray-600" />
-                          {t('nav.hostProperty')}
-                        </button>
-                        {!hideHostCta && (
-                          <>
-                            <hr className="my-1 border-gray-100" />
-                            <Link
-                              to="#"
-                              onClick={(e) => {
-                                e.preventDefault()
-                                openAuthModal()
-                                setIsMenuOpen(false)
-                              }}
-                              className="block px-4 py-2.5 text-sm hover:bg-gray-50 transition-colors"
-                            >
-                              {t('nav.hostHome')}
-                            </Link>
-                          </>
-                        )}
+                        </div>
                       </div>
                     )}
                   </Motion.div>

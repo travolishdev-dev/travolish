@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useParams, useNavigate } from 'react-router-dom'
 import {
   Star, Heart, Share2, ChevronLeft, Users, BedDouble, Bath, Home,
@@ -133,6 +134,7 @@ function DetailSkeleton() {
 }
 
 export default function PropertyDetailPage() {
+  const { t } = useTranslation(['property', 'common'])
   const { id } = useParams()
   const navigate = useNavigate()
   const [property, setProperty] = useState(null)
@@ -200,12 +202,12 @@ export default function PropertyDetailPage() {
     return (
       <div className="pt-28 text-center min-h-screen">
         <div className="text-6xl mb-4">🏠</div>
-        <h1 className="text-2xl font-semibold">Property not found</h1>
+        <h1 className="text-2xl font-semibold">{t('notFound')}</h1>
         <button
           onClick={() => navigate('/')}
           className="mt-4 text-brand underline font-semibold"
         >
-          Go home
+          {t('goHome')}
         </button>
       </div>
     )
@@ -232,7 +234,7 @@ export default function PropertyDetailPage() {
         className="md:hidden flex items-center gap-1 text-sm text-dark font-semibold mb-4 -ml-1"
       >
         <ChevronLeft size={20} />
-        Back
+        {t('back')}
       </button>
 
       {/* Title Section */}
@@ -248,7 +250,7 @@ export default function PropertyDetailPage() {
               <>
                 <span className="text-muted">·</span>
                 <span className="text-dark underline cursor-pointer font-medium">
-                  {totalReviews} review{totalReviews !== 1 ? 's' : ''}
+                  {t('common:review', { count: totalReviews })}
                 </span>
               </>
             )}
@@ -260,7 +262,7 @@ export default function PropertyDetailPage() {
           <div className="flex items-center gap-2">
             <button className="flex items-center gap-1.5 text-sm font-semibold underline hover:bg-gray-50 rounded-lg px-3 py-2 transition-colors">
               <Share2 size={16} />
-              Share
+              {t('share')}
             </button>
             <button
               onClick={() => toggleWishlist(property.id)}
@@ -270,7 +272,7 @@ export default function PropertyDetailPage() {
                 size={16}
                 className={isWishlisted ? 'fill-brand text-brand' : ''}
               />
-              Save
+              {t('saveToWishlist')}
             </button>
           </div>
         </div>
@@ -291,8 +293,8 @@ export default function PropertyDetailPage() {
               </h2>
               <p className="text-muted mt-1 text-sm md:text-base">
                 {property.guests} guests
-                {rooms.length > 0 && ` · ${rooms.length} room${rooms.length !== 1 ? 's' : ''}`}
-                {roomSummary && ` · from ${formatCurrency(roomSummary.cheapestPrice)}/night`}
+                {rooms.length > 0 && ` · ${t('room', { count: rooms.length })}`}
+                {roomSummary && ` · from ${formatCurrency(roomSummary.cheapestPrice)}/${t('perNight')}`}
               </p>
             </div>
             <div className="w-14 h-14 rounded-full bg-gradient-to-br from-gray-700 to-gray-900 flex items-center justify-center flex-shrink-0 ml-4">
@@ -309,20 +311,20 @@ export default function PropertyDetailPage() {
               </div>
               <div>
                 <div className="flex flex-wrap items-center gap-2">
-                  <h2 className="text-xl font-semibold text-dark">Hosted by {hostProfile.name}</h2>
+                  <h2 className="text-xl font-semibold text-dark">{t('hostedBy')} {hostProfile.name}</h2>
                   {hostProfile.superhost ? (
                     <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">
                       <BadgeCheck size={13} />
-                      Verified host
+                      {t('verifiedHost')}
                     </span>
                   ) : null}
                 </div>
                 <p className="mt-2 text-sm leading-6 text-muted">{hostProfile.bio}</p>
                 <div className="mt-4 grid gap-3 sm:grid-cols-3">
                   {[
-                    { label: 'Host rating', value: hostProfile.rating },
-                    { label: 'Response rate', value: hostProfile.responseRate },
-                    { label: 'Response time', value: hostProfile.responseTime },
+                    { label: t('hostRating'), value: hostProfile.rating },
+                    { label: t('responseRate'), value: hostProfile.responseRate },
+                    { label: t('responseTime'), value: hostProfile.responseTime },
                   ].map((item) => (
                     <div key={item.label} className="rounded-2xl border border-gray-200 bg-white px-4 py-3">
                       <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted">{item.label}</p>
@@ -331,7 +333,7 @@ export default function PropertyDetailPage() {
                   ))}
                 </div>
                 <p className="mt-3 text-xs text-muted">
-                  {hostProfile.joined} · {hostProfile.reviews} traveller review{hostProfile.reviews === 1 ? '' : 's'}
+                  {hostProfile.joined} · {t('common:review', { count: hostProfile.reviews })}
                 </p>
               </div>
             </div>
@@ -342,7 +344,7 @@ export default function PropertyDetailPage() {
             <div className="flex gap-5">
               <MapPin size={26} className="text-dark flex-shrink-0 mt-0.5" />
               <div>
-                <p className="font-semibold text-dark">Great location</p>
+                <p className="font-semibold text-dark">{t('greatLocation')}</p>
                 <p className="text-muted text-sm mt-1">
                   95% of recent guests gave the location a 5-star rating.
                 </p>
@@ -351,7 +353,7 @@ export default function PropertyDetailPage() {
             <div className="flex gap-5">
               <Home size={26} className="text-dark flex-shrink-0 mt-0.5" />
               <div>
-                <p className="font-semibold text-dark">Self check-in</p>
+                <p className="font-semibold text-dark">{t('selfCheckIn')}</p>
                 <p className="text-muted text-sm mt-1">
                   Check yourself in with the smart lock.
                 </p>
@@ -370,7 +372,7 @@ export default function PropertyDetailPage() {
             <div className="py-8 border-b border-gray-200">
               <div className="flex items-center gap-3">
                 <PlayCircle size={24} className="text-dark" />
-                <h2 className="text-xl font-semibold text-dark">Video walkthrough</h2>
+                <h2 className="text-xl font-semibold text-dark">{t('videoWalkthrough')}</h2>
               </div>
               <div className="mt-5 overflow-hidden rounded-[24px] border border-gray-200 bg-black">
                 <video
@@ -389,7 +391,7 @@ export default function PropertyDetailPage() {
           {/* Amenities — only shown when the hotel has them */}
           {hasAmenities && (
             <div className="py-8 border-b border-gray-200">
-              <h2 className="text-xl font-semibold text-dark mb-6">What this place offers</h2>
+              <h2 className="text-xl font-semibold text-dark mb-6">{t('whatOffers')}</h2>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {property.amenities.map((amenity) => {
                   const Icon = amenityIconMap[amenity] || Home
@@ -407,7 +409,7 @@ export default function PropertyDetailPage() {
           {/* Rooms list */}
           {rooms.length > 0 && (
             <div className="py-8 border-b border-gray-200">
-              <h2 className="text-xl font-semibold text-dark mb-6">Available rooms</h2>
+              <h2 className="text-xl font-semibold text-dark mb-6">{t('availableRooms')}</h2>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {rooms.map((room) => (
                   <div
@@ -421,12 +423,12 @@ export default function PropertyDetailPage() {
                           {room.type ? room.type.charAt(0) + room.type.slice(1).toLowerCase() : 'Room'} · #{room.number}
                         </p>
                         <p className="text-xs text-muted mt-0.5">
-                          {room.available ? 'Available' : 'Unavailable'}
+                          {room.available ? t('available') : t('unavailable')}
                         </p>
                       </div>
                     </div>
                     <p className="text-sm font-bold text-dark">
-                      {formatCurrency(room.pricePerNight)}<span className="text-muted font-normal">/night</span>
+                      {formatCurrency(room.pricePerNight)}<span className="text-muted font-normal">/{t('perNight')}</span>
                     </p>
                   </div>
                 ))}
@@ -437,7 +439,7 @@ export default function PropertyDetailPage() {
           <div className="py-8 border-b border-gray-200">
             <div className="flex items-center gap-3">
               <ReceiptText size={24} className="text-dark" />
-              <h2 className="text-xl font-semibold text-dark">Price preview</h2>
+              <h2 className="text-xl font-semibold text-dark">{t('pricePreview')}</h2>
             </div>
             <div className="mt-5 rounded-[24px] border border-gray-200 bg-[#fcfcfb] p-5">
               <div className="space-y-3 text-sm">
@@ -446,15 +448,15 @@ export default function PropertyDetailPage() {
                   <span className="font-semibold text-dark">{formatCurrency(pricePreview.base)}</span>
                 </div>
                 <div className="flex items-center justify-between gap-4">
-                  <span className="text-muted">Service fee</span>
+                  <span className="text-muted">{t('serviceFee')}</span>
                   <span className="font-semibold text-dark">{formatCurrency(pricePreview.serviceFee)}</span>
                 </div>
                 <div className="flex items-center justify-between gap-4">
-                  <span className="text-muted">Taxes</span>
+                  <span className="text-muted">{t('taxes')}</span>
                   <span className="font-semibold text-dark">{formatCurrency(pricePreview.taxes)}</span>
                 </div>
                 <div className="flex items-center justify-between border-t border-gray-200 pt-3 text-base">
-                  <span className="font-semibold text-dark">Estimated total</span>
+                  <span className="font-semibold text-dark">{t('estimatedTotal')}</span>
                   <span className="font-bold text-dark">{formatCurrency(pricePreview.total)}</span>
                 </div>
               </div>
@@ -469,7 +471,7 @@ export default function PropertyDetailPage() {
               <div>
                 <div className="flex items-center gap-3">
                   <FileText size={23} className="text-dark" />
-                  <h2 className="text-xl font-semibold text-dark">House rules</h2>
+                  <h2 className="text-xl font-semibold text-dark">{t('houseRules')}</h2>
                 </div>
                 <div className="mt-4 space-y-3">
                   {HOUSE_RULES.map((rule) => (
@@ -484,10 +486,10 @@ export default function PropertyDetailPage() {
               <div>
                 <div className="flex items-center gap-3">
                   <Clock3 size={23} className="text-dark" />
-                  <h2 className="text-xl font-semibold text-dark">Cancellation policy</h2>
+                  <h2 className="text-xl font-semibold text-dark">{t('cancellationPolicy')}</h2>
                 </div>
                 <div className="mt-4 rounded-[24px] border border-gray-200 bg-[#fcfcfb] p-5">
-                  <p className="text-sm font-semibold text-dark">Free cancellation for 48 hours</p>
+                  <p className="text-sm font-semibold text-dark">{t('freeCancellation')}</p>
                   <p className="mt-2 text-sm leading-6 text-muted">
                     Cancel at least 48 hours before check-in for a strong refund estimate. Later cancellations may include host and service-fee deductions.
                   </p>
@@ -500,7 +502,7 @@ export default function PropertyDetailPage() {
           </div>
 
           <div className="py-8 border-b border-gray-200">
-            <h2 className="text-xl font-semibold text-dark">Nearby attractions</h2>
+            <h2 className="text-xl font-semibold text-dark">{t('nearbyAttractions')}</h2>
             <div className="mt-5 grid gap-3 sm:grid-cols-3">
               {NEARBY_ATTRACTIONS.map((item) => {
                 const Icon = item.icon
@@ -521,7 +523,7 @@ export default function PropertyDetailPage() {
               <Star size={20} className="fill-dark text-dark" />
               <h2 className="text-xl font-semibold text-dark">
                 {avgRating}
-                {totalReviews > 0 && ` · ${totalReviews} review${totalReviews !== 1 ? 's' : ''}`}
+                {totalReviews > 0 && ` · ${t('common:review', { count: totalReviews })}`}
               </h2>
             </div>
 
@@ -565,7 +567,7 @@ export default function PropertyDetailPage() {
                       </div>
                       <div>
                         <div className="flex items-center gap-1.5">
-                          <p className="text-sm font-semibold text-dark">Verified Guest</p>
+                          <p className="text-sm font-semibold text-dark">{t('verifiedGuest')}</p>
                           <div className="flex items-center gap-0.5">
                             {Array.from({ length: review.rating }).map((_, i) => (
                               <Star key={i} size={10} className="fill-dark text-dark" />
@@ -583,14 +585,14 @@ export default function PropertyDetailPage() {
                 ))}
               </div>
             ) : (
-              <p className="text-sm text-muted">No reviews yet for this property.</p>
+              <p className="text-sm text-muted">{t('noReviews')}</p>
             )}
           </div>
 
           {/* Map — only shown when real coordinates exist */}
           {hasCoordinates && (
             <div className="py-8">
-              <h2 className="text-xl font-semibold text-dark mb-6">Where you'll be</h2>
+              <h2 className="text-xl font-semibold text-dark mb-6">{t('location')}</h2>
               <LocationMap
                 coordinates={property.coordinates}
                 location={`${property.location}, ${property.country}`}
@@ -611,11 +613,11 @@ export default function PropertyDetailPage() {
           <div>
             <p className="text-[15px]">
               <span className="font-bold">{formatCurrency(property.price)}</span>
-              <span className="text-muted"> night</span>
+              <span className="text-muted"> {t('perNight')}</span>
             </p>
           </div>
           <button className="bg-gradient-to-r from-brand to-rose-500 text-white rounded-xl px-6 py-3 text-sm font-bold">
-            Reserve
+            {t('reserve')}
           </button>
         </div>
       )}

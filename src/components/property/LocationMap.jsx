@@ -5,13 +5,18 @@ export default function LocationMap({ coordinates, location }) {
   const mapRef = useRef(null)
   const mapInstanceRef = useRef(null)
 
+  // Accept both { lat, lng } object and legacy [lat, lng] array
+  const lat = Array.isArray(coordinates) ? coordinates[0] : coordinates?.lat
+  const lng = Array.isArray(coordinates) ? coordinates[1] : coordinates?.lng
+  const hasCoords = Number.isFinite(lat) && Number.isFinite(lng) && (lat !== 0 || lng !== 0)
+  const latLng = hasCoords ? [lat, lng] : null
+
   useEffect(() => {
-    if (!coordinates || !mapRef.current || mapInstanceRef.current) return
+    if (!latLng || !mapRef.current || mapInstanceRef.current) return
 
     const initMap = async () => {
       const L = await import('leaflet')
 
-      // Fix default marker icon
       delete L.Icon.Default.prototype._getIconUrl
       L.Icon.Default.mergeOptions({
         iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon-2x.png',
@@ -22,15 +27,14 @@ export default function LocationMap({ coordinates, location }) {
       const map = L.map(mapRef.current, {
         scrollWheelZoom: false,
         zoomControl: true,
-      }).setView(coordinates, 13)
+      }).setView(latLng, 13)
 
       L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: '&copy; OpenStreetMap contributors',
         maxZoom: 18,
       }).addTo(map)
 
-      // Add a circle instead of a precise pin for privacy
-      L.circle(coordinates, {
+      L.circle(latLng, {
         color: '#FF385C',
         fillColor: '#FF385C',
         fillOpacity: 0.15,
@@ -38,7 +42,7 @@ export default function LocationMap({ coordinates, location }) {
         weight: 2,
       }).addTo(map)
 
-      L.marker(coordinates).addTo(map)
+      L.marker(latLng).addTo(map)
 
       mapInstanceRef.current = map
     }
@@ -51,7 +55,8 @@ export default function LocationMap({ coordinates, location }) {
         mapInstanceRef.current = null
       }
     }
-  }, [coordinates])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lat, lng])
 
   return (
     <div>

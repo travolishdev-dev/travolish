@@ -1,5 +1,25 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
 
+/* ── Design Token CSS Variables ── */
+:root {
+  --color-dark:    34  34  34;   /* #222222 — headings / body text */
+  --color-muted:   113 113 113;  /* #717171 — secondary text      */
+  --color-surface: 247 247 247;  /* #F7F7F7 — input / chip bg     */
+  --color-border:  229 229 229;  /* #E5E5E5 — dividers / strokes  */
+  --color-bg:      255 255 255;  /* #ffffff — page background     */
+  --color-card:    255 255 255;  /* #ffffff — card background     */
+}
+
+html.dark {
+  color-scheme: dark;
+  --color-dark:    237 237 237;  /* near-white text               */
+  --color-muted:   150 150 150;  /* dimmed secondary text         */
+  --color-surface: 38  38  38;   /* #262626 — input / chip bg     */
+  --color-border:  55  55  55;   /* #373737 — dividers / strokes  */
+  --color-bg:      13  13  13;   /* #0d0d0d — page background     */
+  --color-card:    24  24  24;   /* #181818 — card background     */
+}
+
 @font-face {
   font-family: 'Fake Serif';
   src:
@@ -29,8 +49,8 @@ html {
 
 body {
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
-  color: #222222;
-  background: #ffffff;
+  color: rgb(var(--color-dark));
+  background: rgb(var(--color-bg));
   line-height: 1.5;
 }
 
@@ -284,4 +304,120 @@ body {
   .travolish-calendar .rdp-months {
     display: block;
   }
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   Dark Mode — Global overrides for hardcoded Tailwind utilities.
+   Semantic tokens (text-dark, bg-surface, etc.) already switch
+   automatically via CSS vars above. These rules cover the common
+   Tailwind built-in utilities (bg-white, bg-gray-*, border-gray-*)
+   used throughout the app, so individual components need no changes.
+────────────────────────────────────────────────────────────────── */
+
+/* Backgrounds */
+html.dark .bg-white  { background-color: rgb(var(--color-card)); }
+html.dark .bg-gray-50  { background-color: #111111; }
+html.dark .bg-gray-100 { background-color: #1e1e1e; }
+html.dark .bg-gray-200 { background-color: #2a2a2a; }
+html.dark .bg-\[white\] { background-color: rgb(var(--color-card)); }
+
+/* Semi-transparent whites used in overlays/widgets */
+html.dark .bg-white\/45  { background-color: rgba(24, 24, 24, 0.45); }
+html.dark .bg-white\/50  { background-color: rgba(24, 24, 24, 0.50); }
+html.dark .bg-white\/78  { background-color: rgba(24, 24, 24, 0.85); }
+html.dark .bg-white\/98  { background-color: rgba(18, 18, 18, 0.98); }
+
+/* Hover backgrounds */
+html.dark .hover\:bg-gray-50:hover  { background-color: rgb(var(--color-surface)); }
+html.dark .hover\:bg-gray-100:hover { background-color: rgb(var(--color-surface)); }
+html.dark .hover\:bg-red-50:hover   { background-color: rgba(239, 68, 68, 0.12); }
+
+/* Borders */
+html.dark .border-gray-100 { border-color: rgb(var(--color-border)); }
+html.dark .border-gray-200 { border-color: rgb(var(--color-border)); }
+html.dark .border-gray-300 { border-color: rgb(var(--color-border)); }
+html.dark .divide-gray-100 > * + * { border-color: rgb(var(--color-border)); }
+
+/* Text */
+html.dark .text-gray-400 { color: #888888; }
+html.dark .text-gray-500 { color: #9ca3af; }
+html.dark .text-gray-600 { color: #9ca3af; }
+html.dark .text-gray-700 { color: rgb(var(--color-dark)); }
+html.dark .text-gray-800 { color: rgb(var(--color-dark)); }
+html.dark .text-gray-900 { color: rgb(var(--color-dark)); }
+html.dark .text-black    { color: rgb(var(--color-dark)); }
+
+/* Shadows — increase opacity so they're visible on dark backgrounds */
+html.dark .shadow-md {
+  --tw-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.45), 0 2px 4px -2px rgb(0 0 0 / 0.35);
+  box-shadow: var(--tw-shadow);
+}
+html.dark .shadow-lg {
+  --tw-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.5), 0 4px 6px -4px rgb(0 0 0 / 0.4);
+  box-shadow: var(--tw-shadow);
+}
+html.dark .shadow-2xl {
+  --tw-shadow: 0 25px 50px -12px rgb(0 0 0 / 0.7);
+  box-shadow: var(--tw-shadow);
+}
+
+/* Scrollbar */
+html.dark ::-webkit-scrollbar-thumb { background: #404040; }
+html.dark ::-webkit-scrollbar-thumb:hover { background: #555555; }
+
+/* Skeleton shimmer */
+html.dark .skeleton-shimmer {
+  background: linear-gradient(90deg, #2a2a2a 25%, #3a3a3a 50%, #2a2a2a 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s ease-in-out infinite;
+}
+
+/* Home search hero */
+html.dark .home-search-hero {
+  background:
+    radial-gradient(circle at 18% 18%, rgba(255, 56, 92, 0.06), transparent 26%),
+    radial-gradient(circle at 82% 12%, rgba(200, 200, 200, 0.03), transparent 24%),
+    linear-gradient(180deg, #0d0d0d 0%, #0a0a0a 54%, #0d0d0d 100%);
+}
+html.dark .home-search-hero::before {
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.04) 1px, transparent 1px);
+}
+html.dark .home-search-hero::after {
+  background: rgba(255, 56, 92, 0.04);
+}
+
+/* Footer */
+html.dark .footer-pink-grid {
+  background: linear-gradient(180deg, rgb(var(--color-bg)) 0%, rgb(var(--color-bg)) 100%);
+}
+html.dark .footer-pink-grid::before {
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+}
+
+/* Traveller assistant cloud bubble */
+html.dark .traveller-assistant-cloud {
+  background: linear-gradient(135deg, rgba(30, 30, 30, 0.98), rgba(24, 24, 30, 0.98));
+  border-color: rgba(255, 56, 92, 0.22);
+}
+html.dark .traveller-assistant-cloud::after {
+  background: rgba(24, 24, 30, 0.98);
+  border-color: rgba(255, 56, 92, 0.22);
+}
+
+/* Date picker (react-day-picker) */
+html.dark .travolish-calendar {
+  --rdp-background-color: rgba(255, 56, 92, 0.15);
+}
+html.dark .travolish-calendar .rdp-caption_label { color: rgb(var(--color-dark)); }
+html.dark .travolish-calendar .rdp-head_cell { color: rgb(var(--color-muted)); }
+html.dark .travolish-calendar .rdp-button:hover:not([disabled]):not(.rdp-day_selected) {
+  background: rgb(var(--color-surface));
+}
+html.dark .travolish-calendar .rdp-day_range_middle {
+  background: rgba(255, 56, 92, 0.15);
+  color: rgb(var(--color-dark));
 }

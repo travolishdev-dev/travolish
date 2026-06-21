@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { MapPin, Search } from 'lucide-react'
 import { motion as Motion } from 'framer-motion'
 import { searchHotels, listRooms } from '../services/hotelsApi'
 import { adaptHotels } from '../lib/hotelAdapter'
+import { geocodeMissing } from '../lib/geocoding'
 import { useSearchContext } from '../hooks/useSearchContext'
 import SearchControls from '../components/search/SearchControls'
 import SearchPropertyCard from '../components/search/SearchPropertyCard'
@@ -96,6 +98,7 @@ function SearchCardSkeleton() {
 }
 
 export default function SearchPage() {
+  const { t } = useTranslation(['search', 'common'])
   const { searchDraft, updateSearchDraft } = useSearchContext()
   const [minPrice, setMinPrice] = useState('')
   const [maxPrice, setMaxPrice] = useState('')
@@ -109,14 +112,20 @@ export default function SearchPage() {
   const [isLoading, setIsLoading] = useState(false)
   const [totalResults, setTotalResults] = useState(0)
   const [selectedPropertyId, setSelectedPropertyId] = useState(null)
+  const [bboxFilter, setBboxFilter] = useState(null)
   const sharedLocation = useNativeAppLocationStore()
   const debounceRef = useRef(null)
+  const geocodeControllerRef = useRef(null)
   const propertyCardRefs = useRef(new Map())
 
   const destination = searchDraft.destination.trim()
 
   useEffect(() => {
+    // Cancel any in-progress geocoding from previous search
+    geocodeControllerRef.current?.abort()
+    geocodeControllerRef.current = null
     clearTimeout(debounceRef.current)
+
     debounceRef.current = setTimeout(async () => {
       setIsLoading(true)
       try {
@@ -124,17 +133,38 @@ export default function SearchPage() {
           searchHotels({ query: destination || undefined, pageSize: 50 }),
           listRooms(),
         ])
-        setAllProperties(adaptHotels(searchResult.content ?? [], rooms).map(enrichProperty))
+        const adapted = adaptHotels(searchResult.content ?? [], rooms).map(enrichProperty)
+        setAllProperties(adapted)
         setTotalResults(searchResult.totalElements ?? 0)
+        setIsLoading(false)
+
+        // Geocode up to 12 properties missing coordinates, cancellable
+        const needsGeocode = adapted.some((p) => {
+          const { lat, lng } = p.coordinates ?? {}
+          return !Number.isFinite(lat) || !Number.isFinite(lng) || (lat === 0 && lng === 0)
+        })
+        if (needsGeocode) {
+          const controller = new AbortController()
+          geocodeControllerRef.current = controller
+          geocodeMissing(adapted, controller.signal).then((enriched) => {
+            if (!controller.signal.aborted) {
+              setAllProperties(enriched)
+              geocodeControllerRef.current = null
+            }
+          })
+        }
       } catch {
         setAllProperties([])
         setTotalResults(0)
-      } finally {
         setIsLoading(false)
       }
     }, destination ? DEBOUNCE_MS : 0)
 
-    return () => clearTimeout(debounceRef.current)
+    return () => {
+      geocodeControllerRef.current?.abort()
+      geocodeControllerRef.current = null
+      clearTimeout(debounceRef.current)
+    }
   }, [destination])
 
   const parsedMinPrice = minPrice ? parseInt(minPrice, 10) : null
@@ -212,6 +242,33 @@ export default function SearchPage() {
     })
   }, [])
 
+  const handleBboxSearch = useCallback(async (bbox) => {
+    geocodeControllerRef.current?.abort()
+    geocodeControllerRef.current = null
+    setBboxFilter(bbox)
+    setIsLoading(true)
+    try {
+      const [searchResult, rooms] = await Promise.all([
+        searchHotels({
+          query: destination || undefined,
+          pageSize: 50,
+          latMin: bbox.latMin,
+          latMax: bbox.latMax,
+          lngMin: bbox.lngMin,
+          lngMax: bbox.lngMax,
+        }),
+        listRooms(),
+      ])
+      const adapted = adaptHotels(searchResult.content ?? [], rooms).map(enrichProperty)
+      setAllProperties(adapted)
+      setTotalResults(searchResult.totalElements ?? 0)
+    } catch {
+      /* keep existing results on bbox search failure */
+    } finally {
+      setIsLoading(false)
+    }
+  }, [destination])
+
   return (
     <Motion.main
       initial={{ opacity: 0 }}
@@ -266,15 +323,15 @@ export default function SearchPage() {
                 </p>
                 <h2 className="mt-1 text-lg font-semibold text-dark">
                   {sharedLocation.hasSharedLocation
-                    ? 'Search results are sorted by your shared location'
-                    : 'Location was not shared from the app'}
+                    ? t('search:sortedByLocation')
+                    : t('search:locationNotShared')}
                 </h2>
                 <p className="mt-1 text-sm text-muted">
                   {sharedLocation.hasSharedLocation
-                    ? `${sharedCoordinates} · Permission granted`
+                    ? `${sharedCoordinates} · ${t('search:permissionGranted')}`
                     : `Permission status: ${
                       sharedLocation.locationPermission || 'unknown'
-                    }. Showing the default result order.`}
+                    }. ${t('search:showingDefault')}`}
                 </p>
               </div>
             </div>
@@ -286,18 +343,18 @@ export default function SearchPage() {
             <div className="mb-4 flex flex-col gap-2 lg:flex-row lg:items-end lg:justify-between">
               <div>
                 <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-muted">
-                  Search results
+                  {t('search:title')}
                 </p>
                 <h1 className="mt-0.5 text-lg font-semibold leading-snug text-dark md:text-xl">
                   {isLoading
-                    ? 'Finding stays'
-                    : `${visibleCount} stay${visibleCount === 1 ? '' : 's'} ${resultScope}`}
+                    ? t('search:finding')
+                    : `${t('common:stay', { count: visibleCount })} ${resultScope}`}
                 </h1>
               </div>
               <p className="text-xs text-muted md:text-sm">
                 {totalResults > 0
-                  ? `${totalResults} total result${totalResults === 1 ? '' : 's'} before filters`
-                  : 'Use the top search panel to refine destination, dates, guests, and filters.'}
+                  ? `${t('common:result', { count: totalResults })} before filters`
+                  : t('search:refineHint')}
               </p>
             </div>
 
@@ -308,9 +365,9 @@ export default function SearchPage() {
             ) : isEmptyState ? (
               <div className="flex min-h-[420px] flex-col items-center justify-center rounded-[28px] border border-gray-200 bg-white px-6 text-center shadow-sm">
                 <Search size={48} className="text-gray-300" />
-                <h2 className="mt-4 text-xl font-semibold text-dark">No results found</h2>
+                <h2 className="mt-4 text-xl font-semibold text-dark">{t('search:noResults')}</h2>
                 <p className="mt-2 max-w-md text-sm text-muted">
-                  Try adding check-in and check-out dates, a different destination, or loosen the price and rating filters.
+                  {t('search:noResultsHint')}
                 </p>
               </div>
             ) : (
@@ -334,7 +391,9 @@ export default function SearchPage() {
             <SearchResultsMap
               properties={isLoading ? [] : sortedResults}
               destination={destination}
+              selectedPropertyId={selectedPropertyId}
               onPropertySelect={handleMapPropertySelect}
+              onBboxSearch={handleBboxSearch}
             />
           </aside>
         </div>
@@ -345,7 +404,9 @@ export default function SearchPage() {
               properties={sortedResults}
               destination={destination}
               compact
+              selectedPropertyId={selectedPropertyId}
               onPropertySelect={handleMapPropertySelect}
+              onBboxSearch={handleBboxSearch}
             />
           </div>
         )}

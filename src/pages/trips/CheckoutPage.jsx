@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Link, useParams, useLocation } from 'react-router-dom'
 import {
   CalendarDays,
@@ -66,6 +67,7 @@ const DEFAULT_CHECK_IN = addDays(new Date(), 1)
 const DEFAULT_CHECK_OUT = addDays(new Date(), 4)
 
 export default function CheckoutPage() {
+  const { t } = useTranslation(['booking', 'common'])
   const { propertyId } = useParams()
   const location = useLocation()
   const { user, profile, backendUserId } = useAuthStore()
@@ -217,7 +219,7 @@ export default function CheckoutPage() {
       : addOnTotal
   const promoDiscount = appliedPromo ? Math.min(75, Math.round(grossTotal * 0.08)) : 0
   const displayTotal = Math.max(0, grossTotal - promoDiscount)
-  const buttonLabel = bookingMode === 'request' ? 'Send booking request' : 'Confirm and reserve'
+  const buttonLabel = bookingMode === 'request' ? t('sendRequest') : t('confirmReserve')
 
   const dateLabel =
     checkIn && checkOut
@@ -260,7 +262,7 @@ export default function CheckoutPage() {
       })
       setConfirmedBooking(booking)
     } catch {
-      setSubmitError('Booking failed. Please check your details and try again.')
+      setSubmitError(t('bookingFailed'))
     } finally {
       setIsSubmitting(false)
     }
@@ -270,10 +272,10 @@ export default function CheckoutPage() {
   if (!isLoadingHotel && (hotelError || !hotel)) {
     return (
       <PortalShell
-        eyebrow="Checkout"
-        title="Property not found."
+        eyebrow={t('checkout')}
+        title={t('propertyNotFound')}
         description="We couldn't load this property. It may have been removed."
-        actions={[{ label: 'Back to search', href: '/search' }]}
+        actions={[{ label: t('backToSearch'), href: '/search' }]}
       >
         <SectionCard>
           <p className="text-sm text-muted">
@@ -288,12 +290,12 @@ export default function CheckoutPage() {
   if (confirmedBooking) {
     return (
       <PortalShell
-        eyebrow={bookingMode === 'request' ? 'Booking request sent' : 'Booking confirmed'}
-        title={bookingMode === 'request' ? 'Your request is with the host.' : "You're all set."}
+        eyebrow={bookingMode === 'request' ? t('requestSent') : t('bookingConfirmed')}
+        title={bookingMode === 'request' ? t('requestWithHost') : t('allSet')}
         description={`Booking #${confirmedBooking.id} has been created successfully.`}
         actions={[
-          { label: 'View my trips', href: '/trips' },
-          { label: 'Back to home', href: '/', secondary: true },
+          { label: t('viewMyTrips'), href: '/trips' },
+          { label: t('backToHome'), href: '/', secondary: true },
         ]}
       >
         <SectionCard>
@@ -303,7 +305,7 @@ export default function CheckoutPage() {
             </div>
             <div>
               <h2 className="text-lg font-semibold text-dark">
-                {bookingMode === 'request' ? 'Request sent' : 'Booking confirmed'}
+                {bookingMode === 'request' ? t('requestSent') : t('bookingConfirmed')}
               </h2>
               <p className="mt-1 text-sm text-muted">
                 {hotel.name} · {dateLabel} · {nights} night{nights !== 1 ? 's' : ''}
@@ -327,9 +329,9 @@ export default function CheckoutPage() {
 
   return (
     <PortalShell
-      eyebrow="Checkout"
-      title={isLoadingHotel ? 'Loading…' : 'Review and confirm your stay.'}
-      mobileTitle="Checkout"
+      eyebrow={t('checkout')}
+      title={isLoadingHotel ? t('common:status.loading') : t('reviewAndConfirm')}
+      mobileTitle={t('checkout')}
       mobileBottomAction={{ label: buttonLabel, onClick: handleReserve }}
       description={
         hotel
@@ -337,17 +339,17 @@ export default function CheckoutPage() {
           : ''
       }
       actions={[
-        { label: 'Back to property', href: `/property/${propertyId}`, secondary: true },
-        { label: 'Need help?', href: '/messages' },
+        { label: t('backToProperty'), href: `/property/${propertyId}`, secondary: true },
+        { label: t('needHelp'), href: '/messages' },
       ]}
       stats={[
         {
-          label: 'Stay total',
+          label: t('stayTotal'),
           value: isLoadingHotel ? '—' : formatMoney(displayTotal, currency),
           note: `${nights > 0 ? nights : '—'} nights`,
         },
         {
-          label: 'Guests',
+          label: t('guestCount'),
           value: String(guestCount),
           note: dateLabel || 'Select dates',
         },
@@ -376,7 +378,7 @@ export default function CheckoutPage() {
 
             <div className="mt-5 flex flex-wrap items-center gap-2">
               <StatusPill tone="brand">
-                {bookingMode === 'request' ? 'Request to book' : 'Instant booking'}
+                {bookingMode === 'request' ? t('requestToBook') : t('instantBook')}
               </StatusPill>
               <StatusPill tone="success">Flexible policy</StatusPill>
             </div>
@@ -406,8 +408,8 @@ export default function CheckoutPage() {
           {/* ── Price summary ── */}
           <SectionCard>
             <SectionHeading
-              eyebrow="Price Summary"
-              title="What you pay today"
+              eyebrow={t('pricePreview')}
+              title={t('whatYouPay')}
               description="Pricing is calculated live from the booking engine."
               action={(
                 <label className="inline-flex items-center gap-2 rounded-2xl border border-gray-200 bg-white px-3 py-2 text-sm font-semibold text-dark">
@@ -429,7 +431,7 @@ export default function CheckoutPage() {
               {isCalculating ? (
                 <div className="flex items-center gap-2 text-muted">
                   <Loader2 size={14} className="animate-spin" />
-                  Calculating price…
+                  {t('calculatingPrice')}
                 </div>
               ) : priceBreakdown ? (
                 <>
@@ -485,7 +487,7 @@ export default function CheckoutPage() {
                         setPromoCode(event.target.value)
                         setPromoNotice('')
                       }}
-                      placeholder="Promo code"
+                      placeholder={t('promoCode')}
                       className="w-full rounded-xl border border-gray-200 bg-white py-2.5 pl-9 pr-3 text-sm outline-none focus:border-dark"
                     />
                   </span>
@@ -502,7 +504,7 @@ export default function CheckoutPage() {
                     }}
                     className="rounded-xl bg-dark px-4 py-2.5 text-sm font-semibold text-white"
                   >
-                    Apply
+                    {t('apply')}
                   </button>
                 </div>
                 {promoNotice ? <p className="mt-2 text-xs font-medium text-muted">{promoNotice}</p> : null}
@@ -516,7 +518,7 @@ export default function CheckoutPage() {
               )}
 
               <div className="flex items-center justify-between border-t border-gray-100 pt-4 text-lg font-semibold">
-                <span>Total</span>
+                <span>{t('total')}</span>
                 <span>{formatMoney(displayTotal, currency)}</span>
               </div>
             </div>
@@ -529,9 +531,9 @@ export default function CheckoutPage() {
                   : 'bg-red-50 text-red-600'
               }`}>
                 {isAvailable ? (
-                  <><CheckCircle2 size={14} /> Available for your dates</>
+                  <><CheckCircle2 size={14} /> {t('availableForDates')}</>
                 ) : (
-                  <><AlertCircle size={14} /> Not available for selected dates</>
+                  <><AlertCircle size={14} /> {t('notAvailableDates')}</>
                 )}
               </div>
             )}
@@ -550,7 +552,7 @@ export default function CheckoutPage() {
               className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-dark px-5 py-3.5 text-sm font-semibold text-white transition-colors hover:bg-gray-800 disabled:opacity-40 disabled:cursor-not-allowed"
             >
               {isSubmitting ? (
-                <><Loader2 size={16} className="animate-spin" /> Processing…</>
+                <><Loader2 size={16} className="animate-spin" /> {t('common:status.processing')}</>
               ) : (
                 <><CreditCard size={16} /> {buttonLabel}</>
               )}
@@ -581,7 +583,7 @@ export default function CheckoutPage() {
           <SectionCard>
             <SectionHeading
               eyebrow="Booking Flow"
-              title={bookingMode === 'request' ? 'Host approval required' : 'Instant confirmation available'}
+              title={bookingMode === 'request' ? t('hostApprovalRequired') : t('instantConfirmation')}
               description={
                 bookingMode === 'request'
                   ? 'This stay is shown as request-to-book in the traveller flow. The host should approve or decline within 24 hours once backend workflow is connected.'
@@ -592,13 +594,13 @@ export default function CheckoutPage() {
 
           <SectionCard>
             <SectionHeading
-              eyebrow="Dates"
-              title="When are you staying?"
+              eyebrow={t('dates')}
+              title={t('whenStaying')}
             />
             <div className="mt-6 grid grid-cols-2 gap-4">
               <label className="block">
                 <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.18em] text-muted">
-                  Check-in
+                  {t('checkIn')}
                 </span>
                 <input
                   type="date"
@@ -614,7 +616,7 @@ export default function CheckoutPage() {
               </label>
               <label className="block">
                 <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.18em] text-muted">
-                  Check-out
+                  {t('checkOut')}
                 </span>
                 <input
                   type="date"
@@ -631,8 +633,8 @@ export default function CheckoutPage() {
           {!isLoadingHotel && rooms.length > 0 && (
             <SectionCard>
               <SectionHeading
-                eyebrow="Room"
-                title="Select your room"
+                eyebrow={t('room')}
+                title={t('selectRoom')}
               />
               <div className="mt-6 grid gap-3">
                 {rooms.map((room) => {
@@ -681,16 +683,16 @@ export default function CheckoutPage() {
           {/* Traveler details */}
           <SectionCard>
             <SectionHeading
-              eyebrow="Traveler"
-              title="Primary traveler details"
+              eyebrow={t('traveler')}
+              title={t('primaryTraveler')}
             />
             <div className="mt-6 grid gap-4 md:grid-cols-2">
               <label className="block md:col-span-2">
-                <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.18em] text-muted">Guests</span>
+                <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.18em] text-muted">{t('guests')}</span>
                 <span className="flex max-w-xs items-center justify-between rounded-2xl border border-gray-200 bg-[#fcfcfb] px-4 py-3">
                   <span className="inline-flex items-center gap-2 text-sm font-semibold text-dark">
                     <UsersRound size={16} />
-                    Guest count
+                    {t('guestCount')}
                   </span>
                   <input
                     type="number"
@@ -703,7 +705,7 @@ export default function CheckoutPage() {
                 </span>
               </label>
               <label className="block">
-                <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.18em] text-muted">First name</span>
+                <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.18em] text-muted">{t('firstName')}</span>
                 <input
                   type="text"
                   value={firstName}
@@ -712,7 +714,7 @@ export default function CheckoutPage() {
                 />
               </label>
               <label className="block">
-                <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.18em] text-muted">Last name</span>
+                <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.18em] text-muted">{t('lastName')}</span>
                 <input
                   type="text"
                   value={lastName}
@@ -721,7 +723,7 @@ export default function CheckoutPage() {
                 />
               </label>
               <label className="block">
-                <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.18em] text-muted">Email</span>
+                <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.18em] text-muted">{t('email')}</span>
                 <input
                   type="email"
                   value={email}
@@ -730,7 +732,7 @@ export default function CheckoutPage() {
                 />
               </label>
               <label className="block">
-                <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.18em] text-muted">Phone</span>
+                <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.18em] text-muted">{t('phone')}</span>
                 <input
                   type="tel"
                   value={phone}
@@ -744,9 +746,9 @@ export default function CheckoutPage() {
           {/* Add-ons */}
           <SectionCard>
             <SectionHeading
-              eyebrow="Extras"
-              title="Add-ons worth considering"
-              description="Optional services you can include with your stay."
+              eyebrow={t('extras')}
+              title={t('addOnsTitle')}
+              description={t('addOnsDesc')}
             />
             <div className="mt-6 grid gap-4">
               {addOns.map((addOn) => {
@@ -789,7 +791,7 @@ export default function CheckoutPage() {
         to={`/property/${propertyId}`}
         className="inline-flex items-center gap-2 text-sm font-semibold text-dark transition-colors hover:text-muted"
       >
-        Back to property
+        {t('backToProperty')}
       </Link>
     </PortalShell>
   )

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { BellRing, CheckCheck, Clock3, Filter, Trash2 } from 'lucide-react'
 import { formatDistanceToNow, isThisWeek, isToday, parseISO } from 'date-fns'
+import { useTranslation } from 'react-i18next'
 import {
   PortalShell,
   SectionCard,
@@ -26,17 +27,18 @@ const TYPE_TONE = {
 }
 
 const TYPE_ACTION = {
-  BOOKING_CONFIRMATION: (n) => ({ label: 'View booking', href: n.bookingId ? `/trips/${n.bookingId}` : '/trips' }),
-  BOOKING_REMINDER:    (n) => ({ label: 'View booking', href: n.bookingId ? `/trips/${n.bookingId}` : '/trips' }),
-  BOOKING_CANCELLATION:() => ({ label: 'Browse stays', href: '/search' }),
-  CHECK_IN_REMINDER:   (n) => ({ label: 'View booking', href: n.bookingId ? `/trips/${n.bookingId}` : '/trips' }),
-  CHECK_OUT_REMINDER:  (n) => ({ label: 'View booking', href: n.bookingId ? `/trips/${n.bookingId}` : '/trips' }),
-  PAYMENT_RECEIVED:    () => ({ label: 'View trips',   href: '/trips' }),
-  PAYMENT_FAILED:      () => ({ label: 'View trips',   href: '/trips' }),
-  REVIEW_REQUEST:      (n) => ({ label: 'Leave review', href: n.hotelId ? `/reviews/new?hotelId=${n.hotelId}` : '/trips' }),
-  PROMOTIONAL_OFFER:   () => ({ label: 'Browse stays', href: '/search' }),
+  BOOKING_CONFIRMATION: (n, t) => ({ label: t('actions.viewBooking'), href: n.bookingId ? `/trips/${n.bookingId}` : '/trips' }),
+  BOOKING_REMINDER:    (n, t) => ({ label: t('actions.viewBooking'), href: n.bookingId ? `/trips/${n.bookingId}` : '/trips' }),
+  BOOKING_CANCELLATION:(_n, t) => ({ label: t('actions.browseStays'), href: '/search' }),
+  CHECK_IN_REMINDER:   (n, t) => ({ label: t('actions.viewBooking'), href: n.bookingId ? `/trips/${n.bookingId}` : '/trips' }),
+  CHECK_OUT_REMINDER:  (n, t) => ({ label: t('actions.viewBooking'), href: n.bookingId ? `/trips/${n.bookingId}` : '/trips' }),
+  PAYMENT_RECEIVED:    (_n, t) => ({ label: t('actions.viewTrips'),   href: '/trips' }),
+  PAYMENT_FAILED:      (_n, t) => ({ label: t('actions.viewTrips'),   href: '/trips' }),
+  REVIEW_REQUEST:      (n, t) => ({ label: t('actions.leaveReview'), href: n.hotelId ? `/reviews/new?hotelId=${n.hotelId}` : '/trips' }),
+  PROMOTIONAL_OFFER:   (_n, t) => ({ label: t('actions.browseStays'), href: '/search' }),
 }
 
+const SECTION_KEYS = { Today: 'groups.today', 'This week': 'groups.thisWeek', Earlier: 'groups.earlier' }
 const SECTION_ORDER = ['Today', 'This week', 'Earlier']
 
 function getSection(createdAt) {
@@ -50,9 +52,9 @@ function getSection(createdAt) {
   }
 }
 
-function adaptNotification(n) {
-  const actionFn = TYPE_ACTION[n.type] || (() => ({ label: 'View', href: '/notifications' }))
-  const { label, href } = actionFn(n)
+function adaptNotification(n, t) {
+  const actionFn = TYPE_ACTION[n.type] || ((_n, tFn) => ({ label: tFn('actions.viewBooking'), href: '/notifications' }))
+  const { label, href } = actionFn(n, t)
   return {
     id: n.id,
     type: n.type || 'GENERAL',
@@ -68,6 +70,7 @@ function adaptNotification(n) {
 }
 
 export default function NotificationsPage() {
+  const { t } = useTranslation('notifications')
   const [raw, setRaw] = useState([])
   const [loading, setLoading] = useState(true)
   const [showUnreadOnly, setShowUnreadOnly] = useState(false)
@@ -92,7 +95,7 @@ export default function NotificationsPage() {
     }
   }
 
-  const adapted = useMemo(() => raw.map(adaptNotification), [raw])
+  const adapted = useMemo(() => raw.map((n) => adaptNotification(n, t)), [raw, t])
   const unreadCount = adapted.filter((n) => !n.isRead).length
   const typeOptions = useMemo(
     () => ['ALL', ...new Set(adapted.map((notification) => notification.type))],
@@ -131,16 +134,16 @@ export default function NotificationsPage() {
   return (
     <PortalShell
       eyebrow="Notifications"
-      title="Recent updates."
+      title={t('heading')}
       mobileTitle="Notifications"
-      description="Booking milestones, reminders, and account alerts all in one place."
+      description={t('desc')}
       actions={[
-        { label: 'Notification settings', href: '/account/notification-settings', secondary: true },
+        { label: t('settings'), href: '/account/notification-settings', secondary: true },
       ]}
       stats={[
-        { label: 'Unread updates', value: String(unreadCount), note: 'Across trips and messages' },
-        { label: 'Total', value: String(adapted.length), note: 'All notifications' },
-        { label: 'Delivery mode', value: 'Smart', note: 'Push + email mix' },
+        { label: t('stats.unread'), value: String(unreadCount), note: t('stats.acrossTrips') },
+        { label: t('stats.total'), value: String(adapted.length), note: t('filters.all') },
+        { label: t('stats.deliveryMode'), value: t('stats.smart'), note: t('stats.smartDesc') },
       ]}
       accent="from-violet-50 via-white to-rose-50"
     >
@@ -148,7 +151,7 @@ export default function NotificationsPage() {
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <SectionHeading
             eyebrow="Inbox"
-            title="Latest updates"
+            title={t('latest')}
             description="Grouped by recency so the page stays easy to scan on mobile."
           />
 
@@ -176,7 +179,7 @@ export default function NotificationsPage() {
               }`}
             >
               <BellRing size={15} />
-              All notifications
+              {t('filters.all')}
             </button>
             <button
               type="button"
@@ -185,7 +188,7 @@ export default function NotificationsPage() {
                 showUnreadOnly ? 'bg-dark text-white' : 'border border-gray-200 bg-white text-dark hover:bg-gray-50'
               }`}
             >
-              Only unread
+              {t('filters.unread')}
             </button>
             <button
               type="button"
@@ -194,18 +197,18 @@ export default function NotificationsPage() {
               className="inline-flex items-center justify-center gap-2 rounded-full border border-gray-200 bg-white px-4 py-2.5 text-sm font-semibold text-dark transition-colors hover:bg-gray-50 disabled:opacity-45"
             >
               <CheckCheck size={15} />
-              Mark all read
+              {t('markAllRead')}
             </button>
           </div>
         </div>
 
         {loading && (
-          <div className="py-16 text-center text-sm text-muted">Loading notifications…</div>
+          <div className="py-16 text-center text-sm text-muted">{t('loading')}</div>
         )}
 
         {!loading && visible.length === 0 && (
           <div className="py-16 text-center text-sm text-muted">
-            {showUnreadOnly ? 'No unread notifications.' : 'No notifications yet.'}
+            {showUnreadOnly ? t('noUnread') : t('empty')}
           </div>
         )}
 
@@ -214,7 +217,7 @@ export default function NotificationsPage() {
             {orderedSections.map((section) => (
               <div key={section}>
                 <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted">
-                  {section}
+                  {t(SECTION_KEYS[section] ?? 'groups.earlier')}
                 </p>
                 <div className="mt-4 divide-y divide-gray-200 border-y border-gray-200">
                   {grouped[section].map((notification) => (
@@ -226,7 +229,7 @@ export default function NotificationsPage() {
                         <div className="max-w-3xl">
                           <div className="flex flex-wrap items-center gap-2">
                             <StatusPill tone={notification.tone}>
-                              {notification.isRead ? 'Read' : 'New'}
+                              {notification.isRead ? t('read') : t('new')}
                             </StatusPill>
                             <StatusPill tone="slate">
                               {notification.type.replace(/_/g, ' ').toLowerCase()}
@@ -258,7 +261,7 @@ export default function NotificationsPage() {
                               className="inline-flex w-full items-center justify-center gap-2 rounded-full border border-gray-200 bg-white px-4 py-2.5 text-sm font-semibold text-dark transition-colors hover:bg-gray-50 sm:w-auto"
                             >
                               <CheckCheck size={14} />
-                              Mark read
+                              {t('markRead')}
                             </button>
                           )}
                           <button
@@ -267,7 +270,7 @@ export default function NotificationsPage() {
                             className="inline-flex w-full items-center justify-center gap-2 rounded-full border border-gray-200 bg-white px-4 py-2.5 text-sm font-semibold text-dark transition-colors hover:bg-gray-50 sm:w-auto"
                           >
                             <Trash2 size={14} />
-                            Dismiss
+                            {t('dismiss')}
                           </button>
                         </div>
                       </div>

@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 import {
   CalendarDays,
@@ -102,6 +103,7 @@ function SummaryRow({ label, value, isStrong = false }) {
 }
 
 export default function BookingWidget({ property, rooms = [], sticky = true }) {
+  const { t } = useTranslation(['booking', 'common', 'property'])
   const navigate = useNavigate()
   const { searchDraft, updateSearchDraft } = useSearchContext()
   const { formatCurrency } = useCurrency()
@@ -134,7 +136,7 @@ export default function BookingWidget({ property, rooms = [], sticky = true }) {
   const dateLabel = formatDateRange(checkIn, checkOut)
   const roomLabel = cheapestRoom?.type
     ? `${cheapestRoom.type.charAt(0)}${cheapestRoom.type.slice(1).toLowerCase()} room`
-    : 'Best available room'
+    : t('bestRoom')
 
   const updateDates = (nextDates) => {
     setCheckIn(nextDates.checkIn)
@@ -161,19 +163,19 @@ export default function BookingWidget({ property, rooms = [], sticky = true }) {
     const nextErrors = {}
 
     if (!checkIn || !checkOut || nights <= 0) {
-      nextErrors.dates = 'Choose valid check-in and check-out dates.'
+      nextErrors.dates = t('invalidDates')
     }
     if (!guestDetails.fullName.trim()) {
-      nextErrors.fullName = 'Enter the primary guest name.'
+      nextErrors.fullName = t('enterName')
     }
     if (!guestDetails.email.trim() || !guestDetails.email.includes('@')) {
-      nextErrors.email = 'Enter a valid email address.'
+      nextErrors.email = t('invalidEmail')
     }
     if (!guestDetails.phone.trim() || guestDetails.phone.trim().length < 8) {
-      nextErrors.phone = 'Enter a valid phone number.'
+      nextErrors.phone = t('invalidPhone')
     }
     if (!basePrice) {
-      nextErrors.price = 'This property does not have an available room price yet.'
+      nextErrors.price = t('noPriceYet')
     }
 
     setErrors(nextErrors)
@@ -234,7 +236,7 @@ export default function BookingWidget({ property, rooms = [], sticky = true }) {
         <div className="flex items-start justify-between gap-4">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted">
-              Direct booking
+              {t('directBooking')}
             </p>
             <div className="mt-1 flex items-baseline gap-1.5">
               {basePrice ? (
@@ -242,7 +244,7 @@ export default function BookingWidget({ property, rooms = [], sticky = true }) {
                   <span className="text-2xl font-bold text-dark">
                     {formatCurrency(basePrice)}
                   </span>
-                  <span className="text-sm text-muted">night</span>
+                  <span className="text-sm text-muted">{t('property:perNight')}</span>
                 </>
               ) : (
                 <span className="text-xl font-bold text-dark">Price on request</span>
@@ -267,18 +269,18 @@ export default function BookingWidget({ property, rooms = [], sticky = true }) {
             >
               <span className="border-r border-gray-200 px-4 py-3">
                 <span className="block text-[11px] font-semibold uppercase tracking-[0.14em] text-muted">
-                  Check-in
+                  {t('checkIn')}
                 </span>
                 <span className="mt-1 block truncate text-sm font-semibold text-dark">
-                  {checkIn ? formatDateRange(checkIn, '').split(' - ')[0] : 'Select date'}
+                  {checkIn ? formatDateRange(checkIn, '').split(' - ')[0] : t('selectDate')}
                 </span>
               </span>
               <span className="px-4 py-3">
                 <span className="block text-[11px] font-semibold uppercase tracking-[0.14em] text-muted">
-                  Check-out
+                  {t('checkOut')}
                 </span>
                 <span className="mt-1 block truncate text-sm font-semibold text-dark">
-                  {checkOut ? formatDateRange(checkOut, '').split(' - ')[0] : 'Select date'}
+                  {checkOut ? formatDateRange(checkOut, '').split(' - ')[0] : t('selectDate')}
                 </span>
               </span>
             </button>
@@ -310,7 +312,7 @@ export default function BookingWidget({ property, rooms = [], sticky = true }) {
                 </span>
                 <span>
                   <span className="block text-[11px] font-semibold uppercase tracking-[0.14em] text-muted">
-                    Guests
+                    {t('guestCount')}
                   </span>
                   <span className="mt-0.5 block text-sm font-semibold text-dark">
                     {guestLabel}
@@ -323,8 +325,8 @@ export default function BookingWidget({ property, rooms = [], sticky = true }) {
             {activePanel === 'guests' && (
               <div className="absolute right-0 top-[calc(100%+10px)] z-[60] w-full rounded-2xl border border-gray-200 bg-white px-4 py-2 shadow-[0_16px_40px_rgba(15,23,42,0.14)]">
                 <CounterRow
-                  label="Adults"
-                  description="Ages 13 and above"
+                  label={t('adults')}
+                  description={t('agesAdults')}
                   value={adults}
                   min={1}
                   max={Math.max(1, maxGuests - children)}
@@ -335,8 +337,8 @@ export default function BookingWidget({ property, rooms = [], sticky = true }) {
                 />
                 <div className="border-t border-gray-100" />
                 <CounterRow
-                  label="Children"
-                  description="Ages 2 to 12"
+                  label={t('children')}
+                  description={t('agesChildren')}
                   value={children}
                   min={0}
                   max={Math.max(0, maxGuests - adults)}
@@ -346,7 +348,7 @@ export default function BookingWidget({ property, rooms = [], sticky = true }) {
                   )}
                 />
                 <p className="border-t border-gray-100 py-3 text-xs text-muted">
-                  Maximum {maxGuests} guest{maxGuests === 1 ? '' : 's'} for this property.
+                  {t('maximum')} {t('common:guest', { count: maxGuests })} for this property.
                 </p>
               </div>
             )}
@@ -356,12 +358,12 @@ export default function BookingWidget({ property, rooms = [], sticky = true }) {
         <div className="mt-5 rounded-2xl border border-gray-100 bg-gray-50 p-4">
           <div className="flex items-center gap-2">
             <UserRound size={17} className="text-dark" />
-            <p className="text-sm font-semibold text-dark">Guest details</p>
+            <p className="text-sm font-semibold text-dark">{t('guestCount')}</p>
           </div>
 
           <div className="mt-4 space-y-3">
             <label className="block">
-              <span className="text-xs font-semibold text-muted">Primary guest name</span>
+              <span className="text-xs font-semibold text-muted">{t('primaryGuestName')}</span>
               <input
                 type="text"
                 value={guestDetails.fullName}
@@ -369,7 +371,7 @@ export default function BookingWidget({ property, rooms = [], sticky = true }) {
                 className={`mt-1 w-full rounded-xl border bg-white px-3 py-2.5 text-sm text-dark outline-none transition-colors focus:border-dark ${
                   errors.fullName ? 'border-red-300' : 'border-gray-200'
                 }`}
-                placeholder="Full name"
+                placeholder={t('fullName')}
               />
               {errors.fullName && (
                 <span className="mt-1 block text-xs font-medium text-red-600">
@@ -380,7 +382,7 @@ export default function BookingWidget({ property, rooms = [], sticky = true }) {
 
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
               <label className="block">
-                <span className="text-xs font-semibold text-muted">Email</span>
+                <span className="text-xs font-semibold text-muted">{t('email')}</span>
                 <span className="relative mt-1 block">
                   <Mail
                     size={15}
@@ -429,13 +431,13 @@ export default function BookingWidget({ property, rooms = [], sticky = true }) {
             </div>
 
             <label className="block">
-              <span className="text-xs font-semibold text-muted">Special request</span>
+              <span className="text-xs font-semibold text-muted">{t('specialRequest')}</span>
               <textarea
                 value={guestDetails.note}
                 onChange={(event) => updateGuestDetails('note', event.target.value)}
                 rows={2}
                 className="mt-1 w-full resize-none rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm text-dark outline-none transition-colors focus:border-dark"
-                placeholder="Optional"
+                placeholder={t('optional')}
               />
             </label>
           </div>
@@ -443,12 +445,12 @@ export default function BookingWidget({ property, rooms = [], sticky = true }) {
 
         <div className="mt-5 space-y-3 border-t border-gray-100 pt-5">
           <SummaryRow
-            label={`${formatCurrency(basePrice)} x ${chargeableNights} night${chargeableNights === 1 ? '' : 's'}`}
+            label={`${formatCurrency(basePrice)} x ${t('common:night', { count: chargeableNights })}`}
             value={formatCurrency(roomTotal)}
           />
-          <SummaryRow label="Service fee" value={formatCurrency(serviceFee)} />
-          <SummaryRow label="Taxes" value={formatCurrency(taxes)} />
-          <SummaryRow label="Total" value={formatCurrency(total)} isStrong />
+          <SummaryRow label={t('serviceFee')} value={formatCurrency(serviceFee)} />
+          <SummaryRow label={t('taxes')} value={formatCurrency(taxes)} />
+          <SummaryRow label={t('total')} value={formatCurrency(total)} isStrong />
         </div>
 
         {errors.price && (
@@ -460,7 +462,7 @@ export default function BookingWidget({ property, rooms = [], sticky = true }) {
           className="mt-5 flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-brand to-rose-500 px-5 py-3.5 text-sm font-bold text-white shadow-md shadow-brand/20 transition-opacity hover:opacity-90"
         >
           <CreditCard size={17} />
-          Review booking
+          {t('reviewBooking')}
         </button>
 
         <div className="mt-3 flex items-center justify-center gap-2 text-xs text-muted">
@@ -478,7 +480,7 @@ export default function BookingWidget({ property, rooms = [], sticky = true }) {
                   <span className="flex h-9 w-9 items-center justify-center rounded-full bg-emerald-50 text-emerald-700">
                     <CheckCircle2 size={18} />
                   </span>
-                  <h2 className="text-xl font-semibold text-dark">Review your booking</h2>
+                  <h2 className="text-xl font-semibold text-dark">{t('reviewBooking')}</h2>
                 </div>
                 <p className="mt-2 text-sm text-muted">
                   Confirm these details before moving to the payment page.
@@ -510,13 +512,13 @@ export default function BookingWidget({ property, rooms = [], sticky = true }) {
                   </div>
                   <p className="mt-2 text-sm text-muted">{reviewBooking.dateLabel}</p>
                   <p className="mt-1 text-xs text-muted">
-                    {reviewBooking.nights} night{reviewBooking.nights === 1 ? '' : 's'}
+                    {t('common:night', { count: reviewBooking.nights })}
                   </p>
                 </div>
                 <div className="rounded-2xl border border-gray-100 p-4">
                   <div className="flex items-center gap-2 text-sm font-semibold text-dark">
                     <Users size={16} />
-                    Guests
+                    {t('guestCount')}
                   </div>
                   <p className="mt-2 text-sm text-muted">{reviewBooking.guestLabel}</p>
                   <p className="mt-1 text-xs text-muted">
@@ -526,7 +528,7 @@ export default function BookingWidget({ property, rooms = [], sticky = true }) {
               </section>
 
               <section className="rounded-2xl border border-gray-100 p-4">
-                <p className="text-sm font-semibold text-dark">Contact</p>
+                <p className="text-sm font-semibold text-dark">{t('contact')}</p>
                 <p className="mt-2 text-sm text-muted">{reviewBooking.guestDetails.email}</p>
                 <p className="mt-1 text-sm text-muted">{reviewBooking.guestDetails.phone}</p>
                 {reviewBooking.guestDetails.note && (
@@ -538,20 +540,20 @@ export default function BookingWidget({ property, rooms = [], sticky = true }) {
 
               <section className="space-y-3 rounded-2xl border border-gray-100 p-4">
                 <SummaryRow
-                  label="Room total"
+                  label={t('roomTotal')}
                   value={formatCurrency(reviewBooking.pricing.roomTotal)}
                 />
                 <SummaryRow
-                  label="Service fee"
+                  label={t('serviceFee')}
                   value={formatCurrency(reviewBooking.pricing.serviceFee)}
                 />
                 <SummaryRow
-                  label="Taxes"
+                  label={t('taxes')}
                   value={formatCurrency(reviewBooking.pricing.taxes)}
                 />
                 <div className="border-t border-gray-100 pt-3">
                   <SummaryRow
-                    label="Final price"
+                    label={t('finalPrice')}
                     value={formatCurrency(reviewBooking.pricing.total)}
                     isStrong
                   />

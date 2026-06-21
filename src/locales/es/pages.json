@@ -1,0 +1,66 @@
+{
+  "about": {
+    "eyebrow": "Nuestra historia",
+    "heading": "Viajar debe sentirse como en casa.",
+    "body": "Travolish se fundó con una creencia simple: cada viaje merece una estancia que valga la pena recordar. Conectamos a viajeros con hoteles seleccionados, casas de huéspedes boutique y estancias únicas que se adaptan a cómo viajan realmente.",
+    "missionEyebrow": "Nuestra misión",
+    "mission": "Hacer que las estancias excepcionales sean accesibles para todo viajero — no solo para quienes saben dónde buscar.",
+    "valuesEyebrow": "Lo que defendemos",
+    "valuesHeading": "Nuestros valores",
+    "cta": "¿Listo para explorar?",
+    "ctaDesc": "Explora miles de estancias seleccionadas en India y más allá.",
+    "browseHotels": "Buscar hoteles",
+    "stats": {
+      "properties": "Propiedades listadas",
+      "cities": "Ciudades cubiertas",
+      "rating": "Valoración media del huésped",
+      "responseRate": "Tasa de respuesta del anfitrión"
+    },
+    "values": {
+      "guestFirst": "El huésped siempre primero",
+      "india": "Construido para India y más allá",
+      "trust": "Confianza en cada paso",
+      "community": "Comunidad por encima de la transacción"
+    }
+  },
+  "emergency": {
+    "eyebrow": "Emergencia",
+    "title": "Seguridad del huésped y SOS.",
+    "desc": "Contactos de emergencia del viajero, detalles de seguridad de estancia activa e interfaz de soporte de un toque.",
+    "messages": "Mensajes",
+    "trips": "Viajes",
+    "stats": {
+      "safetyDesk": "Mesa de seguridad",
+      "alwaysAvailable": "Siempre disponible",
+      "localSOS": "SOS local",
+      "indiaLine": "Línea de emergencia de India",
+      "activeIncidents": "Incidentes activos",
+      "noOpenCase": "Sin caso de seguridad abierto"
+    },
+    "sosEyebrow": "SOS",
+    "sosTitle": "Acciones de emergencia de un toque",
+    "contacts": {
+      "local": "Emergencia local",
+      "localNumber": "112",
+      "localDesc": "Policía, bomberos, ambulancia",
+      "medical": "Ayuda médica",
+      "medicalNumber": "108",
+      "medicalDesc": "Soporte de ambulancia",
+      "travolish": "Mesa de seguridad Travolish",
+      "travolishNumber": "+91 80 5555 0199",
+      "travolishDesc": "Soporte al viajero 24/7"
+    },
+    "call": "Llamar",
+    "activeStayEyebrow": "Estancia activa",
+    "tripSafetyCard": "Tarjeta de seguridad del viaje",
+    "tripSafetyDesc": "Los detalles de seguridad relevantes seguirán la reserva activa del viajero.",
+    "hostContactsNote": "Los contactos del anfitrión y la propiedad aparecen aquí durante una estancia activa.",
+    "checklistEyebrow": "Lista de verificación",
+    "beforeCalling": "Antes de llamar",
+    "checklist": {
+      "one": "Comparte tu ID de reserva y ubicación actual.",
+      "two": "Contacta al anfitrión por mensajes si es seguro.",
+      "three": "Usa los servicios de emergencia locales primero para peligro inmediato."
+    }
+  }
+}

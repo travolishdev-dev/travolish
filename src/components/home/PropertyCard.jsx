@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { ArrowRight, ChevronLeft, ChevronRight, Heart, Star } from 'lucide-react'
 import useWishlistStore from '../../stores/useWishlistStore'
 import useCurrency from '../../hooks/useCurrency'
@@ -19,6 +20,7 @@ function getDisplayPrice(property) {
 }
 
 export default function PropertyCard({ property, index = 0, variant = 'default' }) {
+  const { t } = useTranslation(['property', 'search'])
   const [currentImage, setCurrentImage] = useState(0)
   const [isHovered, setIsHovered] = useState(false)
   const [imageLoaded, setImageLoaded] = useState(false)
@@ -145,7 +147,7 @@ export default function PropertyCard({ property, index = 0, variant = 'default' 
                 {formattedPrice != null ? (
                   <>
                     <span className="text-lg font-semibold text-dark">{formattedPrice}</span>
-                    {' '}per night
+                    {' '}{t('property:perNight')}
                   </>
                 ) : (
                   <span className="text-sm text-muted italic">Price unavailable</span>
@@ -158,7 +160,7 @@ export default function PropertyCard({ property, index = 0, variant = 'default' 
                 <p className="truncate">
                   {property.dates || 'Flexible dates'}
                 </p>
-                <p className="truncate">Free cancellation</p>
+                <p className="truncate">{t('search:amenities.freeCancellation')}</p>
               </div>
               <span className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-gray-300 text-dark transition-colors group-hover:border-brand group-hover:bg-brand group-hover:text-white">
                 <ArrowRight size={18} />
@@ -268,7 +270,7 @@ export default function PropertyCard({ property, index = 0, variant = 'default' 
             {getDisplayPrice(property) != null ? (
               <>
                 <span className="font-semibold">{formatCurrency(getDisplayPrice(property))}</span>
-                <span className="text-muted font-normal"> night</span>
+                <span className="text-muted font-normal"> {t('property:perNight')}</span>
               </>
             ) : (
               <span className="text-sm text-muted italic">Price unavailable</span>

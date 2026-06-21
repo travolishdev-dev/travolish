@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import {
   ArrowRight,
   Heart,
@@ -21,6 +22,7 @@ function getRatingLabel(rating) {
 }
 
 export default function SearchPropertyCard({ property }) {
+  const { t } = useTranslation(['property', 'search', 'booking', 'common'])
   const toggleWishlist = useWishlistStore((state) => state.toggleWishlist)
   const isWishlisted = useWishlistStore((state) => state.isWishlisted(property.id))
   const { formatCurrency } = useCurrency()
@@ -87,7 +89,7 @@ export default function SearchPropertyCard({ property }) {
                   {priceLabel}
                 </p>
                 {property.price !== null && property.price !== undefined && (
-                  <p className="text-xs text-muted">per night</p>
+                  <p className="text-xs text-muted">{t('property:perNight')}</p>
                 )}
               </div>
               <div className="flex items-center gap-1.5 rounded-full bg-gray-50 px-2 py-1 text-xs font-semibold text-dark">
@@ -112,10 +114,10 @@ export default function SearchPropertyCard({ property }) {
             </span>
             <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-700">
               <ShieldCheck size={12} />
-              {property.freeCancellation ? 'Free cancellation' : 'Policy varies'}
+              {property.freeCancellation ? t('search:amenities.freeCancellation') : 'Policy varies'}
             </span>
             <span className="inline-flex items-center gap-1.5 rounded-full bg-sky-50 px-2 py-0.5 text-[11px] font-semibold text-sky-700">
-              {property.instantBookable ? 'Instant book' : 'Request to book'}
+              {property.instantBookable ? t('booking:instantBook') : t('booking:requestToBook')}
             </span>
           </div>
         </div>
@@ -123,7 +125,7 @@ export default function SearchPropertyCard({ property }) {
         <div className="flex items-center justify-between gap-3 border-t border-gray-100 pt-2">
           <p className="text-xs text-muted">Taxes shown at checkout</p>
           <span className="inline-flex items-center gap-2 text-xs font-semibold text-dark">
-            View details
+            {t('common:actions.view')} details
             <span className="inline-flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg border border-gray-300 text-dark transition-colors group-hover:border-brand group-hover:bg-brand group-hover:text-white">
               <ArrowRight size={15} />
             </span>

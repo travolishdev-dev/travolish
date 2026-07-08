@@ -1,0 +1,33 @@
+{
+  "eyebrow": "Comparez plus vite",
+  "title": "Trouvez un séjour adapté.",
+  "description": "Recherchez des hôtels, comparez les détails utiles et continuez avec une expérience Travolish claire.",
+  "destination": "Destination",
+  "destinationPlaceholder": "Rechercher villes ou hôtels",
+  "checkInOut": "Arrivée / départ",
+  "guests": "Voyageurs",
+  "adults": "Adultes",
+  "children": "Enfants",
+  "search": "Rechercher",
+  "flexibleDates": "Dates flexibles",
+  "selectCheckout": "Choisir le départ",
+  "smartPicks": "Sélections intelligentes",
+  "nearHandoff": "Offres d'hôtels près de chez vous",
+  "worthOpening": "Offres d'hôtels à découvrir",
+  "worthDesc": "Une liste ciblée de séjours avec de bonnes notes, des détails utiles et des étapes claires.",
+  "recommended": "Recommandé",
+  "aiRecommendations": "Recommandations IA",
+  "tuneShortlist": "Affiner la liste",
+  "moreOptions": "Plus d'options",
+  "viewAllStays": "Voir tous les séjours",
+  "mapView": "Vue carte",
+  "rankingPrioritizes": "Le classement priorise actuellement",
+  "modes": {
+    "trusted": "Le plus fiable",
+    "trustedDesc": "notes, avis et confiance dans la réservation",
+    "value": "Meilleur rapport qualité-prix",
+    "valueDesc": "tarifs nocturnes bas avec de bons avis clients",
+    "weekend": "Prêt pour le week-end",
+    "weekendDesc": "séjours faciles à réserver avec un large attrait"
+  }
+}

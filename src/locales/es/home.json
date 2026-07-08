@@ -1,0 +1,33 @@
+{
+  "eyebrow": "Compara estancias más rápido",
+  "title": "Encuentra una estancia para tu viaje.",
+  "description": "Busca hoteles, compara detalles útiles y sigue explorando con la experiencia limpia de Travolish.",
+  "destination": "Destino",
+  "destinationPlaceholder": "Busca ciudades u hoteles",
+  "checkInOut": "Entrada / salida",
+  "guests": "Huéspedes",
+  "adults": "Adultos",
+  "children": "Niños",
+  "search": "Buscar",
+  "flexibleDates": "Fechas flexibles",
+  "selectCheckout": "Elige salida",
+  "smartPicks": "Selecciones inteligentes",
+  "nearHandoff": "Ofertas de hotel cerca de tu ubicación",
+  "worthOpening": "Ofertas de hotel que vale la pena ver",
+  "worthDesc": "Una lista enfocada de estancias con grandes valoraciones, detalles útiles y próximos pasos claros.",
+  "recommended": "Recomendado",
+  "aiRecommendations": "Recomendaciones de IA",
+  "tuneShortlist": "Ajustar lista",
+  "moreOptions": "Más opciones",
+  "viewAllStays": "Ver todas las estancias",
+  "mapView": "Vista de mapa",
+  "rankingPrioritizes": "El ranking prioriza actualmente",
+  "modes": {
+    "trusted": "Más confiable",
+    "trustedDesc": "valoraciones, reseñas y confianza en la reserva",
+    "value": "Mejor valor",
+    "valueDesc": "tarifas nocturnas más bajas con buenas opiniones",
+    "weekend": "Listo para el fin de semana",
+    "weekendDesc": "estancias fáciles de reservar con amplio atractivo"
+  }
+}

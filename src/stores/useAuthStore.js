@@ -92,6 +92,45 @@ const useAuthStore = create((set, get) => ({
     return data
   },
 
+  // Step 1 of email signup — request a verification code be emailed.
+  startEmailSignup: async (email, role = 'guest') => {
+    const res = await fetch(`${BASE_URL}/api/auth/signup/start`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, role }),
+    })
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}))
+      throw new Error(err.error || err.message || 'Could not send verification code')
+    }
+    return res.json().catch(() => ({}))
+  },
+
+  // Step 2 of email signup — verify the code, which creates the user and
+  // returns the same token pair as the OAuth flows.
+  verifyEmailSignup: async (email, code, { firstName, lastName } = {}) => {
+    const res = await fetch(`${BASE_URL}/api/auth/signup/verify`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, code, firstName, lastName }),
+    })
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}))
+      throw new Error(err.error || err.message || 'Verification failed')
+    }
+    const data = await res.json()
+    setAuthToken(data.accessToken)
+    setRefreshToken(data.refreshToken)
+    const backendUser = await getMe()
+    set({
+      user: backendUser,
+      profile: deriveProfile(backendUser),
+      backendUserId: backendUser.id,
+    })
+    useWishlistStore.getState().initialize(backendUser.id)
+    return data
+  },
+
   signOut: () => {
     clearTokens()
     set({ user: null, profile: null, backendUserId: null })

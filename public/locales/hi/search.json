@@ -1,0 +1,62 @@
+{
+  "title": "खोज परिणाम",
+  "finding": "स्टे ढूंढ रहे हैं…",
+  "noResults": "कोई परिणाम नहीं मिला",
+  "noResultsHint": "अलग गंतव्य आज़माएं, तारीखें बदलें, या कीमत और रेटिंग फ़िल्टर ढीले करें।",
+  "refineHint": "गंतव्य, तारीखें, मेहमान और फ़िल्टर परिष्कृत करने के लिए ऊपर खोज पैनल का उपयोग करें।",
+  "sortedByLocation": "खोज परिणाम आपके स्थान के अनुसार क्रमबद्ध हैं",
+  "locationNotShared": "ऐप से स्थान साझा नहीं किया गया",
+  "permissionGranted": "अनुमति दी गई",
+  "showingDefault": "डिफ़ॉल्ट क्रम दिखाया जा रहा है।",
+  "types": {
+    "any": "कोई भी",
+    "hotel": "होटल",
+    "apartment": "अपार्टमेंट",
+    "villa": "विला",
+    "homestay": "होमस्टे",
+    "resort": "रिसॉर्ट",
+    "guestHouse": "गेस्ट हाउस"
+  },
+  "amenities": {
+    "wifi": "वाई-फाई",
+    "kitchen": "रसोई",
+    "parking": "मुफ्त पार्किंग",
+    "pool": "स्विमिंग पूल",
+    "ac": "एयर कंडीशनिंग",
+    "breakfast": "नाश्ता",
+    "workspace": "कार्यस्थल",
+    "washer": "वॉशिंग मशीन",
+    "petFriendly": "पालतू अनुकूल",
+    "gym": "जिम",
+    "airportPickup": "एयरपोर्ट पिकअप",
+    "freeCancellation": "मुफ्त रद्दीकरण",
+    "policyVaries": "नीति अलग हो सकती है"
+  },
+  "filters": {
+    "priceRange": "मूल्य सीमा",
+    "rating": "रेटिंग",
+    "propertyType": "प्रॉपर्टी प्रकार",
+    "amenities": "सुविधाएं",
+    "sortBy": "क्रमबद्ध करें",
+    "newest": "नवीनतम",
+    "priceLow": "कीमत: कम से अधिक",
+    "priceHigh": "कीमत: अधिक से कम",
+    "topRated": "टॉप रेटेड",
+    "recommended": "अनुशंसित",
+    "priceLowToHigh": "कम से अधिक कीमत",
+    "priceHighToLow": "अधिक से कम कीमत",
+    "highestRated": "सर्वोच्च रेटेड",
+    "minPrice": "न्यूनतम कीमत",
+    "maxPrice": "अधिकतम कीमत",
+    "bookingOptions": "बुकिंग विकल्प",
+    "instantBookOnly": "केवल तत्काल बुकिंग",
+    "guestRating": "अतिथि रेटिंग",
+    "anyRating": "कोई भी रेटिंग",
+    "clearFilters": "फ़िल्टर साफ़ करें"
+  },
+  "controls": {
+    "filters": "फ़िल्टर",
+    "decreaseLabel": "{{label}} घटाएं",
+    "increaseLabel": "{{label}} बढ़ाएं"
+  }
+}

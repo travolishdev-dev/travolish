@@ -1,0 +1,62 @@
+{
+  "title": "Resultados de búsqueda",
+  "finding": "Buscando estancias…",
+  "noResults": "No se encontraron resultados",
+  "noResultsHint": "Prueba un destino diferente, ajusta tus fechas o reduce los filtros de precio y valoración.",
+  "refineHint": "Usa el panel de búsqueda superior para refinar destino, fechas, huéspedes y filtros.",
+  "sortedByLocation": "Los resultados están ordenados por tu ubicación compartida",
+  "locationNotShared": "La ubicación no fue compartida desde la app",
+  "permissionGranted": "Permiso concedido",
+  "showingDefault": "Mostrando el orden predeterminado.",
+  "types": {
+    "any": "Cualquiera",
+    "hotel": "Hotel",
+    "apartment": "Apartamento",
+    "villa": "Villa",
+    "homestay": "Casa de huéspedes",
+    "resort": "Resort",
+    "guestHouse": "Pensión"
+  },
+  "amenities": {
+    "wifi": "Wifi",
+    "kitchen": "Cocina",
+    "parking": "Estacionamiento gratuito",
+    "pool": "Piscina",
+    "ac": "Aire acondicionado",
+    "breakfast": "Desayuno",
+    "workspace": "Área de trabajo",
+    "washer": "Lavadora",
+    "petFriendly": "Se admiten mascotas",
+    "gym": "Gimnasio",
+    "airportPickup": "Traslado aeropuerto",
+    "freeCancellation": "Cancelación gratuita",
+    "policyVaries": "Política variable"
+  },
+  "filters": {
+    "priceRange": "Rango de precio",
+    "rating": "Valoración",
+    "propertyType": "Tipo de alojamiento",
+    "amenities": "Servicios",
+    "sortBy": "Ordenar por",
+    "newest": "Más reciente",
+    "priceLow": "Precio: menor a mayor",
+    "priceHigh": "Precio: mayor a menor",
+    "topRated": "Mejor valorado",
+    "recommended": "Recomendado",
+    "priceLowToHigh": "Precio de menor a mayor",
+    "priceHighToLow": "Precio de mayor a menor",
+    "highestRated": "Mejor valorado",
+    "minPrice": "Precio mín.",
+    "maxPrice": "Precio máx.",
+    "bookingOptions": "Opciones de reserva",
+    "instantBookOnly": "Solo reserva instantánea",
+    "guestRating": "Valoración de huéspedes",
+    "anyRating": "Cualquier valoración",
+    "clearFilters": "Borrar filtros"
+  },
+  "controls": {
+    "filters": "Filtros",
+    "decreaseLabel": "Disminuir {{label}}",
+    "increaseLabel": "Aumentar {{label}}"
+  }
+}

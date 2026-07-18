@@ -17,8 +17,9 @@ import {
   WalletCards,
   X,
 } from 'lucide-react'
-import { AnimatePresence, motion as Motion } from 'framer-motion'
+import { AnimatePresence, motion as Motion, useReducedMotion } from 'framer-motion'
 import useHostViewer from '../../hooks/useHostViewer'
+import { useAndroidBackClose } from '../../hooks/useAndroidBackClose'
 import { PreviewModeNotice, StatusPill } from '../portal/PortalUI'
 
 const hostNavGroups = [
@@ -156,6 +157,9 @@ function HostMobileChrome({ title, mobileAction }) {
   const [isDrawerOpen, setIsDrawerOpen] = useState(false)
   const { pathname } = useLocation()
   const { viewer } = useHostViewer()
+  const isRTL = document.documentElement.dir === 'rtl'
+  const prefersReduced = useReducedMotion()
+  useAndroidBackClose(isDrawerOpen, () => setIsDrawerOpen(false))
 
   return (
     <>
@@ -204,11 +208,11 @@ function HostMobileChrome({ title, mobileAction }) {
               className="fixed inset-0 z-40 bg-black/35 md:hidden"
             />
             <Motion.aside
-              initial={{ x: '-100%' }}
+              initial={{ x: isRTL ? '100%' : '-100%' }}
               animate={{ x: 0 }}
-              exit={{ x: '-100%' }}
-              transition={{ duration: 0.22, ease: 'easeOut' }}
-              className="fixed inset-y-0 left-0 z-50 flex w-[88%] max-w-[320px] flex-col bg-white shadow-[0_24px_60px_rgba(15,23,42,0.14)] md:hidden"
+              exit={{ x: isRTL ? '100%' : '-100%' }}
+              transition={{ duration: prefersReduced ? 0 : 0.22, ease: 'easeOut' }}
+              className="fixed inset-y-0 start-0 z-50 flex w-[88%] max-w-[320px] flex-col bg-white shadow-[0_24px_60px_rgba(15,23,42,0.14)] md:hidden"
             >
               <div className="border-b border-gray-200 px-4 pb-4 pt-5">
                 <div className="flex items-start justify-between gap-4">
@@ -345,7 +349,7 @@ export function HostShell({
   void accent
 
   return (
-    <main className={`min-h-screen bg-[#f8f6f2] pt-0 ${mobilePadding} md:pb-16 md:pt-24`}>
+    <main className={`min-h-screen bg-[#f8f6f2] pt-0 ${mobilePadding} md:pb-16 md:pt-24 overscroll-y-contain`}>
       <div className="mx-auto flex max-w-[1720px] flex-col gap-4 px-4 pt-4 md:gap-5 md:px-8 md:pt-0 xl:px-14">
         <HostMobileChrome title={mobileTitle} mobileAction={mobileAction} />
         <MobileBottomAction action={mobileBottomAction} />

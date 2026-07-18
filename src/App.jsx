@@ -42,7 +42,9 @@ import HostPromotionsPage from './pages/host/HostPromotionsPage'
 import HostPricingAIPage from './pages/host/HostPricingAIPage'
 import HostPayoutsPage from './pages/host/HostPayoutsPage'
 import HostKycPage from './pages/host/HostKycPage'
+import HostCreateListingPage from './pages/host/HostCreateListingPage'
 import HostBankAccountsPage from './pages/host/HostBankAccountsPage'
+import HostGuestReviewPage from './pages/host/HostGuestReviewPage'
 import HostAutoRepliesPage from './pages/host/HostAutoRepliesPage'
 import HostEmergencyPage from './pages/host/HostEmergencyPage'
 import AboutPage from './pages/AboutPage'
@@ -67,6 +69,7 @@ import AdminModerationPage from './pages/admin/AdminModerationPage'
 import AdminCategoriesAmenitiesPage from './pages/admin/AdminCategoriesAmenitiesPage'
 import AdminPricingRulesPage from './pages/admin/AdminPricingRulesPage'
 import AdminBookingsPage from './pages/admin/AdminBookingsPage'
+import AdminEmailLogsPage from './pages/admin/AdminEmailLogsPage'
 import useAuthStore from './stores/useAuthStore'
 import useNativeAppLocationStore from './stores/useNativeAppLocationStore'
 import ProtectedRoute from './components/auth/ProtectedRoute'
@@ -395,11 +398,21 @@ export default function App() {
           }
         />
         <Route
+          path="/host/reviews/guests/:guestId"
+          element={
+            <AppLayout>
+              <ProtectedRoute requireRole="host">
+                <HostGuestReviewPage />
+              </ProtectedRoute>
+            </AppLayout>
+          }
+        />
+        <Route
           path="/host/listings/new"
           element={
             <AppLayout>
               <ProtectedRoute requireRole="host">
-                <HostListingEditorPage />
+                <HostCreateListingPage />
               </ProtectedRoute>
             </AppLayout>
           }
@@ -630,6 +643,16 @@ export default function App() {
             <AppLayout>
               <ProtectedRoute requireRole="admin">
                 <AdminPricingRulesPage />
+              </ProtectedRoute>
+            </AppLayout>
+          }
+        />
+        <Route
+          path="/admin/email-logs"
+          element={
+            <AppLayout>
+              <ProtectedRoute requireRole="admin">
+                <AdminEmailLogsPage />
               </ProtectedRoute>
             </AppLayout>
           }

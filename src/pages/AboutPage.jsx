@@ -1,9 +1,34 @@
+import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Heart, Globe, Shield, Users } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
+import { get } from '../lib/api'
+
+const FALLBACK_STATS = {
+  properties: '12,000+',
+  cities: '180+',
+  rating: '4.8★',
+  responseRate: '98%',
+}
 
 export default function AboutPage() {
   const { t } = useTranslation('pages')
+  const [stats, setStats] = useState(FALLBACK_STATS)
+
+  useEffect(() => {
+    get('/api/about/stats')
+      .then((data) => {
+        if (data) {
+          setStats({
+            properties: data.properties ?? FALLBACK_STATS.properties,
+            cities: data.cities ?? FALLBACK_STATS.cities,
+            rating: data.rating ?? FALLBACK_STATS.rating,
+            responseRate: data.responseRate ?? FALLBACK_STATS.responseRate,
+          })
+        }
+      })
+      .catch(() => {})
+  }, [])
 
   const values = [
     { icon: Heart,  title: t('about.values.guestFirst'), body: 'Every decision we make starts with one question: does this make the stay better for the traveller? From discovery to checkout, we obsess over the details.' },
@@ -12,11 +37,11 @@ export default function AboutPage() {
     { icon: Users,  title: t('about.values.community'),  body: 'Travolish is more than a booking platform. It\'s a community of travellers and hosts who believe that where you stay shapes how you experience a place.' },
   ]
 
-  const stats = [
-    { value: '12,000+', label: t('about.stats.properties') },
-    { value: '180+',    label: t('about.stats.cities') },
-    { value: '4.8★',   label: t('about.stats.rating') },
-    { value: '98%',    label: t('about.stats.responseRate') },
+  const statItems = [
+    { value: stats.properties,   label: t('about.stats.properties') },
+    { value: stats.cities,       label: t('about.stats.cities') },
+    { value: stats.rating,       label: t('about.stats.rating') },
+    { value: stats.responseRate, label: t('about.stats.responseRate') },
   ]
 
   return (
@@ -40,7 +65,7 @@ export default function AboutPage() {
 
         {/* Stats */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          {stats.map((s) => (
+          {statItems.map((s) => (
             <div key={s.label} className="rounded-[28px] border border-gray-200 bg-[#fcfcfb] p-6 text-center">
               <p className="text-3xl font-bold text-dark">{s.value}</p>
               <p className="mt-1 text-sm text-gray-500">{s.label}</p>

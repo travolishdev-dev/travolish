@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { BellRing, CheckCheck, Clock3, Filter, Trash2 } from 'lucide-react'
+import { BellRing, Check, CheckCheck, ChevronDown, Clock3, Filter, Trash2 } from 'lucide-react'
 import { formatDistanceToNow, isThisWeek, isToday, parseISO } from 'date-fns'
 import { useTranslation } from 'react-i18next'
 import {
@@ -76,7 +76,17 @@ export default function NotificationsPage() {
   const [showUnreadOnly, setShowUnreadOnly] = useState(false)
   const [activeType, setActiveType] = useState('ALL')
   const [dismissedIds, setDismissedIds] = useState([])
+  const [typeFilterOpen, setTypeFilterOpen] = useState(false)
+  const typeFilterRef = useRef(null)
   const { backendUserId, user } = useAuthStore()
+
+  useEffect(() => {
+    const handleClick = (e) => {
+      if (typeFilterRef.current && !typeFilterRef.current.contains(e.target)) setTypeFilterOpen(false)
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [])
 
   useEffect(() => {
     if (!backendUserId) { setLoading(false); return }
@@ -156,21 +166,33 @@ export default function NotificationsPage() {
           />
 
           <div className="grid gap-2 sm:flex sm:flex-wrap sm:gap-3">
-            <label className="inline-flex w-full items-center gap-2 rounded-full border border-gray-200 bg-white px-4 py-2.5 text-sm font-semibold text-dark sm:w-auto">
-              <Filter size={15} />
-              <select
-                value={activeType}
-                onChange={(event) => setActiveType(event.target.value)}
-                className="bg-transparent text-sm font-semibold outline-none"
+            <div ref={typeFilterRef} className="relative w-full sm:w-auto">
+              <button
+                type="button"
+                onClick={() => setTypeFilterOpen((prev) => !prev)}
+                className="inline-flex w-full items-center gap-2 rounded-full border border-gray-200 bg-white px-4 py-2.5 text-sm font-semibold text-dark sm:w-auto"
                 aria-label="Filter notifications by type"
               >
-                {typeOptions.map((type) => (
-                  <option key={type} value={type}>
-                    {type === 'ALL' ? 'All types' : type.replace(/_/g, ' ').toLowerCase()}
-                  </option>
-                ))}
-              </select>
-            </label>
+                <Filter size={15} />
+                <span>{activeType === 'ALL' ? 'All types' : activeType.replace(/_/g, ' ').toLowerCase()}</span>
+                <ChevronDown size={13} className="ml-auto shrink-0 text-muted sm:ml-0" />
+              </button>
+              {typeFilterOpen && (
+                <div className="absolute left-0 top-[calc(100%+4px)] z-[80] min-w-[200px] max-h-60 overflow-y-auto rounded-2xl border border-gray-200 bg-white shadow-[0_12px_32px_rgba(15,23,42,0.12)]">
+                  {typeOptions.map((type) => (
+                    <button
+                      key={type}
+                      type="button"
+                      onClick={() => { setActiveType(type); setTypeFilterOpen(false) }}
+                      className={`flex w-full items-center justify-between px-4 py-3 text-sm font-semibold transition-colors hover:bg-gray-50 ${activeType === type ? 'text-dark' : 'text-muted'}`}
+                    >
+                      {type === 'ALL' ? 'All types' : type.replace(/_/g, ' ').toLowerCase()}
+                      {activeType === type && <Check size={13} className="shrink-0" />}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
             <button
               type="button"
               onClick={() => setShowUnreadOnly(false)}

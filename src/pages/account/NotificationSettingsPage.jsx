@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Bell, CheckCheck, Loader2, Mail, MessageSquareText, Smartphone } from 'lucide-react'
 import {
   AccountShell,
@@ -31,25 +32,8 @@ const DEFAULT_PREFS = {
   quietHoursEnd: '08:00',
 }
 
-const TYPE_ROWS = [
-  { key: 'bookingConfirmation', label: 'Booking confirmations', description: 'When a booking is confirmed or modified.' },
-  { key: 'bookingReminder',     label: 'Booking reminders',     description: 'Reminders before upcoming check-ins.' },
-  { key: 'checkInReminder',     label: 'Check-in reminders',    description: 'Day-of check-in instructions and tips.' },
-  { key: 'checkOutReminder',    label: 'Check-out reminders',   description: 'Reminders before your check-out time.' },
-  { key: 'paymentNotifications',label: 'Payment updates',       description: 'Receipts, refunds, and payment failures.' },
-  { key: 'reviewRequests',      label: 'Review requests',       description: 'Prompts to review a completed stay.' },
-  { key: 'promotionalOffers',   label: 'Promotional offers',    description: 'Special deals and limited-time discounts.' },
-  { key: 'loyaltyUpdates',      label: 'Loyalty updates',       description: 'Points earned and reward milestones.' },
-  { key: 'accountAlerts',       label: 'Account alerts',        description: 'Security and account activity updates.' },
-]
-
-const CHANNEL_ROWS = [
-  { key: 'emailEnabled',  label: 'Email',    icon: Mail },
-  { key: 'smsEnabled',    label: 'SMS',      icon: Smartphone },
-  { key: 'inAppEnabled',  label: 'In-app',   icon: Bell },
-]
-
 export default function NotificationSettingsPage() {
+  const { t } = useTranslation('notifications')
   const { viewer } = usePortalViewer()
   const [backendUserId, setBackendUserId] = useState(null)
   const [prefs, setPrefs] = useState(DEFAULT_PREFS)
@@ -80,6 +64,24 @@ export default function NotificationSettingsPage() {
       .finally(() => setLoading(false))
   }, [viewer.email])
 
+  const TYPE_ROWS = useMemo(() => [
+    { key: 'bookingConfirmation',  label: t('notifications:types.bookingConfirmation'),  description: t('notifications:types.bookingConfirmationDesc') },
+    { key: 'bookingReminder',      label: t('notifications:types.bookingReminder'),      description: t('notifications:types.bookingReminderDesc') },
+    { key: 'checkInReminder',      label: t('notifications:types.checkInReminder'),      description: t('notifications:types.checkInReminderDesc') },
+    { key: 'checkOutReminder',     label: t('notifications:types.checkOutReminder'),     description: t('notifications:types.checkOutReminderDesc') },
+    { key: 'paymentNotifications', label: t('notifications:types.paymentNotifications'), description: t('notifications:types.paymentNotificationsDesc') },
+    { key: 'reviewRequests',       label: t('notifications:types.reviewRequests'),       description: t('notifications:types.reviewRequestsDesc') },
+    { key: 'promotionalOffers',    label: t('notifications:types.promotionalOffers'),    description: t('notifications:types.promotionalOffersDesc') },
+    { key: 'loyaltyUpdates',       label: t('notifications:types.loyaltyUpdates'),       description: t('notifications:types.loyaltyUpdatesDesc') },
+    { key: 'accountAlerts',        label: t('notifications:types.accountAlerts'),        description: t('notifications:types.accountAlertsDesc') },
+  ], [t])
+
+  const CHANNEL_ROWS = useMemo(() => [
+    { key: 'emailEnabled', label: t('notifications:channels.email'), icon: Mail },
+    { key: 'smsEnabled',   label: t('notifications:channels.sms'),   icon: Smartphone },
+    { key: 'inAppEnabled', label: t('notifications:channels.inApp'), icon: Bell },
+  ], [t])
+
   const toggle = (key) => {
     setSaved(false)
     setPrefs((p) => ({ ...p, [key]: !p[key] }))
@@ -87,7 +89,7 @@ export default function NotificationSettingsPage() {
 
   const handleSave = async () => {
     if (!backendUserId) {
-      setSaveError('User account not resolved. Please sign in again.')
+      setSaveError(t('notifications:settingsAuthError'))
       return
     }
     setSaving(true)
@@ -97,7 +99,7 @@ export default function NotificationSettingsPage() {
       await updateNotificationPreferences(backendUserId, prefs)
       setSaved(true)
     } catch {
-      setSaveError('Could not save preferences. Please try again.')
+      setSaveError(t('notifications:settingsSaveError'))
     } finally {
       setSaving(false)
     }
@@ -105,29 +107,29 @@ export default function NotificationSettingsPage() {
 
   return (
     <AccountShell
-      title="Choose how updates reach you."
-      mobileTitle="Alerts"
-      description="Control which notifications you receive and how they're delivered."
-      mobileAction={{ label: 'Save', onClick: handleSave }}
-      mobileBottomAction={{ label: 'Save preferences', onClick: handleSave }}
+      title={t('notifications:settingsTitle')}
+      mobileTitle={t('notifications:settingsMobileTitle')}
+      description={t('notifications:settingsDesc')}
+      mobileAction={{ label: t('notifications:settingsSaveMobile'), onClick: handleSave }}
+      mobileBottomAction={{ label: t('notifications:settingsSaveBtn'), onClick: handleSave }}
       actions={[
-        { label: 'Open notification center', href: '/notifications', secondary: true },
-        { label: 'Save preferences', onClick: handleSave },
+        { label: t('notifications:settingsOpenCenter'), href: '/notifications', secondary: true },
+        { label: t('notifications:settingsSaveBtn'), onClick: handleSave },
       ]}
       accent="from-violet-50 via-white to-sky-50"
     >
       {loading ? (
         <SectionCard>
-          <div className="py-16 text-center text-sm text-muted">Loading preferences…</div>
+          <div className="py-16 text-center text-sm text-muted">{t('notifications:settingsLoading')}</div>
         </SectionCard>
       ) : (
         <>
           {/* Notification types */}
           <SectionCard>
             <SectionHeading
-              eyebrow="Notification Types"
-              title="What you want to hear about"
-              description="Toggle each category on or off. Channel settings below control how they're delivered."
+              eyebrow={t('notifications:typesEyebrow')}
+              title={t('notifications:typesTitle')}
+              description={t('notifications:typesDesc')}
             />
 
             <div className="mt-6 divide-y divide-gray-200 border-y border-gray-200">
@@ -137,7 +139,7 @@ export default function NotificationSettingsPage() {
                     <div className="flex flex-wrap items-center gap-2">
                       <p className="text-base font-semibold text-dark">{label}</p>
                       <StatusPill tone={prefs[key] ? 'success' : 'slate'}>
-                        {prefs[key] ? 'On' : 'Off'}
+                        {prefs[key] ? t('notifications:on') : t('notifications:off')}
                       </StatusPill>
                     </div>
                     <p className="mt-1 text-sm text-muted">{description}</p>
@@ -164,9 +166,9 @@ export default function NotificationSettingsPage() {
             {/* Delivery channels */}
             <SectionCard>
               <SectionHeading
-                eyebrow="Delivery Channels"
-                title="How alerts reach you"
-                description="Applies globally across all enabled notification types."
+                eyebrow={t('notifications:channelsEyebrow')}
+                title={t('notifications:channelsTitle')}
+                description={t('notifications:channelsDesc')}
               />
 
               <div className="mt-6 grid gap-3">
@@ -194,14 +196,14 @@ export default function NotificationSettingsPage() {
             {/* Quiet hours */}
             <SectionCard>
               <SectionHeading
-                eyebrow="Quiet Hours"
-                title="Silence notifications at night"
-                description="No alerts will be sent during this window."
+                eyebrow={t('notifications:quietEyebrow')}
+                title={t('notifications:quietTitle')}
+                description={t('notifications:quietDesc')}
               />
 
               <div className="mt-6 space-y-4">
                 <div className="flex items-center justify-between">
-                  <p className="text-sm font-semibold text-dark">Enable quiet hours</p>
+                  <p className="text-sm font-semibold text-dark">{t('notifications:quietEnable')}</p>
                   <button
                     type="button"
                     onClick={() => toggle('quietHoursEnabled')}
@@ -219,8 +221,8 @@ export default function NotificationSettingsPage() {
 
                 <div className={`grid gap-4 md:grid-cols-2 transition-opacity ${prefs.quietHoursEnabled ? 'opacity-100' : 'opacity-40 pointer-events-none'}`}>
                   {[
-                    { field: 'quietHoursStart', label: 'Start time' },
-                    { field: 'quietHoursEnd',   label: 'End time' },
+                    { field: 'quietHoursStart', label: t('notifications:quietStart') },
+                    { field: 'quietHoursEnd',   label: t('notifications:quietEnd') },
                   ].map(({ field, label }) => (
                     <label key={field} className="block">
                       <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.18em] text-muted">
@@ -241,7 +243,7 @@ export default function NotificationSettingsPage() {
                     <MessageSquareText size={18} />
                   </div>
                   <p className="text-sm leading-6 text-muted">
-                    Urgent alerts like account security notices are always delivered regardless of quiet hours.
+                    {t('notifications:quietNote')}
                   </p>
                 </div>
               </div>
@@ -252,12 +254,12 @@ export default function NotificationSettingsPage() {
           <div className="flex items-center justify-between gap-4 rounded-[24px] border border-gray-200 bg-[#fcfcfb] px-5 py-4">
             {saved ? (
               <p className="inline-flex items-center gap-2 text-sm font-semibold text-emerald-600">
-                <CheckCheck size={15} /> Preferences saved
+                <CheckCheck size={15} /> {t('notifications:settingsSaved')}
               </p>
             ) : saveError ? (
               <p className="text-sm text-red-600">{saveError}</p>
             ) : (
-              <p className="text-sm text-muted">Changes are not saved until you click below.</p>
+              <p className="text-sm text-muted">{t('notifications:settingsUnsaved')}</p>
             )}
             <button
               type="button"
@@ -265,7 +267,7 @@ export default function NotificationSettingsPage() {
               disabled={saving}
               className="inline-flex items-center gap-2 rounded-full bg-dark px-6 py-2.5 text-sm font-bold text-white hover:opacity-90 disabled:opacity-40 transition-all"
             >
-              {saving ? <><Loader2 size={14} className="animate-spin" /> Saving…</> : 'Save preferences'}
+              {saving ? <><Loader2 size={14} className="animate-spin" /> {t('notifications:settingsSaving')}</> : t('notifications:settingsSaveBtn')}
             </button>
           </div>
         </>

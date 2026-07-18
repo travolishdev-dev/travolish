@@ -11,7 +11,6 @@ import toast from 'react-hot-toast'
 import useHostContext from '../../hooks/useHostContext'
 
 function adaptAccount(a) {
-  // Derive last4 from accountNumber since lastFourDigits doesn't exist in HostBankAccountDTO
   const last4 = a.lastFourDigits ?? a.last4
     ?? (a.accountNumber ? String(a.accountNumber).slice(-4) : '****')
   return {
@@ -22,6 +21,8 @@ function adaptAccount(a) {
     currency: a.currency ?? 'INR',
     status: a.verificationStatus ?? a.status ?? 'Pending',
     isPrimary: a.isPrimary ?? false,
+    swiftCode: a.swiftCode ?? null,
+    iban: a.iban ?? null,
   }
 }
 
@@ -36,6 +37,8 @@ export default function HostBankAccountsPage() {
     bankName: '',
     routingNumber: '',
     accountNumber: '',
+    swiftCode: '',
+    iban: '',
     currency: '',
   })
   const [saving, setSaving] = useState(false)
@@ -105,8 +108,10 @@ export default function HostBankAccountsPage() {
       await registerBankAccount(hostId, {
         accountHolderName: formState.accountName,
         bankName: formState.bankName,
-        routingNumber: formState.routingNumber,
+        routingNumber: formState.routingNumber || null,
         accountNumber: formState.accountNumber,
+        swiftCode: formState.swiftCode || null,
+        iban: formState.iban || null,
         currency: formState.currency || 'USD',
       })
       const data = await getBankAccounts(hostId)
@@ -116,7 +121,7 @@ export default function HostBankAccountsPage() {
         setAccounts(nextAccounts)
         setDefaultAccountId((current) => current ?? nextAccounts[0]?.id ?? null)
       }
-      setFormState({ accountName: '', bankName: '', routingNumber: '', accountNumber: '', currency: '' })
+      setFormState({ accountName: '', bankName: '', routingNumber: '', accountNumber: '', swiftCode: '', iban: '', currency: '' })
     } catch {
       toast.error('Failed to save account. Please try again.')
     } finally {
@@ -169,6 +174,8 @@ export default function HostBankAccountsPage() {
                     </div>
                     <p className="mt-2 text-sm text-muted">
                       {account.type} · {account.currency} · •••• {account.last4}
+                      {account.swiftCode && <span> · SWIFT: {account.swiftCode}</span>}
+                      {account.iban && <span> · IBAN: ••••{account.iban.slice(-4)}</span>}
                     </p>
                   </div>
                   <div className="grid gap-2 sm:flex sm:flex-wrap lg:justify-end">
@@ -215,7 +222,19 @@ export default function HostBankAccountsPage() {
               label="Routing number"
               value={formState.routingNumber}
               onChange={updateField('routingNumber')}
-              placeholder="Routing number"
+              placeholder="Routing number (domestic)"
+            />
+            <HostField
+              label="SWIFT / BIC code"
+              value={formState.swiftCode}
+              onChange={updateField('swiftCode')}
+              placeholder="e.g., DEUTDEDB (international)"
+            />
+            <HostField
+              label="IBAN"
+              value={formState.iban}
+              onChange={updateField('iban')}
+              placeholder="e.g., DE89370400440532013000"
             />
             <HostField
               label="Account number"
@@ -227,7 +246,7 @@ export default function HostBankAccountsPage() {
               label="Currency"
               value={formState.currency}
               onChange={updateField('currency')}
-              placeholder="USD / EUR"
+              placeholder="USD / EUR / INR"
             />
             <button
               onClick={handleSave}

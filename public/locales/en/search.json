@@ -1,0 +1,62 @@
+{
+  "title": "Search results",
+  "finding": "Finding stays…",
+  "noResults": "No results found",
+  "noResultsHint": "Try a different destination, adjust your dates, or loosen the price and rating filters.",
+  "refineHint": "Use the top search panel to refine destination, dates, guests, and filters.",
+  "sortedByLocation": "Search results are sorted by your shared location",
+  "locationNotShared": "Location was not shared from the app",
+  "permissionGranted": "Permission granted",
+  "showingDefault": "Showing the default result order.",
+  "types": {
+    "any": "Any",
+    "hotel": "Hotel",
+    "apartment": "Apartment",
+    "villa": "Villa",
+    "homestay": "Homestay",
+    "resort": "Resort",
+    "guestHouse": "Guest house"
+  },
+  "amenities": {
+    "wifi": "Wifi",
+    "kitchen": "Kitchen",
+    "parking": "Free parking",
+    "pool": "Pool",
+    "ac": "Air conditioning",
+    "breakfast": "Breakfast",
+    "workspace": "Workspace",
+    "washer": "Washer",
+    "petFriendly": "Pet friendly",
+    "gym": "Gym",
+    "airportPickup": "Airport pickup",
+    "freeCancellation": "Free cancellation",
+    "policyVaries": "Policy varies"
+  },
+  "filters": {
+    "priceRange": "Price range",
+    "rating": "Rating",
+    "propertyType": "Property type",
+    "amenities": "Amenities",
+    "sortBy": "Sort by",
+    "newest": "Newest",
+    "priceLow": "Price: low to high",
+    "priceHigh": "Price: high to low",
+    "topRated": "Top rated",
+    "recommended": "Recommended",
+    "priceLowToHigh": "Price low to high",
+    "priceHighToLow": "Price high to low",
+    "highestRated": "Highest rated",
+    "minPrice": "Min price",
+    "maxPrice": "Max price",
+    "bookingOptions": "Booking options",
+    "instantBookOnly": "Instant booking only",
+    "guestRating": "Guest rating",
+    "anyRating": "Any rating",
+    "clearFilters": "Clear filters"
+  },
+  "controls": {
+    "filters": "Filters",
+    "decreaseLabel": "Decrease {{label}}",
+    "increaseLabel": "Increase {{label}}"
+  }
+}

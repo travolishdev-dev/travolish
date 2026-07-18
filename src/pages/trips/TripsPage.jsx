@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
-import { CalendarClock, MapPin } from 'lucide-react'
+import { AlertCircle, CalendarClock, MapPin } from 'lucide-react'
 import { format, isBefore, parseISO, startOfDay } from 'date-fns'
 import {
   PortalShell,
@@ -137,7 +137,7 @@ export default function TripsPage() {
         const hotelMap = Object.fromEntries(hotels.map((h) => [h.id, h]))
         setBookings(raw.map((b) => adaptBooking(b, hotelMap, t)))
       } catch {
-        if (!cancelled) setError('Could not load your bookings. Make sure the backend is running.')
+        if (!cancelled) setError(t('loadError'))
       } finally {
         if (!cancelled) setLoading(false)
       }
@@ -165,29 +165,29 @@ export default function TripsPage() {
     return [
       { label: t('stats.upcoming'), value: String(upcoming.length), note: upcoming[0]?.property.title || '—' },
       { label: t('stats.completed'), value: String(completed.length), note: t('stats.allTime') },
-      { label: t('stats.total'), value: String(bookings.length), note: 'Across all statuses' },
+      { label: t('stats.total'), value: String(bookings.length), note: t('stats.allStatuses') },
     ]
   }, [bookings, t])
 
   return (
     <PortalShell
-      eyebrow="Trips"
+      eyebrow={t('eyebrow')}
       title={t('heading')}
-      mobileTitle="Trips"
+      mobileTitle={t('eyebrow')}
       description={t('desc')}
       actions={[
         { label: t('openMessages'), href: '/messages', secondary: true },
         { label: t('browseStays'), href: '/search' },
       ]}
       stats={tripStats}
-      accent="from-amber-50 via-white to-rose-50"
+      accent="from-rose-50 via-white to-white"
     >
       <SectionCard>
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <SectionHeading
-            eyebrow="Reservations"
+            eyebrow={t('reservations')}
             title={t('title')}
-            description="Filter by stage to see what the travel experience looks like before, during, and after a stay."
+            description={t('filterDesc')}
           />
 
           <div className="-mx-4 overflow-x-auto px-4 pb-1 md:mx-0 md:px-0 md:pb-0">
@@ -211,17 +211,44 @@ export default function TripsPage() {
         </div>
 
         {loading && (
-          <div className="py-16 text-center text-sm text-muted">{t('loading')}</div>
+          <div className="mt-6 divide-y divide-gray-100 border-t border-gray-100">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <div key={i} className="grid grid-cols-[104px_minmax(0,1fr)] gap-4 py-5 md:gap-5 lg:grid-cols-[220px_minmax(0,1fr)_240px]">
+                <div className="h-28 w-full rounded-[22px] skeleton-shimmer lg:aspect-[4/3] lg:h-auto" />
+                <div className="space-y-3">
+                  <div className="flex gap-2">
+                    <div className="h-5 w-16 rounded-full skeleton-shimmer" />
+                    <div className="h-5 w-28 rounded-full skeleton-shimmer" />
+                  </div>
+                  <div className="h-7 w-3/4 rounded skeleton-shimmer" />
+                  <div className="h-4 w-1/2 rounded skeleton-shimmer" />
+                  <div className="h-4 w-2/5 rounded skeleton-shimmer" />
+                </div>
+              </div>
+            ))}
+          </div>
         )}
 
         {error && (
-          <div className="py-16 text-center text-sm text-red-500">{error}</div>
+          <div className="flex flex-col items-center justify-center py-16 text-center">
+            <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-red-50 text-red-500">
+              <AlertCircle size={26} />
+            </span>
+            <p className="mt-4 text-base font-semibold text-dark">{error}</p>
+            <p className="mt-1 text-sm text-muted">Refresh the page to try again.</p>
+          </div>
         )}
 
         {!loading && !error && visibleTrips.length === 0 && (
-          <div className="py-16 text-center text-sm text-muted">
-            {t('empty')}{' '}
-            <Link to="/search" className="font-semibold underline">
+          <div className="flex flex-col items-center justify-center py-16 text-center">
+            <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gray-50 text-muted">
+              <CalendarClock size={26} />
+            </span>
+            <p className="mt-4 text-base font-semibold text-dark">{t('empty')}</p>
+            <Link
+              to="/search"
+              className="mt-4 rounded-full bg-brand px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-brand-dark"
+            >
               {t('browseStays')}
             </Link>
           </div>
@@ -233,7 +260,7 @@ export default function TripsPage() {
               <Link
                 key={booking.id}
                 to={`/trips/${booking.id}`}
-                className="group block py-4 transition-colors hover:bg-white/40 md:py-5"
+                className="group block py-4 transition-colors hover:bg-gray-50/60 md:py-5"
               >
                 <div className="grid grid-cols-[104px_minmax(0,1fr)] gap-4 md:gap-5 lg:grid-cols-[220px_minmax(0,1fr)_240px] lg:items-center">
                   <img
@@ -248,7 +275,7 @@ export default function TripsPage() {
                         {booking.status}
                       </StatusPill>
                       <p className="text-xs font-medium text-muted md:text-sm">
-                        Confirmation {booking.confirmationCode}
+                        {t('labels.confirmation')} {booking.confirmationCode}
                       </p>
                     </div>
 
@@ -274,7 +301,7 @@ export default function TripsPage() {
 
                   <div className="col-span-2 border-t border-gray-200 pt-4 lg:col-span-1 lg:border-l lg:border-t-0 lg:pl-5 lg:pt-0">
                     <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted">
-                      Trip status
+                      {t('labels.tripStatus')}
                     </p>
                     <p className="mt-2 text-lg font-semibold text-dark">{booking.tripMood}</p>
                     <p className="mt-1 text-sm text-muted">{booking.paymentStatus}</p>
@@ -292,7 +319,7 @@ export default function TripsPage() {
                     </div>
 
                     <div className="mt-5 flex items-center justify-between border-t border-gray-200 pt-4">
-                      <span className="text-sm text-muted">Total</span>
+                      <span className="text-sm text-muted">{t('detail.total')}</span>
                       <span className="text-xl font-semibold text-dark">{booking.total}</span>
                     </div>
                   </div>

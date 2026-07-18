@@ -1,0 +1,33 @@
+{
+  "tagline": "اكتشف واحجز إقامات فريدة في فنادق مختارة بعناية حول العالم.",
+  "copyright": "© 2026 ترافوليش، Inc.",
+  "backToTop": "العودة إلى الأعلى",
+  "sections": {
+    "discover": "اكتشف",
+    "support": "الدعم",
+    "hosting": "الاستضافة",
+    "travolish": "ترافوليش"
+  },
+  "links": {
+    "browseHotels": "تصفح الفنادق",
+    "topDestinations": "أفضل الوجهات",
+    "weekendGetaways": "رحلات نهاية الأسبوع",
+    "giftCards": "بطاقات الهدايا",
+    "helpCentre": "مركز المساعدة",
+    "contactUs": "اتصل بنا",
+    "trustSafety": "الثقة والسلامة",
+    "cancellationOptions": "خيارات الإلغاء",
+    "listProperty": "أدرج عقارك",
+    "hostDashboard": "لوحة تحكم المضيف",
+    "responsibleHosting": "الاستضافة المسؤولة",
+    "hostResources": "موارد المضيف",
+    "aboutUs": "من نحن",
+    "careers": "وظائف",
+    "newsroom": "غرفة الأخبار",
+    "privacyPolicy": "سياسة الخصوصية",
+    "termsOfService": "شروط الخدمة",
+    "privacy": "الخصوصية",
+    "terms": "الشروط",
+    "sitemap": "خريطة الموقع"
+  }
+}

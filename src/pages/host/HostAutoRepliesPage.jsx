@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react'
-import { BellRing, CalendarCheck, Clock3, Plus, Power, Trash2 } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
+import { BellRing, CalendarCheck, Check, ChevronDown, Clock3, Plus, Power, Trash2 } from 'lucide-react'
 import {
   HostShell,
   SectionCard,
@@ -96,6 +96,16 @@ export default function HostAutoRepliesPage() {
   )
   const [reminderNotice, setReminderNotice] = useState(null)
   const [togglingReminder, setTogglingReminder] = useState(null)
+  const [categoryOpen, setCategoryOpen] = useState(false)
+  const categoryRef = useRef(null)
+
+  useEffect(() => {
+    const handleClick = (e) => {
+      if (categoryRef.current && !categoryRef.current.contains(e.target)) setCategoryOpen(false)
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [])
 
   useEffect(() => {
     if (hostLoading || !hostId) {
@@ -338,17 +348,31 @@ export default function HostAutoRepliesPage() {
 
             <div className="mt-4">
               <label className="mb-2 block text-sm font-semibold text-dark">Category</label>
-              <select
-                value={newTemplate.category}
-                onChange={updateField('category')}
-                className="w-full rounded-xl border border-gray-300 bg-white px-4 py-3.5 text-sm text-dark outline-none transition-all focus:border-dark focus:ring-1 focus:ring-dark"
-              >
-                {CATEGORIES.map((c) => (
-                  <option key={c} value={c}>
-                    {c.replace(/_/g, ' ').toLowerCase()}
-                  </option>
-                ))}
-              </select>
+              <div ref={categoryRef} className="relative">
+                <button
+                  type="button"
+                  onClick={() => setCategoryOpen((prev) => !prev)}
+                  className="flex w-full items-center justify-between rounded-xl border border-gray-300 bg-white px-4 py-3.5 text-base md:text-sm text-dark outline-none transition-all"
+                >
+                  <span>{newTemplate.category ? newTemplate.category.replace(/_/g, ' ').toLowerCase() : 'Select category'}</span>
+                  <ChevronDown size={14} className="shrink-0 text-muted" />
+                </button>
+                {categoryOpen && (
+                  <div className="absolute left-0 right-0 top-[calc(100%+4px)] z-[80] max-h-60 overflow-y-auto rounded-xl border border-gray-200 bg-white shadow-[0_12px_32px_rgba(15,23,42,0.12)]">
+                    {CATEGORIES.map((c) => (
+                      <button
+                        key={c}
+                        type="button"
+                        onClick={() => { updateField('category')({ target: { value: c } }); setCategoryOpen(false) }}
+                        className={`flex w-full items-center justify-between px-4 py-3 text-sm font-semibold transition-colors hover:bg-gray-50 ${newTemplate.category === c ? 'text-dark' : 'text-muted'}`}
+                      >
+                        {c.replace(/_/g, ' ').toLowerCase()}
+                        {newTemplate.category === c && <Check size={14} className="shrink-0" />}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
 
             <div className="mt-4">

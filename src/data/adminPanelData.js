@@ -41,6 +41,12 @@ export const adminNavItems = [
     icon: 'pricing',
     description: 'Fees, taxes, and rates',
   },
+  {
+    label: 'Email logs',
+    href: '/admin/email-logs',
+    icon: 'mail',
+    description: 'Outbound email activity',
+  },
 ]
 
 export const adminDashboard = {

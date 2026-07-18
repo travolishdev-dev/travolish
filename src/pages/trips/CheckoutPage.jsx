@@ -1,8 +1,10 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link, useParams, useLocation } from 'react-router-dom'
 import {
   CalendarDays,
+  Check,
+  ChevronDown,
   CreditCard,
   MapPin,
   ShieldCheck,
@@ -26,6 +28,7 @@ import { checkAvailability, calculatePrice, createBooking } from '../../services
 import useAuthStore from '../../stores/useAuthStore'
 import useCurrency from '../../hooks/useCurrency'
 import { formatCurrencyAmount, currencyConfig } from '../../lib/currency'
+import { normalizePhoneForStorage } from '../../lib/phone'
 
 const CHECKOUT_ADDONS = [
   {
@@ -48,11 +51,6 @@ const CHECKOUT_ADDONS = [
   },
 ]
 
-const SUPPORT_HIGHLIGHTS = [
-  'Free cancellation up to 48 hours before check-in.',
-  'Your payment details are encrypted and never stored.',
-  'Message your host directly through the Travolish app.',
-]
 
 // Currency options for the selector — sourced from the shared currencyConfig so rates stay in sync
 const CURRENCY_OPTIONS = Object.values(currencyConfig).map((c) => ({ code: c.code, label: c.code }))
@@ -68,6 +66,11 @@ const DEFAULT_CHECK_OUT = addDays(new Date(), 4)
 
 export default function CheckoutPage() {
   const { t } = useTranslation(['booking', 'common'])
+  const supportHighlights = useMemo(() => [
+    t('freeCancellationNote'),
+    t('paymentSecure'),
+    t('messageHost'),
+  ], [t])
   const { propertyId } = useParams()
   const location = useLocation()
   const { user, profile, backendUserId } = useAuthStore()
@@ -105,6 +108,8 @@ export default function CheckoutPage() {
     Math.max(1, Number(incomingBooking?.adults || 0) + Number(incomingBooking?.children || 0) || 2),
   )
   const [currency, setCurrency] = useState(profileCurrency)
+  const [currencyOpen, setCurrencyOpen] = useState(false)
+  const currencyRef = useRef(null)
   const [promoCode, setPromoCode] = useState('')
   const [appliedPromo, setAppliedPromo] = useState('')
   const [promoNotice, setPromoNotice] = useState('')
@@ -115,6 +120,14 @@ export default function CheckoutPage() {
   useEffect(() => {
     setCurrency(profileCurrency)
   }, [profileCurrency])
+
+  useEffect(() => {
+    const handleClick = (e) => {
+      if (currencyRef.current && !currencyRef.current.contains(e.target)) setCurrencyOpen(false)
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [])
 
   // ── Add-ons state ───────────────────────────────────────────────────────────
   const [addOns, setAddOns] = useState(CHECKOUT_ADDONS)
@@ -168,7 +181,7 @@ export default function CheckoutPage() {
       setFirstName(parts[0] || '')
       setLastName(parts.slice(1).join(' ') || '')
       setEmail(gEmail || '')
-      setPhone(gPhone || '')
+      setPhone(gPhone ? normalizePhoneForStorage(gPhone, '+91') : '')
       return
     }
     if (user?.email) setEmail(user.email)
@@ -246,7 +259,7 @@ export default function CheckoutPage() {
         userId: backendUserId ?? null,
         guestName: `${firstName} ${lastName}`.trim(),
         guestEmail: email,
-        guestPhone: phone,
+        guestPhone: normalizePhoneForStorage(phone, '+91'),
         checkIn,
         checkOut,
         basePrice: selectedRoom.pricePerNight,
@@ -274,12 +287,12 @@ export default function CheckoutPage() {
       <PortalShell
         eyebrow={t('checkout')}
         title={t('propertyNotFound')}
-        description="We couldn't load this property. It may have been removed."
+        description={t('propertyNotFoundDesc')}
         actions={[{ label: t('backToSearch'), href: '/search' }]}
       >
         <SectionCard>
           <p className="text-sm text-muted">
-            Try browsing available stays from the search page.
+            {t('tryBrowsing')}
           </p>
         </SectionCard>
       </PortalShell>
@@ -292,7 +305,7 @@ export default function CheckoutPage() {
       <PortalShell
         eyebrow={bookingMode === 'request' ? t('requestSent') : t('bookingConfirmed')}
         title={bookingMode === 'request' ? t('requestWithHost') : t('allSet')}
-        description={`Booking #${confirmedBooking.id} has been created successfully.`}
+        description={t('bookingCreated', { id: confirmedBooking.id })}
         actions={[
           { label: t('viewMyTrips'), href: '/trips' },
           { label: t('backToHome'), href: '/', secondary: true },
@@ -351,7 +364,7 @@ export default function CheckoutPage() {
         {
           label: t('guestCount'),
           value: String(guestCount),
-          note: dateLabel || 'Select dates',
+          note: dateLabel || t('selectDates'),
         },
         {
           label: 'Reward ready',
@@ -380,7 +393,7 @@ export default function CheckoutPage() {
               <StatusPill tone="brand">
                 {bookingMode === 'request' ? t('requestToBook') : t('instantBook')}
               </StatusPill>
-              <StatusPill tone="success">Flexible policy</StatusPill>
+              <StatusPill tone="success">{t('flexiblePolicy')}</StatusPill>
             </div>
 
             <h2 className="mt-4 text-2xl font-semibold tracking-tight text-dark">
@@ -400,7 +413,7 @@ export default function CheckoutPage() {
               )}
               <p className="inline-flex items-center gap-2">
                 <CalendarDays size={15} />
-                {dateLabel || 'Select your dates below'}
+                {dateLabel || t('selectDatesBelow')}
               </p>
             </div>
           </SectionCard>
@@ -410,20 +423,34 @@ export default function CheckoutPage() {
             <SectionHeading
               eyebrow={t('pricePreview')}
               title={t('whatYouPay')}
-              description="Pricing is calculated live from the booking engine."
+              description={t('pricingNote')}
               action={(
-                <label className="inline-flex items-center gap-2 rounded-2xl border border-gray-200 bg-white px-3 py-2 text-sm font-semibold text-dark">
-                  <Globe2 size={15} />
-                  <select
-                    value={currency}
-                    onChange={(event) => setCurrency(event.target.value)}
-                    className="bg-transparent outline-none"
+                <div ref={currencyRef} className="relative">
+                  <button
+                    type="button"
+                    onClick={() => setCurrencyOpen((prev) => !prev)}
+                    className="inline-flex items-center gap-2 rounded-2xl border border-gray-200 bg-white px-3 py-2 text-sm font-semibold text-dark"
                   >
-                    {CURRENCY_OPTIONS.map((option) => (
-                      <option key={option.code} value={option.code}>{option.label}</option>
-                    ))}
-                  </select>
-                </label>
+                    <Globe2 size={15} />
+                    <span>{currency}</span>
+                    <ChevronDown size={13} className="shrink-0 text-muted" />
+                  </button>
+                  {currencyOpen && (
+                    <div className="absolute right-0 top-[calc(100%+4px)] z-[80] max-h-56 overflow-y-auto rounded-2xl border border-gray-200 bg-white shadow-[0_12px_32px_rgba(15,23,42,0.12)]">
+                      {CURRENCY_OPTIONS.map((option) => (
+                        <button
+                          key={option.code}
+                          type="button"
+                          onClick={() => { setCurrency(option.code); setCurrencyOpen(false) }}
+                          className={`flex w-full items-center justify-between px-4 py-2.5 text-sm font-semibold transition-colors hover:bg-gray-50 ${currency === option.code ? 'text-dark' : 'text-muted'}`}
+                        >
+                          {option.label}
+                          {currency === option.code && <Check size={13} className="shrink-0" />}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
               )}
             />
 
@@ -443,19 +470,19 @@ export default function CheckoutPage() {
                   </div>
                   {priceBreakdown.seasonalAdjustment !== 0 && (
                     <div className="flex items-center justify-between gap-4">
-                      <span>Seasonal adjustment</span>
+                      <span>{t('seasonalAdj')}</span>
                       <span>{priceBreakdown.seasonalAdjustment > 0 ? '+' : ''}{formatMoney(priceBreakdown.seasonalAdjustment, currency)}</span>
                     </div>
                   )}
                   {priceBreakdown.dynamicPricingAdjustment !== 0 && (
                     <div className="flex items-center justify-between gap-4">
-                      <span>Dynamic pricing</span>
+                      <span>{t('dynamicPricing')}</span>
                       <span>{priceBreakdown.dynamicPricingAdjustment > 0 ? '+' : ''}{formatMoney(priceBreakdown.dynamicPricingAdjustment, currency)}</span>
                     </div>
                   )}
                   {priceBreakdown.promotionalDiscount !== 0 && (
                     <div className="flex items-center justify-between gap-4 text-emerald-700">
-                      <span>Promotional discount</span>
+                      <span>{t('promoDiscount')}</span>
                       <span>−{formatMoney(Math.abs(priceBreakdown.promotionalDiscount), currency)}</span>
                     </div>
                   )}
@@ -469,7 +496,7 @@ export default function CheckoutPage() {
 
               {addOnTotal > 0 && (
                 <div className="flex items-center justify-between gap-4">
-                  <span>Selected add-ons</span>
+                  <span>{t('addOns')}</span>
                   <span>{formatMoney(addOnTotal, currency)}</span>
                 </div>
               )}
@@ -496,11 +523,11 @@ export default function CheckoutPage() {
                     onClick={() => {
                       const code = promoCode.trim().toUpperCase()
                       if (!code) {
-                        setPromoNotice('Enter a promo code to preview a discount.')
+                        setPromoNotice(t('enterPromo'))
                         return
                       }
                       setAppliedPromo(code)
-                      setPromoNotice(`${code} preview applied. Final validation stays with checkout pricing.`)
+                      setPromoNotice(t('promoApplied', { code }))
                     }}
                     className="rounded-xl bg-dark px-4 py-2.5 text-sm font-semibold text-white"
                   >
@@ -512,7 +539,7 @@ export default function CheckoutPage() {
 
               {promoDiscount > 0 && (
                 <div className="flex items-center justify-between gap-4 text-emerald-700">
-                  <span>Promo preview</span>
+                  <span>{t('promoPreview')}</span>
                   <span>−{formatMoney(promoDiscount, currency)}</span>
                 </div>
               )}
@@ -560,10 +587,10 @@ export default function CheckoutPage() {
 
             <div className="mt-5 rounded-[24px] bg-[#fcfcfb] p-4">
               <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted">
-                Included protection
+                {t('protection')}
               </p>
               <div className="mt-3 space-y-3">
-                {SUPPORT_HIGHLIGHTS.map((highlight) => (
+                {supportHighlights.map((highlight) => (
                   <div key={highlight} className="flex items-start gap-3">
                     <div className="rounded-full bg-emerald-50 p-1.5 text-emerald-700">
                       <ShieldCheck size={12} />
@@ -582,7 +609,7 @@ export default function CheckoutPage() {
           {/* Dates */}
           <SectionCard>
             <SectionHeading
-              eyebrow="Booking Flow"
+              eyebrow={t('bookingFlow')}
               title={bookingMode === 'request' ? t('hostApprovalRequired') : t('instantConfirmation')}
               description={
                 bookingMode === 'request'
@@ -611,7 +638,7 @@ export default function CheckoutPage() {
                     setCheckIn(d)
                     if (d >= checkOut) setCheckOut(addDays(d, 1))
                   }}
-                  className="w-full rounded-2xl border border-gray-200 bg-[#fcfcfb] px-4 py-3 text-sm text-dark outline-none focus:border-dark"
+                  className="w-full rounded-2xl border border-gray-200 bg-[#fcfcfb] px-4 py-3 text-base text-dark outline-none focus:border-dark"
                 />
               </label>
               <label className="block">
@@ -623,7 +650,7 @@ export default function CheckoutPage() {
                   value={format(checkOut, 'yyyy-MM-dd')}
                   min={format(addDays(checkIn, 1), 'yyyy-MM-dd')}
                   onChange={(e) => setCheckOut(parseISO(e.target.value))}
-                  className="w-full rounded-2xl border border-gray-200 bg-[#fcfcfb] px-4 py-3 text-sm text-dark outline-none focus:border-dark"
+                  className="w-full rounded-2xl border border-gray-200 bg-[#fcfcfb] px-4 py-3 text-base text-dark outline-none focus:border-dark"
                 />
               </label>
             </div>
@@ -660,17 +687,17 @@ export default function CheckoutPage() {
                             <p className="text-sm font-semibold capitalize">
                               {room.type
                                 ? room.type.charAt(0) + room.type.slice(1).toLowerCase()
-                                : 'Room'}{' '}
+                                : t('room')}{' '}
                               #{room.number}
                             </p>
                             <p className={`text-xs mt-0.5 ${isSelected ? 'text-white/70' : 'text-muted'}`}>
-                              {room.available ? 'Available' : 'Unavailable'}
+                              {room.available ? t('available') : t('unavailable')}
                             </p>
                           </div>
                         </div>
                         <p className="text-sm font-bold">
                           {formatMoney(room.pricePerNight, currency)}
-                          <span className={`font-normal text-xs ${isSelected ? 'text-white/70' : 'text-muted'}`}>/night</span>
+                          <span className={`font-normal text-xs ${isSelected ? 'text-white/70' : 'text-muted'}`}>{t('common:perNight')}</span>
                         </p>
                       </div>
                     </button>
@@ -695,12 +722,12 @@ export default function CheckoutPage() {
                     {t('guestCount')}
                   </span>
                   <input
-                    type="number"
-                    min="1"
-                    max="16"
+                    type="text"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
                     value={guestCount}
-                    onChange={(event) => setGuestCount(Math.max(1, Number(event.target.value) || 1))}
-                    className="w-16 bg-transparent text-right text-sm font-semibold text-dark outline-none"
+                    onChange={(event) => { const v = event.target.value.replace(/\D/g, ''); setGuestCount(v ? Math.min(16, Math.max(1, Number(v))) : 1) }}
+                    className="w-16 bg-transparent text-right text-base font-semibold text-dark outline-none"
                   />
                 </span>
               </label>
@@ -710,7 +737,7 @@ export default function CheckoutPage() {
                   type="text"
                   value={firstName}
                   onChange={(e) => setFirstName(e.target.value)}
-                  className="w-full rounded-2xl border border-gray-200 bg-[#fcfcfb] px-4 py-3 text-sm text-dark outline-none focus:border-dark"
+                  className="w-full rounded-2xl border border-gray-200 bg-[#fcfcfb] px-4 py-3 text-base text-dark outline-none focus:border-dark"
                 />
               </label>
               <label className="block">
@@ -719,7 +746,7 @@ export default function CheckoutPage() {
                   type="text"
                   value={lastName}
                   onChange={(e) => setLastName(e.target.value)}
-                  className="w-full rounded-2xl border border-gray-200 bg-[#fcfcfb] px-4 py-3 text-sm text-dark outline-none focus:border-dark"
+                  className="w-full rounded-2xl border border-gray-200 bg-[#fcfcfb] px-4 py-3 text-base text-dark outline-none focus:border-dark"
                 />
               </label>
               <label className="block">
@@ -728,7 +755,7 @@ export default function CheckoutPage() {
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="w-full rounded-2xl border border-gray-200 bg-[#fcfcfb] px-4 py-3 text-sm text-dark outline-none focus:border-dark"
+                  className="w-full rounded-2xl border border-gray-200 bg-[#fcfcfb] px-4 py-3 text-base text-dark outline-none focus:border-dark"
                 />
               </label>
               <label className="block">
@@ -737,7 +764,7 @@ export default function CheckoutPage() {
                   type="tel"
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
-                  className="w-full rounded-2xl border border-gray-200 bg-[#fcfcfb] px-4 py-3 text-sm text-dark outline-none focus:border-dark"
+                  className="w-full rounded-2xl border border-gray-200 bg-[#fcfcfb] px-4 py-3 text-base text-dark outline-none focus:border-dark"
                 />
               </label>
             </div>

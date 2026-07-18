@@ -49,3 +49,7 @@ export async function getHotelReviews(hotelId, { pageSize = 20 } = {}) {
 export async function getHotelAddOns(hotelId) {
   return get('/api/addons', { hotelId })
 }
+
+export async function getNearbyAttractions(hotelId) {
+  return get(`/api/hotels/${hotelId}/nearby`)
+}

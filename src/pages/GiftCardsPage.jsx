@@ -79,11 +79,13 @@ export default function GiftCardsPage() {
                 ))}
               </div>
               <input
-                type="number"
+                type="text"
+                inputMode="numeric"
+                pattern="[0-9]*"
                 placeholder="Custom amount (₹250 – ₹50,000)"
                 value={custom}
-                onChange={(e) => { setCustom(e.target.value); setSelected(null) }}
-                className="w-full rounded-2xl border border-gray-200 bg-[#fcfcfb] px-4 py-3 text-sm text-dark outline-none focus:border-dark"
+                onChange={(e) => { setCustom(e.target.value.replace(/\D/g, '')); setSelected(null) }}
+                className="w-full rounded-2xl border border-gray-200 bg-[#fcfcfb] px-4 py-3 text-base text-dark outline-none focus:border-dark"
               />
             </div>
 
@@ -96,14 +98,14 @@ export default function GiftCardsPage() {
                   placeholder="Recipient's email address"
                   value={recipientEmail}
                   onChange={(e) => setRecipientEmail(e.target.value)}
-                  className="w-full rounded-2xl border border-gray-200 bg-[#fcfcfb] px-4 py-3 text-sm text-dark outline-none focus:border-dark"
+                  className="w-full rounded-2xl border border-gray-200 bg-[#fcfcfb] px-4 py-3 text-base text-dark outline-none focus:border-dark"
                 />
                 <textarea
                   rows={3}
                   placeholder="Add a personal message (optional)…"
                   value={message}
                   onChange={(e) => setMessage(e.target.value)}
-                  className="w-full rounded-2xl border border-gray-200 bg-[#fcfcfb] px-4 py-3 text-sm text-dark outline-none focus:border-dark resize-none"
+                  className="w-full rounded-2xl border border-gray-200 bg-[#fcfcfb] px-4 py-3 text-base text-dark outline-none focus:border-dark resize-none"
                 />
               </div>
             </div>

@@ -67,10 +67,10 @@ function buildCountdown(dateStr, t) {
 
     if (days > 1) return t('detail.daysToCheckIn', { count: days })
     if (days === 1) return t('detail.checkInTomorrow')
-    if (hours > 0) return `${hours} hours to check-in`
+    if (hours > 0) return t('detail.hoursToCheckIn', { count: hours })
     return t('detail.checkInOpen')
   } catch {
-    return 'Countdown unavailable'
+    return t('detail.countdownUnavailable')
   }
 }
 
@@ -112,7 +112,7 @@ export default function TripDetailPage() {
 
   if (loading) {
     return (
-      <PortalShell eyebrow="Trip" title={t('common:status.loading')} actions={[{ label: t('browseStays'), href: '/trips', secondary: true }]}>
+      <PortalShell eyebrow={t('detail.tripLabel')} title={t('common:status.loading')} actions={[{ label: t('browseStays'), href: '/trips', secondary: true }]}>
         <SectionCard>
           <div className="py-16 text-center text-sm text-muted">{t('common:status.loading')}</div>
         </SectionCard>
@@ -122,7 +122,7 @@ export default function TripDetailPage() {
 
   if (error || !booking) {
     return (
-      <PortalShell eyebrow="Trip" title={t('detail.notFound')} actions={[{ label: t('browseStays'), href: '/trips' }]}>
+      <PortalShell eyebrow={t('detail.tripLabel')} title={t('detail.notFound')} actions={[{ label: t('browseStays'), href: '/trips' }]}>
         <SectionCard>
           <p className="text-sm text-muted">{error || t('detail.notFoundDesc')}</p>
         </SectionCard>
@@ -138,7 +138,7 @@ export default function TripDetailPage() {
       setBooking(updated)
       setConfirmCancel(false)
     } catch {
-      setCancelError('Could not cancel booking. Please try again.')
+      setCancelError(t('detail.cancelError'))
     } finally {
       setCancelling(false)
     }
@@ -170,7 +170,7 @@ export default function TripDetailPage() {
       ]}
       stats={[
         { label: t('labels.status'), value: booking.status, note: paymentStatus },
-        { label: t('detail.total'), value: formatCurrency(Number(booking.totalPrice ?? 0)), note: `Booking #${booking.id}` },
+        { label: t('detail.total'), value: formatCurrency(Number(booking.totalPrice ?? 0)), note: t('detail.bookingNumber', { id: booking.id }) },
         { label: t('labels.checkIn'), value: fmt(booking.checkInDate), note: countdownLabel },
       ]}
       accent="from-sky-50 via-white to-amber-50"
@@ -195,7 +195,7 @@ export default function TripDetailPage() {
             <StatusPill tone={STATUS_TONE[status]}>{status}</StatusPill>
             <StatusPill tone="sky">{paymentStatus}</StatusPill>
             <StatusPill tone="brand">{countdownLabel}</StatusPill>
-            <p className="text-sm text-muted">Booking #{booking.id}</p>
+            <p className="text-sm text-muted">{t('detail.bookingNumber', { id: booking.id })}</p>
           </div>
 
           <div className="mt-6 grid gap-4 md:grid-cols-3">
@@ -236,9 +236,9 @@ export default function TripDetailPage() {
             </div>
             <div className="mt-5 grid gap-3 md:grid-cols-3">
               {[
-                { title: 'Arrival window', detail: 'Check-in after 3:00 PM', icon: CalendarRange },
-                { title: 'Access notes', detail: 'Smart lock code shared 24h before arrival', icon: KeyRound },
-                { title: 'Host message', detail: 'Welcome note and local guide available in messages', icon: MessageSquareText },
+                { title: t('detail.arrivalWindow'), detail: t('detail.arrivalWindowDetail'), icon: CalendarRange },
+                { title: t('detail.accessNotes'), detail: t('detail.accessNotesDetail'), icon: KeyRound },
+                { title: t('detail.hostMessage'), detail: t('detail.hostMessageDetail'), icon: MessageSquareText },
               ].map((item) => {
                 const Icon = item.icon
                 return (
@@ -256,7 +256,7 @@ export default function TripDetailPage() {
         <div className="space-y-6">
           <SectionCard>
             <SectionHeading
-              eyebrow="Timeline"
+              eyebrow={t('detail.timelineEyebrow')}
               title={t('detail.timeline')}
             />
             <div className="mt-6 space-y-4">
@@ -283,7 +283,7 @@ export default function TripDetailPage() {
           </SectionCard>
 
           <SectionCard>
-            <SectionHeading eyebrow="Payment" title={t('detail.payment')} />
+            <SectionHeading eyebrow={t('detail.paymentEyebrow')} title={t('detail.payment')} />
 
             <div className="mt-6 rounded-[24px] bg-dark p-5 text-white">
               <div className="flex items-start justify-between gap-4">
@@ -340,7 +340,7 @@ export default function TripDetailPage() {
               <div className="mt-5 rounded-[24px] border border-red-200 bg-red-50 p-4 space-y-3">
                 <p className="text-sm font-semibold text-red-700">{t('detail.cancelConfirm')}</p>
                 <p className="text-sm text-red-600">
-                  {t('detail.estimatedRefund')} {formatCurrency(refundEstimate)}. Final refund depends on the live cancellation policy and payment processor result.
+                  {t('detail.estimatedRefund')} {formatCurrency(refundEstimate)}. {t('detail.refundNote')}
                 </p>
                 {cancelError && <p className="text-xs text-red-600">{cancelError}</p>}
                 <div className="flex gap-3">
@@ -350,7 +350,7 @@ export default function TripDetailPage() {
                     disabled={cancelling}
                     className="inline-flex items-center gap-2 rounded-full bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700 disabled:opacity-50 transition-colors"
                   >
-                    {cancelling ? <><Loader2 size={13} className="animate-spin" /> Cancelling…</> : t('detail.yesCancel')}
+                    {cancelling ? <><Loader2 size={13} className="animate-spin" /> {t('detail.cancelling')}</> : t('detail.yesCancel')}
                   </button>
                   <button
                     type="button"

@@ -21,5 +21,12 @@ export async function uploadKycDocument(hostId, body) {
 }
 
 export async function submitKyc(hostId, body) {
-  return post(`/api/host/kyc/submit-redirect?hostId=${hostId}`, body)
+  // Map frontend field names to backend SubmitKYCRequest field names.
+  // vatGstNumber has no backend field yet — merged into taxId.
+  const { taxNumber, vatGstNumber, ...rest } = body
+  const mappedBody = {
+    ...rest,
+    taxId: taxNumber || vatGstNumber || body.taxId || '',
+  }
+  return post(`/api/host/kyc/submit-redirect?hostId=${hostId}`, mappedBody)
 }

@@ -24,6 +24,7 @@ import {
   formatGuestSummary,
 } from '../../lib/searchFormatting'
 import useCurrency from '../../hooks/useCurrency'
+import { normalizePhoneForStorage } from '../../lib/phone'
 
 function parseDateValue(dateValue) {
   if (!dateValue) return null
@@ -56,6 +57,7 @@ function CounterRow({
   max,
   onChange,
 }) {
+  const { t } = useTranslation('booking')
   return (
     <div className="flex items-center justify-between gap-4 py-3">
       <div>
@@ -68,7 +70,7 @@ function CounterRow({
           onClick={() => onChange(value - 1)}
           disabled={value <= min}
           className="flex h-8 w-8 items-center justify-center rounded-full border border-gray-300 text-dark transition-colors hover:border-dark disabled:cursor-not-allowed disabled:opacity-30"
-          aria-label={`Decrease ${label.toLowerCase()}`}
+          aria-label={t('decreaseLabel', { label })}
         >
           <Minus size={14} />
         </button>
@@ -80,7 +82,7 @@ function CounterRow({
           onClick={() => onChange(value + 1)}
           disabled={value >= max}
           className="flex h-8 w-8 items-center justify-center rounded-full border border-gray-300 text-dark transition-colors hover:border-dark disabled:cursor-not-allowed disabled:opacity-30"
-          aria-label={`Increase ${label.toLowerCase()}`}
+          aria-label={t('increaseLabel', { label })}
         >
           <Plus size={14} />
         </button>
@@ -207,7 +209,7 @@ export default function BookingWidget({ property, rooms = [], sticky = true }) {
       guestDetails: {
         fullName: guestDetails.fullName.trim(),
         email: guestDetails.email.trim(),
-        phone: guestDetails.phone.trim(),
+        phone: normalizePhoneForStorage(guestDetails.phone.trim(), '+91'),
         note: guestDetails.note.trim(),
       },
       pricing: {
@@ -247,14 +249,14 @@ export default function BookingWidget({ property, rooms = [], sticky = true }) {
                   <span className="text-sm text-muted">{t('property:perNight')}</span>
                 </>
               ) : (
-                <span className="text-xl font-bold text-dark">Price on request</span>
+                <span className="text-xl font-bold text-dark">{t('common:priceOnRequest')}</span>
               )}
             </div>
             <p className="mt-1 text-xs text-muted">{roomLabel}</p>
           </div>
           <div className="flex items-center gap-1.5 rounded-full bg-gray-50 px-3 py-2 text-sm font-semibold text-dark">
             <Star size={13} className="fill-dark text-dark" />
-            {property.rating || 'New'}
+            {property.rating || t('common:ratingNew')}
           </div>
         </div>
 
@@ -348,7 +350,7 @@ export default function BookingWidget({ property, rooms = [], sticky = true }) {
                   )}
                 />
                 <p className="border-t border-gray-100 py-3 text-xs text-muted">
-                  {t('maximum')} {t('common:guest', { count: maxGuests })} for this property.
+                  {t('maximum')} {t('common:guest', { count: maxGuests })} {t('forThisProperty')}
                 </p>
               </div>
             )}
@@ -368,7 +370,7 @@ export default function BookingWidget({ property, rooms = [], sticky = true }) {
                 type="text"
                 value={guestDetails.fullName}
                 onChange={(event) => updateGuestDetails('fullName', event.target.value)}
-                className={`mt-1 w-full rounded-xl border bg-white px-3 py-2.5 text-sm text-dark outline-none transition-colors focus:border-dark ${
+                className={`mt-1 w-full rounded-xl border bg-white px-3 py-2.5 text-base text-dark outline-none transition-colors focus:border-dark ${
                   errors.fullName ? 'border-red-300' : 'border-gray-200'
                 }`}
                 placeholder={t('fullName')}
@@ -392,7 +394,7 @@ export default function BookingWidget({ property, rooms = [], sticky = true }) {
                     type="email"
                     value={guestDetails.email}
                     onChange={(event) => updateGuestDetails('email', event.target.value)}
-                    className={`w-full rounded-xl border bg-white py-2.5 pl-9 pr-3 text-sm text-dark outline-none transition-colors focus:border-dark ${
+                    className={`w-full rounded-xl border bg-white py-2.5 pl-9 pr-3 text-base text-dark outline-none transition-colors focus:border-dark ${
                       errors.email ? 'border-red-300' : 'border-gray-200'
                     }`}
                     placeholder="name@example.com"
@@ -406,7 +408,7 @@ export default function BookingWidget({ property, rooms = [], sticky = true }) {
               </label>
 
               <label className="block">
-                <span className="text-xs font-semibold text-muted">Mobile number</span>
+                <span className="text-xs font-semibold text-muted">{t('mobileNumber')}</span>
                 <span className="relative mt-1 block">
                   <Phone
                     size={15}
@@ -416,7 +418,7 @@ export default function BookingWidget({ property, rooms = [], sticky = true }) {
                     type="tel"
                     value={guestDetails.phone}
                     onChange={(event) => updateGuestDetails('phone', event.target.value)}
-                    className={`w-full rounded-xl border bg-white py-2.5 pl-9 pr-3 text-sm text-dark outline-none transition-colors focus:border-dark ${
+                    className={`w-full rounded-xl border bg-white py-2.5 pl-9 pr-3 text-base text-dark outline-none transition-colors focus:border-dark ${
                       errors.phone ? 'border-red-300' : 'border-gray-200'
                     }`}
                     placeholder="+91 98765 43210"
@@ -436,7 +438,7 @@ export default function BookingWidget({ property, rooms = [], sticky = true }) {
                 value={guestDetails.note}
                 onChange={(event) => updateGuestDetails('note', event.target.value)}
                 rows={2}
-                className="mt-1 w-full resize-none rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm text-dark outline-none transition-colors focus:border-dark"
+                className="mt-1 w-full resize-none rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-base text-dark outline-none transition-colors focus:border-dark"
                 placeholder={t('optional')}
               />
             </label>
@@ -467,13 +469,16 @@ export default function BookingWidget({ property, rooms = [], sticky = true }) {
 
         <div className="mt-3 flex items-center justify-center gap-2 text-xs text-muted">
           <ShieldCheck size={14} />
-          You will review the final price before payment.
+          {t('finalPriceNote')}
         </div>
       </form>
 
       {reviewBooking && (
         <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/40 px-4 py-6">
-          <div className="max-h-[calc(100vh-3rem)] w-full max-w-lg overflow-y-auto rounded-[28px] bg-white shadow-[0_30px_90px_rgba(15,23,42,0.28)]">
+          <div
+            className="max-h-[calc(100vh-3rem)] w-full max-w-lg overflow-y-auto rounded-[28px] bg-white shadow-[0_30px_90px_rgba(15,23,42,0.28)]"
+            style={{ maxHeight: 'calc(100dvh - 3rem)' }}
+          >
             <div className="flex items-start justify-between gap-4 border-b border-gray-100 px-5 py-5">
               <div>
                 <div className="flex items-center gap-2">
@@ -483,14 +488,14 @@ export default function BookingWidget({ property, rooms = [], sticky = true }) {
                   <h2 className="text-xl font-semibold text-dark">{t('reviewBooking')}</h2>
                 </div>
                 <p className="mt-2 text-sm text-muted">
-                  Confirm these details before moving to the payment page.
+                  {t('reviewBookingDesc')}
                 </p>
               </div>
               <button
                 type="button"
                 onClick={() => setReviewBooking(null)}
                 className="flex h-9 w-9 items-center justify-center rounded-full border border-gray-200 text-dark transition-colors hover:bg-gray-50"
-                aria-label="Close booking review"
+                aria-label={t('closeReview')}
               >
                 <X size={16} />
               </button>
@@ -508,7 +513,7 @@ export default function BookingWidget({ property, rooms = [], sticky = true }) {
                 <div className="rounded-2xl border border-gray-100 p-4">
                   <div className="flex items-center gap-2 text-sm font-semibold text-dark">
                     <CalendarDays size={16} />
-                    Dates
+                    {t('dates')}
                   </div>
                   <p className="mt-2 text-sm text-muted">{reviewBooking.dateLabel}</p>
                   <p className="mt-1 text-xs text-muted">
@@ -533,7 +538,7 @@ export default function BookingWidget({ property, rooms = [], sticky = true }) {
                 <p className="mt-1 text-sm text-muted">{reviewBooking.guestDetails.phone}</p>
                 {reviewBooking.guestDetails.note && (
                   <p className="mt-2 text-xs text-muted">
-                    Note: {reviewBooking.guestDetails.note}
+                    {t('note')} {reviewBooking.guestDetails.note}
                   </p>
                 )}
               </section>
@@ -567,14 +572,14 @@ export default function BookingWidget({ property, rooms = [], sticky = true }) {
                 onClick={() => setReviewBooking(null)}
                 className="rounded-2xl border border-gray-200 px-5 py-3 text-sm font-semibold text-dark transition-colors hover:bg-gray-50"
               >
-                Edit details
+                {t('editDetails')}
               </button>
               <button
                 type="button"
                 onClick={handleContinueToPayment}
                 className="rounded-2xl bg-dark px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-gray-800"
               >
-                Continue to payment
+                {t('continueToPayment')}
               </button>
             </div>
           </div>

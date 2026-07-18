@@ -233,7 +233,7 @@ export default function OffersPage() {
                 value={promoInput}
                 onChange={(e) => { setPromoInput(e.target.value.toUpperCase()); setPromoResult(null) }}
                 placeholder={t('promoPlaceholder')}
-                className="w-full rounded-2xl border border-gray-200 bg-[#fcfcfb] px-4 py-3 text-sm font-semibold text-dark outline-none focus:border-dark"
+                className="w-full rounded-2xl border border-gray-200 bg-[#fcfcfb] px-4 py-3 text-base font-semibold text-dark outline-none focus:border-dark"
               />
               <button
                 type="submit"

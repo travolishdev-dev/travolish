@@ -11,6 +11,7 @@ import {
 } from '../../components/host/HostPortalUI'
 import { HostPillButton } from '../../components/host/HostFormFields'
 import { confirmBooking, rejectBooking, listBookingsByHotel } from '../../services/bookingsApi'
+import { Star } from 'lucide-react'
 import { getOrCreateConversation } from '../../services/chatApi'
 import { findUserByEmail } from '../../services/usersApi'
 import useAuthStore from '../../stores/useAuthStore'
@@ -286,6 +287,15 @@ export default function HostBookingsPage() {
                         <MessageCircleMore size={16} />
                         Message
                       </button>
+                      {booking.status === 'CONFIRMED' && (booking.userId || booking.guestId) && (
+                        <Link
+                          to={`/host/reviews/guests/${booking.userId ?? booking.guestId}?bookingId=${booking.id}&hotelId=${booking.hotelId}&guestName=${encodeURIComponent(booking.guestName ?? 'Guest')}`}
+                          className="inline-flex items-center justify-center gap-2 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-2.5 text-sm font-semibold text-amber-800 transition-colors hover:bg-amber-100"
+                        >
+                          <Star size={16} />
+                          Review guest
+                        </Link>
+                      )}
                     </div>
                   </div>
                 </div>

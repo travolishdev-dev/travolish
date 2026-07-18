@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { ArrowRight, ChevronLeft, ChevronRight, Map, Sparkles } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import HomeSearchPanel from '../components/home/HomeSearchPanel'
 import PropertyCard from '../components/home/PropertyCard'
 import PopularDestinations from '../components/home/PopularDestinations'
@@ -18,23 +19,29 @@ const SECTION_SIZE = 8
 const CARD_TRACK_ITEM_CLASS =
   'shrink-0 snap-start basis-[82%] sm:basis-[calc((100%-1.25rem)/2)] lg:basis-[calc((100%-2.5rem)/3)] xl:basis-[calc((100%-3.75rem)/4)] 2xl:basis-[calc((100%-5rem)/5)]'
 
-const recommendationModes = [
-  {
-    id: 'trusted',
-    label: 'Most trusted',
-    signal: 'ratings, reviews, and booking confidence',
-  },
-  {
-    id: 'value',
-    label: 'Best value',
-    signal: 'lower nightly rates with strong guest feedback',
-  },
-  {
-    id: 'weekend',
-    label: 'Weekend ready',
-    signal: 'easy-to-book stays with broad appeal',
-  },
-]
+const RECOMMENDATION_MODE_IDS = ['trusted', 'value', 'weekend']
+
+function smoothScrollBy(el, left) {
+  const supportsSmooth = 'scrollBehavior' in document.documentElement.style
+  if (supportsSmooth) {
+    el.scrollBy({ left, behavior: 'smooth' })
+    return
+  }
+  const start = el.scrollLeft
+  const target = start + left
+  const duration = 280
+  let startTime = null
+  const step = (timestamp) => {
+    if (!startTime) startTime = timestamp
+    const progress = Math.min((timestamp - startTime) / duration, 1)
+    const ease = progress < 0.5
+      ? 2 * progress * progress
+      : 1 - Math.pow(-2 * progress + 2, 2) / 2
+    el.scrollLeft = start + (target - start) * ease
+    if (progress < 1) requestAnimationFrame(step)
+  }
+  requestAnimationFrame(step)
+}
 
 function scrollCardTrack(trackRef, direction) {
   const track = trackRef.current
@@ -46,20 +53,18 @@ function scrollCardTrack(trackRef, direction) {
     ? firstItem.getBoundingClientRect().width + gap
     : track.clientWidth * 0.82
 
-  track.scrollBy({
-    left: direction * distance,
-    behavior: 'smooth',
-  })
+  smoothScrollBy(track, direction * distance)
 }
 
 function CarouselControls({ onPrevious, onNext }) {
+  const { t } = useTranslation('home')
   return (
     <div className="hidden items-center gap-2 md:flex">
       <button
         type="button"
         onClick={onPrevious}
         className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-gray-200 bg-white text-dark shadow-sm transition-colors hover:border-brand hover:text-brand"
-        aria-label="Scroll to previous cards"
+        aria-label={t('scrollPrev')}
       >
         <ChevronLeft size={18} />
       </button>
@@ -67,7 +72,7 @@ function CarouselControls({ onPrevious, onNext }) {
         type="button"
         onClick={onNext}
         className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-gray-200 bg-white text-dark shadow-sm transition-colors hover:border-brand hover:text-brand"
-        aria-label="Scroll to next cards"
+        aria-label={t('scrollNext')}
       >
         <ChevronRight size={18} />
       </button>
@@ -75,21 +80,22 @@ function CarouselControls({ onPrevious, onNext }) {
   )
 }
 
-function ViewAllCard({ title = 'View all stays', description = 'Open the full search page to compare more hotels, dates, and prices.' }) {
+function ViewAllCard({ title, description }) {
+  const { t } = useTranslation('home')
   return (
     <Link
       to="/search"
-      className="group flex min-h-[356px] h-full flex-col justify-between rounded-card border border-dashed border-gray-300 bg-white p-5 text-left shadow-[0_14px_34px_rgba(15,23,42,0.06)] transition-all hover:-translate-y-0.5 hover:border-brand hover:shadow-[0_18px_42px_rgba(15,23,42,0.1)]"
+      className="group flex min-h-[356px] h-full flex-col justify-between rounded-card border border-dashed border-gray-200 bg-white p-5 text-left shadow-[0_14px_34px_rgba(15,23,42,0.06)] transition-colors hover:border-brand card-hover-lift"
     >
       <div>
         <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted">
-          More options
+          {t('moreOptions')}
         </p>
         <h3 className="mt-3 text-2xl font-semibold leading-tight text-dark">
-          {title}
+          {title ?? t('viewAllStays')}
         </h3>
         <p className="mt-3 text-sm leading-6 text-muted">
-          {description}
+          {description ?? t('viewAllDefaultDesc')}
         </p>
       </div>
       <span className="inline-flex h-12 w-12 items-center justify-center rounded-2xl border border-gray-300 text-dark transition-colors group-hover:border-brand group-hover:bg-brand group-hover:text-white">
@@ -150,7 +156,7 @@ function SectionSkeleton() {
 
       <div
         ref={trackRef}
-        className="hide-scrollbar -my-2 flex touch-pan-x snap-x snap-mandatory gap-5 overflow-x-auto scroll-smooth py-2"
+        className="hide-scrollbar -my-2 flex touch-pan-x snap-x snap-proximity gap-5 overflow-x-auto overscroll-x-contain py-2"
       >
         {Array.from({ length: SECTION_SIZE }).map((_, index) => (
           <div key={index} data-carousel-item className={CARD_TRACK_ITEM_CLASS}>
@@ -163,6 +169,7 @@ function SectionSkeleton() {
 }
 
 function PropertySection({ eyebrow, title, description, propertiesToShow }) {
+  const { t } = useTranslation('home')
   const trackRef = useRef(null)
 
   if (!propertiesToShow.length) {
@@ -191,7 +198,7 @@ function PropertySection({ eyebrow, title, description, propertiesToShow }) {
 
       <div
         ref={trackRef}
-        className="hide-scrollbar -my-2 flex touch-pan-x snap-x snap-mandatory gap-5 overflow-x-auto scroll-smooth py-2"
+        className="hide-scrollbar -my-2 flex touch-pan-x snap-x snap-proximity gap-5 overflow-x-auto overscroll-x-contain py-2"
       >
         {propertiesToShow.map((property, index) => (
           <div
@@ -208,8 +215,8 @@ function PropertySection({ eyebrow, title, description, propertiesToShow }) {
         ))}
         <div data-carousel-item className={CARD_TRACK_ITEM_CLASS}>
           <ViewAllCard
-            title={`View all ${eyebrow.toLowerCase()}`}
-            description="See the complete hotel list with search filters, map view, and more stay options."
+            title={t('viewAll', { eyebrow: eyebrow.toLowerCase() })}
+            description={t('viewAllDesc')}
           />
         </div>
       </div>
@@ -229,7 +236,13 @@ function scoreRecommendation(property, modeId) {
 }
 
 function RecommendationControls({ activeMode, onModeChange }) {
-  const selected = recommendationModes.find((mode) => mode.id === activeMode) ?? recommendationModes[0]
+  const { t } = useTranslation('home')
+  const modes = RECOMMENDATION_MODE_IDS.map((id) => ({
+    id,
+    label: t(`modes.${id}`),
+    signal: t(`modes.${id}Desc`),
+  }))
+  const selected = modes.find((mode) => mode.id === activeMode) ?? modes[0]
 
   return (
     <section className="rounded-[28px] border border-gray-200 bg-white p-5 shadow-[0_14px_34px_rgba(15,23,42,0.05)] md:p-6">
@@ -237,17 +250,17 @@ function RecommendationControls({ activeMode, onModeChange }) {
         <div className="max-w-2xl">
           <p className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-muted">
             <Sparkles size={14} className="text-brand" />
-            AI recommendations
+            {t('aiRecommendations')}
           </p>
           <h2 className="mt-2 text-2xl font-semibold tracking-tight text-dark">
-            Tune the shortlist
+            {t('tuneShortlist')}
           </h2>
           <p className="mt-2 text-sm leading-6 text-muted">
-            Ranking currently prioritizes {selected.signal}.
+            {t('rankingPrioritizes', { signal: selected.signal })}
           </p>
         </div>
         <div className="grid gap-2 sm:flex sm:flex-wrap sm:gap-3">
-          {recommendationModes.map((mode) => (
+          {modes.map((mode) => (
             <button
               key={mode.id}
               type="button"
@@ -255,7 +268,7 @@ function RecommendationControls({ activeMode, onModeChange }) {
               className={`rounded-2xl px-4 py-2.5 text-sm font-semibold transition-colors ${
                 activeMode === mode.id
                   ? 'bg-dark text-white'
-                  : 'border border-gray-200 bg-[#fcfbf8] text-dark hover:bg-white'
+                  : 'border border-gray-200 bg-gray-50 text-dark hover:bg-white'
               }`}
             >
               {mode.label}
@@ -268,6 +281,7 @@ function RecommendationControls({ activeMode, onModeChange }) {
 }
 
 export default function HomePage() {
+  const { t } = useTranslation('home')
   const navigate = useNavigate()
   const [properties, setProperties] = useState([])
   const [isLoading, setIsLoading] = useState(true)
@@ -294,6 +308,12 @@ export default function HomePage() {
     return () => { cancelled = true }
   }, [])
 
+  const modes = RECOMMENDATION_MODE_IDS.map((id) => ({
+    id,
+    label: t(`modes.${id}`),
+    signal: t(`modes.${id}Desc`),
+  }))
+
   const platformLabel = formatPlatformLabel(sharedLocation.platform)
   const sharedCoordinates = formatCoordinates(
     sharedLocation.latitude,
@@ -309,21 +329,18 @@ export default function HomePage() {
 
   const nearbyProperties = nearbySource.slice(0, SECTION_SIZE)
   const nearbyIds = new Set(nearbyProperties.map((p) => p.id))
+  const selectedMode = modes.find((mode) => mode.id === recommendationMode) ?? modes[0]
   const recommendedProperties = [...properties]
     .filter((p) => !nearbyIds.has(p.id))
     .sort((a, b) => scoreRecommendation(b, recommendationMode) - scoreRecommendation(a, recommendationMode))
     .slice(0, SECTION_SIZE)
-  const selectedRecommendationMode =
-    recommendationModes.find((mode) => mode.id === recommendationMode) ?? recommendationModes[0]
 
   const nearbyTitle = sharedLocation.hasSharedLocation
-    ? 'Hotel deals near your handoff'
-    : 'Hotel deals worth opening'
+    ? t('nearHandoff')
+    : t('worthOpening')
   const nearbyDescription = sharedLocation.hasSharedLocation
-    ? `Sorted around ${sharedCoordinates} from your ${platformLabel.toLowerCase()} handoff so nearby stays stay easy to compare.`
-    : 'A focused shortlist of stays with strong ratings, useful details, and clear next steps.'
-  const recommendedDescription =
-    `A preference-aware shortlist ranked by ${selectedRecommendationMode.signal}.`
+    ? t('nearHandoffDesc', { coords: sharedCoordinates, platform: platformLabel.toLowerCase() })
+    : t('worthDesc')
 
   return (
     <main className="pb-16">
@@ -340,7 +357,7 @@ export default function HomePage() {
         ) : (
           <div className="space-y-16">
             <PropertySection
-              eyebrow="Smart picks"
+              eyebrow={t('smartPicks')}
               title={nearbyTitle}
               description={nearbyDescription}
               propertiesToShow={nearbyProperties}
@@ -354,9 +371,9 @@ export default function HomePage() {
             )}
 
             <PropertySection
-              eyebrow="Recommended"
-              title={`${selectedRecommendationMode.label} for your next stay`}
-              description={recommendedDescription}
+              eyebrow={t('recommended')}
+              title={t('recommendedFor', { modeLabel: selectedMode.label })}
+              description={t('recommendedDesc', { signal: selectedMode.signal })}
               propertiesToShow={recommendedProperties}
             />
           </div>
@@ -370,10 +387,10 @@ export default function HomePage() {
           <button
             type="button"
             onClick={() => navigate('/map-view')}
-            className="fixed bottom-6 left-1/2 z-40 inline-flex -translate-x-1/2 items-center gap-2 rounded-full bg-dark px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-black/20 transition-colors hover:bg-gray-800"
+            className="fixed bottom-[calc(1.5rem+env(safe-area-inset-bottom))] left-1/2 z-40 inline-flex -translate-x-1/2 items-center gap-2 rounded-full bg-dark px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-black/20 transition-colors hover:bg-gray-800"
           >
             <Map size={16} />
-            Map view
+            {t('mapView')}
           </button>
         )}
       </div>

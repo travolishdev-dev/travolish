@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { CheckCircle2, FileText, Loader2, Upload, X } from 'lucide-react'
+import { Check, CheckCircle2, ChevronDown, FileText, Loader2, Upload, X } from 'lucide-react'
 import {
   HostShell,
   SectionCard,
@@ -18,9 +18,10 @@ import { getAvatarUploadUrl, uploadToGcs } from '../../services/storageApi'
 import useHostContext from '../../hooks/useHostContext'
 
 const DOC_TYPES = [
-  { id: 'GOVERNMENT_ID', label: 'Government ID' },
+  { id: 'GOVERNMENT_ID', label: 'Government ID / Identity verification' },
   { id: 'PROOF_OF_ADDRESS', label: 'Proof of address' },
   { id: 'BUSINESS_REGISTRATION', label: 'Business registration' },
+  { id: 'HOTEL_LICENSE', label: 'Hotel / Accommodation license' },
   { id: 'TAX_DOCUMENT', label: 'Tax document' },
 ]
 
@@ -30,6 +31,7 @@ function formatDocType(raw) {
     GOVERNMENT_ID: 'Government ID',
     PROOF_OF_ADDRESS: 'Proof of address',
     BUSINESS_REGISTRATION: 'Business registration',
+    HOTEL_LICENSE: 'Hotel / Accommodation license',
     TAX_DOCUMENT: 'Tax document',
     PASSPORT: 'Passport',
     NATIONAL_ID: 'National ID',
@@ -88,16 +90,26 @@ export default function HostKycPage() {
 
   const [uploadFile, setUploadFile] = useState(null)
   const [uploadDocType, setUploadDocType] = useState(DOC_TYPES[0].id)
+  const [docTypeOpen, setDocTypeOpen] = useState(false)
   const [uploading, setUploading] = useState(false)
   const [uploadError, setUploadError] = useState(null)
   const [uploadSuccess, setUploadSuccess] = useState(false)
 
-  const [submitForm, setSubmitForm] = useState({ fullName: '', taxId: '', businessName: '' })
+  const [submitForm, setSubmitForm] = useState({ fullName: '', taxNumber: '', vatGstNumber: '', businessName: '' })
   const [submitting, setSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState(null)
   const [submitSuccess, setSubmitSuccess] = useState(false)
 
   const fileInputRef = useRef(null)
+  const docTypeRef = useRef(null)
+
+  useEffect(() => {
+    const handleClick = (e) => {
+      if (docTypeRef.current && !docTypeRef.current.contains(e.target)) setDocTypeOpen(false)
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [])
 
   useEffect(() => {
     if (hostLoading || !hostId) return
@@ -123,7 +135,8 @@ export default function HostKycPage() {
           // Pre-populate submit form from existing profile data
           setSubmitForm({
             fullName: [profile.firstName, profile.lastName].filter(Boolean).join(' '),
-            taxId: profile.taxId ?? '',
+            taxNumber: profile.taxId ?? profile.taxNumber ?? '',
+            vatGstNumber: profile.vatGstNumber ?? profile.vatNumber ?? '',
             businessName: profile.businessName ?? '',
           })
         }
@@ -219,7 +232,9 @@ export default function HostKycPage() {
       await submitKyc(hostId, {
         firstName: nameParts[0] || submitForm.fullName,
         lastName: nameParts.slice(1).join(' ') || '',
-        taxId: submitForm.taxId,
+        taxId: submitForm.taxNumber,
+        taxNumber: submitForm.taxNumber,
+        vatGstNumber: submitForm.vatGstNumber,
         businessName: submitForm.businessName,
       })
       setSubmitSuccess(true)
@@ -318,13 +333,31 @@ export default function HostKycPage() {
             <div className="mt-6 space-y-4">
               <div>
                 <label className="mb-2 block text-sm font-semibold text-dark">Document type</label>
-                <select
-                  value={uploadDocType}
-                  onChange={(e) => setUploadDocType(e.target.value)}
-                  className="w-full rounded-xl border border-gray-300 bg-white px-4 py-3.5 text-sm text-dark outline-none transition-all focus:border-dark focus:ring-1 focus:ring-dark"
-                >
-                  {DOC_TYPES.map((t) => <option key={t.id} value={t.id}>{t.label}</option>)}
-                </select>
+                <div ref={docTypeRef} className="relative">
+                  <button
+                    type="button"
+                    onClick={() => setDocTypeOpen((prev) => !prev)}
+                    className="flex w-full items-center justify-between rounded-xl border border-gray-300 bg-white px-4 py-3.5 text-base md:text-sm text-dark outline-none transition-all"
+                  >
+                    <span>{DOC_TYPES.find((t) => t.id === uploadDocType)?.label ?? uploadDocType}</span>
+                    <ChevronDown size={14} className="shrink-0 text-muted" />
+                  </button>
+                  {docTypeOpen && (
+                    <div className="absolute left-0 right-0 top-[calc(100%+4px)] z-[80] max-h-60 overflow-y-auto rounded-xl border border-gray-200 bg-white shadow-[0_12px_32px_rgba(15,23,42,0.12)]">
+                      {DOC_TYPES.map((t) => (
+                        <button
+                          key={t.id}
+                          type="button"
+                          onClick={() => { setUploadDocType(t.id); setDocTypeOpen(false) }}
+                          className={`flex w-full items-center justify-between px-4 py-3 text-sm font-semibold transition-colors hover:bg-gray-50 ${uploadDocType === t.id ? 'text-dark' : 'text-muted'}`}
+                        >
+                          {t.label}
+                          {uploadDocType === t.id && <Check size={14} className="shrink-0" />}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
 
               <button
@@ -406,8 +439,9 @@ export default function HostKycPage() {
               description="Provide your legal details and submit for review. You will be notified once approved."
             />
             <div className="mt-6 space-y-4">
-              <HostField label="Full legal name" value={submitForm.fullName} onChange={updateSubmitField('fullName')} placeholder="As it appears on your ID" />
-              <HostField label="Tax ID / VAT number" value={submitForm.taxId} onChange={updateSubmitField('taxId')} placeholder="Optional" />
+              <HostField label="Full legal name" value={submitForm.fullName} onChange={updateSubmitField('fullName')} placeholder="As it appears on your government ID" />
+              <HostField label="Tax number" value={submitForm.taxNumber} onChange={updateSubmitField('taxNumber')} placeholder="Tax registration / PAN / TIN (optional)" />
+              <HostField label="VAT / GST number" value={submitForm.vatGstNumber} onChange={updateSubmitField('vatGstNumber')} placeholder="VAT or GST number (optional)" />
               <HostField label="Business name (if applicable)" value={submitForm.businessName} onChange={updateSubmitField('businessName')} placeholder="Registered company name" />
 
               {submitError && <p className="text-sm text-red-600">{submitError}</p>}

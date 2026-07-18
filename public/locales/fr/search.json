@@ -1,0 +1,62 @@
+{
+  "title": "Résultats de recherche",
+  "finding": "Recherche de séjours…",
+  "noResults": "Aucun résultat trouvé",
+  "noResultsHint": "Essayez une autre destination, ajustez vos dates ou assouplissez les filtres de prix et de note.",
+  "refineHint": "Utilisez le panneau de recherche en haut pour affiner la destination, les dates, les voyageurs et les filtres.",
+  "sortedByLocation": "Les résultats sont triés selon votre position partagée",
+  "locationNotShared": "La position n'a pas été partagée depuis l'application",
+  "permissionGranted": "Autorisation accordée",
+  "showingDefault": "Affichage de l'ordre par défaut.",
+  "types": {
+    "any": "Tous",
+    "hotel": "Hôtel",
+    "apartment": "Appartement",
+    "villa": "Villa",
+    "homestay": "Chez l'habitant",
+    "resort": "Resort",
+    "guestHouse": "Pension"
+  },
+  "amenities": {
+    "wifi": "Wifi",
+    "kitchen": "Cuisine",
+    "parking": "Parking gratuit",
+    "pool": "Piscine",
+    "ac": "Climatisation",
+    "breakfast": "Petit-déjeuner",
+    "workspace": "Espace de travail",
+    "washer": "Machine à laver",
+    "petFriendly": "Animaux acceptés",
+    "gym": "Salle de sport",
+    "airportPickup": "Transfert aéroport",
+    "freeCancellation": "Annulation gratuite",
+    "policyVaries": "Politique variable"
+  },
+  "filters": {
+    "priceRange": "Fourchette de prix",
+    "rating": "Note",
+    "propertyType": "Type de logement",
+    "amenities": "Équipements",
+    "sortBy": "Trier par",
+    "newest": "Plus récent",
+    "priceLow": "Prix : croissant",
+    "priceHigh": "Prix : décroissant",
+    "topRated": "Mieux noté",
+    "recommended": "Recommandé",
+    "priceLowToHigh": "Prix croissant",
+    "priceHighToLow": "Prix décroissant",
+    "highestRated": "Mieux noté",
+    "minPrice": "Prix min",
+    "maxPrice": "Prix max",
+    "bookingOptions": "Options de réservation",
+    "instantBookOnly": "Réservation instantanée uniquement",
+    "guestRating": "Note des voyageurs",
+    "anyRating": "Toute note",
+    "clearFilters": "Réinitialiser les filtres"
+  },
+  "controls": {
+    "filters": "Filtres",
+    "decreaseLabel": "Réduire {{label}}",
+    "increaseLabel": "Augmenter {{label}}"
+  }
+}

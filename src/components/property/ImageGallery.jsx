@@ -9,12 +9,19 @@ export default function ImageGallery({ images, title }) {
   const openModal = (index) => {
     setModalIndex(index)
     setShowModal(true)
-    document.body.style.overflow = 'hidden'
+    const scrollY = window.scrollY
+    document.body.style.position = 'fixed'
+    document.body.style.top = `-${scrollY}px`
+    document.body.style.width = '100%'
   }
 
   const closeModal = () => {
+    const scrollY = document.body.style.top
+    document.body.style.position = ''
+    document.body.style.top = ''
+    document.body.style.width = ''
+    window.scrollTo(0, -Number.parseInt(scrollY || '0'))
     setShowModal(false)
-    document.body.style.overflow = ''
   }
 
   const navigate = (dir) => {
@@ -89,6 +96,7 @@ export default function ImageGallery({ images, title }) {
                 src={images[modalIndex]}
                 alt={`${title} ${modalIndex + 1}`}
                 className="max-w-full max-h-[80vh] object-contain rounded-lg"
+                style={{ maxHeight: '80dvh' }}
               />
 
               {/* Arrows */}
@@ -143,7 +151,7 @@ function MobileCarousel({ images, title, onImageClick }) {
       {current > 0 && (
         <button
           onClick={() => setCurrent((p) => p - 1)}
-          className="absolute left-3 top-1/2 -translate-y-1/2 w-8 h-8 bg-white/90 rounded-full flex items-center justify-center shadow-md"
+          className="absolute left-3 top-1/2 -translate-y-1/2 w-11 h-11 bg-white/90 rounded-full flex items-center justify-center shadow-md"
         >
           <ChevronLeft size={16} />
         </button>
@@ -151,7 +159,7 @@ function MobileCarousel({ images, title, onImageClick }) {
       {current < images.length - 1 && (
         <button
           onClick={() => setCurrent((p) => p + 1)}
-          className="absolute right-3 top-1/2 -translate-y-1/2 w-8 h-8 bg-white/90 rounded-full flex items-center justify-center shadow-md"
+          className="absolute right-3 top-1/2 -translate-y-1/2 w-11 h-11 bg-white/90 rounded-full flex items-center justify-center shadow-md"
         >
           <ChevronRight size={16} />
         </button>

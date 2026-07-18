@@ -274,7 +274,7 @@ export default function SearchPage() {
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ duration: 0.3 }}
-      className="min-h-screen bg-gray-50 pt-20"
+      className="min-h-screen bg-gray-50 pt-20 overscroll-y-contain"
     >
       <SearchControls
         searchDraft={searchDraft}
@@ -342,7 +342,7 @@ export default function SearchPage() {
           <section className="space-y-3 xl:py-6 xl:pl-12 xl:pr-5">
             <div className="mb-4 flex flex-col gap-2 lg:flex-row lg:items-end lg:justify-between">
               <div>
-                <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-muted">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted">
                   {t('search:title')}
                 </p>
                 <h1 className="mt-0.5 text-lg font-semibold leading-snug text-dark md:text-xl">
@@ -364,11 +364,20 @@ export default function SearchPage() {
               ))
             ) : isEmptyState ? (
               <div className="flex min-h-[420px] flex-col items-center justify-center rounded-[28px] border border-gray-200 bg-white px-6 text-center shadow-sm">
-                <Search size={48} className="text-gray-300" />
+                <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-rose-50 text-brand">
+                  <Search size={26} />
+                </span>
                 <h2 className="mt-4 text-xl font-semibold text-dark">{t('search:noResults')}</h2>
                 <p className="mt-2 max-w-md text-sm text-muted">
                   {t('search:noResultsHint')}
                 </p>
+                <button
+                  type="button"
+                  onClick={clearFilters}
+                  className="mt-5 rounded-full border border-gray-200 bg-white px-5 py-2.5 text-sm font-semibold text-dark transition-colors hover:bg-gray-50"
+                >
+                  Clear all filters
+                </button>
               </div>
             ) : (
               sortedResults.map((property) => (

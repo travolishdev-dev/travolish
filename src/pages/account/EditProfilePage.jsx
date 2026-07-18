@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Camera, CheckCheck, Loader2, UserRound } from 'lucide-react'
 import {
   AccountShell,
@@ -10,6 +11,7 @@ import usePortalViewer from '../../hooks/usePortalViewer'
 import { findUserByEmail, getUser, updateUser } from '../../services/usersApi'
 import { getAvatarUploadUrl, uploadToGcs } from '../../services/storageApi'
 import useAuthStore from '../../stores/useAuthStore'
+import { normalizePhoneForStorage, parsePhoneValue } from '../../lib/phone'
 
 function Field({ label, value, onChange, placeholder, textarea = false }) {
   const Component = textarea ? 'textarea' : 'input'
@@ -31,22 +33,16 @@ function Field({ label, value, onChange, placeholder, textarea = false }) {
   )
 }
 
-const COMPLETENESS_FIELDS = [
-  ['preferredName', 'Name'],
-  ['email', 'Email'],
-  ['phone', 'Phone'],
-  ['city', 'City'],
-  ['travelStyle', 'Travel style'],
-  ['bio', 'About you'],
-]
+const COMPLETENESS_FIELD_KEYS = ['preferredName', 'email', 'phone', 'city', 'travelStyle', 'bio']
 
 function computeCompleteness(formState, hasPhoto) {
-  const filled = COMPLETENESS_FIELDS.filter(([key]) => !!formState[key]?.trim()).length
-  const total = COMPLETENESS_FIELDS.length + 1 // +1 for photo
+  const filled = COMPLETENESS_FIELD_KEYS.filter((key) => !!formState[key]?.trim()).length
+  const total = COMPLETENESS_FIELD_KEYS.length + 1 // +1 for photo
   return Math.round(((filled + (hasPhoto ? 1 : 0)) / total) * 100)
 }
 
 export default function EditProfilePage() {
+  const { t } = useTranslation(['account', 'common'])
   const { viewer } = usePortalViewer()
   // Use the auth-store userId directly — avoids a round-trip and race condition
   const storedBackendUserId = useAuthStore((s) => s.backendUserId)
@@ -58,6 +54,7 @@ export default function EditProfilePage() {
     fullName: viewer.fullName ?? '',
     email: viewer.email ?? '',
     phone: viewer.phone ?? '',
+    phoneCountryCode: '+91',
     city: viewer.city ?? '',
     timeZone: viewer.timeZone ?? '',
     travelStyle: viewer.travelStyle ?? '',
@@ -86,18 +83,22 @@ export default function EditProfilePage() {
       .then((data) => {
         if (!data) return
         const name = [data.firstName, data.lastName].filter(Boolean).join(' ')
-        setFormState((prev) => ({
-          ...prev,
-          fullName: name || prev.fullName,
-          preferredName: data.preferredName ?? data.firstName ?? prev.preferredName,
-          email: data.email ?? prev.email,
-          phone: data.phone ?? prev.phone,
-          city: data.city ?? prev.city,
-          timeZone: data.timeZone ?? prev.timeZone,
-          // Use ?? so an empty string from DB is still applied (distinguishes "not set" from "cleared")
-          travelStyle: data.travelStyle != null ? data.travelStyle : prev.travelStyle,
-          bio: data.bio != null ? data.bio : prev.bio,
-        }))
+        setFormState((prev) => {
+          const parsedPhone = parsePhoneValue(data.phone ?? prev.phone, prev.phoneCountryCode || '+91')
+          return {
+            ...prev,
+            fullName: name || prev.fullName,
+            preferredName: data.preferredName ?? data.firstName ?? prev.preferredName,
+            email: data.email ?? prev.email,
+            phone: parsedPhone.phoneNumber ? `${parsedPhone.countryCode} ${parsedPhone.phoneNumber}`.trim() : '',
+            phoneCountryCode: parsedPhone.countryCode,
+            city: data.city ?? prev.city,
+            timeZone: data.timeZone ?? prev.timeZone,
+            // Use ?? so an empty string from DB is still applied (distinguishes "not set" from "cleared")
+            travelStyle: data.travelStyle != null ? data.travelStyle : prev.travelStyle,
+            bio: data.bio != null ? data.bio : prev.bio,
+          }
+        })
       })
       .catch(() => {})
       .finally(() => setFormLoading(false))
@@ -107,8 +108,8 @@ export default function EditProfilePage() {
     const file = e.target.files?.[0]
     if (!file) return
 
-    if (!file.type.startsWith('image/')) { setPhotoError('Please select an image file.'); return }
-    if (file.size > 5 * 1024 * 1024) { setPhotoError('Image must be under 5 MB.'); return }
+    if (!file.type.startsWith('image/')) { setPhotoError(t('account:edit.photoTypeError')); return }
+    if (file.size > 5 * 1024 * 1024) { setPhotoError(t('account:edit.photoSizeError')); return }
 
     setUploadingPhoto(true)
     setPhotoError(null)
@@ -122,7 +123,7 @@ export default function EditProfilePage() {
         await updateUser(storedBackendUserId, { avatarUrl: publicUrl })
       }
     } catch {
-      setPhotoError('Photo upload failed. Please try again.')
+      setPhotoError(t('account:edit.photoUploadError'))
       setAvatarPreview(null)
     } finally {
       setUploadingPhoto(false)
@@ -135,9 +136,19 @@ export default function EditProfilePage() {
     setFormState((current) => ({ ...current, [field]: event.target.value }))
   }
 
+  const updatePhoneField = (event) => {
+    const value = event.target.value
+    setSaved(false)
+    setFormState((current) => ({
+      ...current,
+      phone: value,
+      phoneCountryCode: current.phoneCountryCode || '+91',
+    }))
+  }
+
   const handleSave = async () => {
     if (!storedBackendUserId) {
-      setSaveError('User account not found. Please sign in again.')
+      setSaveError(t('account:edit.authError'))
       return
     }
     setSaving(true)
@@ -147,12 +158,13 @@ export default function EditProfilePage() {
       const nameParts = (formState.fullName || '').trim().split(' ')
       const firstName = nameParts[0] ?? ''
       const lastName = nameParts.slice(1).join(' ')
+      const normalizedPhone = normalizePhoneForStorage(formState.phone, formState.phoneCountryCode || '+91')
       const payload = {
         firstName: firstName || undefined,
         lastName: lastName || undefined,
         preferredName: formState.preferredName || undefined,
         email: formState.email || undefined,
-        phone: formState.phone || undefined,
+        phone: normalizedPhone || undefined,
         city: formState.city || undefined,
         timeZone: formState.timeZone || undefined,
         travelStyle: formState.travelStyle || undefined,
@@ -164,7 +176,7 @@ export default function EditProfilePage() {
         firstName,
         lastName: lastName || undefined,
         preferredName: formState.preferredName || undefined,
-        phone: formState.phone || undefined,
+        phone: normalizedPhone || undefined,
         city: formState.city || undefined,
         timeZone: formState.timeZone || undefined,
         travelStyle: formState.travelStyle || undefined,
@@ -172,7 +184,7 @@ export default function EditProfilePage() {
       })
       setSaved(true)
     } catch {
-      setSaveError('Could not save profile. Please try again.')
+      setSaveError(t('account:edit.saveError'))
     } finally {
       setSaving(false)
     }
@@ -183,23 +195,31 @@ export default function EditProfilePage() {
     () => computeCompleteness(formState, hasPhoto),
     [formState, hasPhoto],
   )
-  const completenessLabel = completeness >= 80 ? 'Strong' : completeness >= 50 ? 'Good' : 'Needs work'
+  const completenessLabels = useMemo(() => ({
+    preferredName: t('account:edit.fieldName'),
+    email: t('account:edit.fieldEmail'),
+    phone: t('account:edit.fieldPhone2'),
+    city: t('account:edit.fieldCity'),
+    travelStyle: t('account:edit.fieldTravelStyle2'),
+    bio: t('account:edit.fieldBio2'),
+  }), [t])
+  const completenessLabel = completeness >= 80 ? t('account:edit.strong') : completeness >= 50 ? t('account:edit.good') : t('account:edit.needsWork')
   const completenessTone = completeness >= 80 ? 'success' : completeness >= 50 ? 'warning' : 'danger'
-  const missingFields = COMPLETENESS_FIELDS.filter(([key]) => !formState[key]?.trim()).map(([, label]) => label)
+  const missingFields = COMPLETENESS_FIELD_KEYS.filter((key) => !formState[key]?.trim()).map((key) => completenessLabels[key])
 
   const canSave = !formLoading && !!storedBackendUserId
 
   return (
     <AccountShell
-      title="Edit your traveler profile."
-      mobileTitle="Edit profile"
-      description="Update your name, email, phone, and travel details."
-      mobileAction={{ label: 'Save', onClick: handleSave }}
-      mobileBottomAction={{ label: 'Save profile', onClick: handleSave }}
+      title={t('account:edit.title')}
+      mobileTitle={t('account:edit.mobileTitle')}
+      description={t('account:edit.desc')}
+      mobileAction={{ label: t('account:edit.saveProfile'), onClick: handleSave }}
+      mobileBottomAction={{ label: t('account:edit.saveProfile'), onClick: handleSave }}
       actions={[
-        { label: 'Preview profile', href: '/account', secondary: true },
+        { label: t('account:edit.previewAction'), href: '/account', secondary: true },
         {
-          label: saving ? 'Saving…' : 'Save profile',
+          label: saving ? t('account:edit.saving') : t('account:edit.saveProfile'),
           onClick: handleSave,
           disabled: !canSave || saving,
         },
@@ -209,30 +229,30 @@ export default function EditProfilePage() {
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
         <SectionCard>
           <SectionHeading
-            eyebrow="Profile Details"
-            title="Edit the story travelers and hosts see"
-            description="Your preferred name, travel style, and bio are shown to hosts and other travellers."
+            eyebrow={t('account:edit.sectionEyebrow')}
+            title={t('account:edit.sectionTitle')}
+            description={t('account:edit.sectionDesc')}
           />
 
           {formLoading ? (
             <div className="mt-8 flex items-center gap-2 text-sm text-muted">
               <Loader2 size={14} className="animate-spin" />
-              Loading your profile…
+              {t('account:edit.loading')}
             </div>
           ) : (
             <>
               <div className="mt-6 grid gap-5 md:grid-cols-2">
-                <Field label="Preferred name" value={formState.preferredName} onChange={updateField('preferredName')} placeholder="How should hosts greet you?" />
-                <Field label="Full name" value={formState.fullName} onChange={updateField('fullName')} placeholder="Full legal or profile name" />
-                <Field label="Email" value={formState.email} onChange={updateField('email')} placeholder="you@example.com" />
-                <Field label="Phone" value={formState.phone} onChange={updateField('phone')} placeholder="+1 (555) 555-0000" />
-                <Field label="City" value={formState.city} onChange={updateField('city')} placeholder="Austin, Texas" />
-                <Field label="Time zone" value={formState.timeZone} onChange={updateField('timeZone')} placeholder="Central Time" />
+                <Field label={t('account:edit.fieldPreferredName')} value={formState.preferredName} onChange={updateField('preferredName')} placeholder={t('account:edit.fieldPreferredNameHint')} />
+                <Field label={t('account:edit.fieldFullName')} value={formState.fullName} onChange={updateField('fullName')} placeholder={t('account:edit.fieldFullNameHint')} />
+                <Field label={t('account:edit.fieldEmail')} value={formState.email} onChange={updateField('email')} placeholder={t('account:edit.fieldEmailHint')} />
+                <Field label={t('account:edit.fieldPhone')} value={formState.phone} onChange={updatePhoneField} placeholder={t('account:edit.fieldPhoneHint')} />
+                <Field label={t('account:edit.fieldCity')} value={formState.city} onChange={updateField('city')} placeholder={t('account:edit.fieldCityHint')} />
+                <Field label={t('account:edit.fieldTimeZone')} value={formState.timeZone} onChange={updateField('timeZone')} placeholder={t('account:edit.fieldTimeZoneHint')} />
               </div>
 
               <div className="mt-5 grid gap-5">
-                <Field label="Travel style" value={formState.travelStyle} onChange={updateField('travelStyle')} placeholder="A short line about how you travel" />
-                <Field label="About you" value={formState.bio} onChange={updateField('bio')} placeholder="Tell hosts what usually matters most before you arrive" textarea />
+                <Field label={t('account:edit.fieldTravelStyle')} value={formState.travelStyle} onChange={updateField('travelStyle')} placeholder={t('account:edit.fieldTravelStyleHint')} />
+                <Field label={t('account:edit.fieldBio')} value={formState.bio} onChange={updateField('bio')} placeholder={t('account:edit.fieldBioHint')} textarea />
               </div>
             </>
           )}
@@ -241,13 +261,13 @@ export default function EditProfilePage() {
           <div className="mt-6 flex items-center justify-between gap-4 rounded-[24px] border border-gray-200 bg-[#fcfcfb] px-5 py-4">
             {saved ? (
               <p className="inline-flex items-center gap-2 text-sm font-semibold text-emerald-600">
-                <CheckCheck size={15} /> Profile saved
+                <CheckCheck size={15} /> {t('account:edit.saved')}
               </p>
             ) : saveError ? (
               <p className="text-sm text-red-600">{saveError}</p>
             ) : (
               <p className="text-sm text-muted">
-                {formLoading ? 'Loading profile…' : 'Changes are not saved until you click below.'}
+                {formLoading ? t('account:edit.loading') : t('account:edit.unsaved')}
               </p>
             )}
             <button
@@ -256,14 +276,14 @@ export default function EditProfilePage() {
               disabled={!canSave || saving}
               className="inline-flex items-center gap-2 rounded-full bg-dark px-6 py-2.5 text-sm font-bold text-white hover:opacity-90 disabled:opacity-40 transition-all"
             >
-              {saving ? <><Loader2 size={14} className="animate-spin" /> Saving…</> : 'Save profile'}
+              {saving ? <><Loader2 size={14} className="animate-spin" /> {t('account:edit.saving')}</> : t('account:edit.saveProfile')}
             </button>
           </div>
         </SectionCard>
 
         <div className="space-y-6">
           <SectionCard>
-            <SectionHeading eyebrow="Profile Photo" title="Current preview" description="JPG or PNG, max 5 MB." />
+            <SectionHeading eyebrow={t('account:edit.photoEyebrow')} title={t('account:edit.photoTitle')} description={t('account:edit.photoDesc')} />
 
             <div className="mt-6 flex flex-col items-center text-center">
               <div className="relative">
@@ -288,7 +308,7 @@ export default function EditProfilePage() {
                 className="mt-5 inline-flex items-center gap-2 rounded-full border border-gray-200 bg-white px-4 py-2.5 text-sm font-semibold text-dark transition-colors hover:bg-gray-50 disabled:opacity-40"
               >
                 <Camera size={16} />
-                {uploadingPhoto ? 'Uploading…' : 'Replace photo'}
+                {uploadingPhoto ? t('account:edit.uploading') : t('account:edit.replacePhoto')}
               </button>
 
               {photoError && <p className="mt-2 text-xs text-red-500">{photoError}</p>}
@@ -297,9 +317,9 @@ export default function EditProfilePage() {
 
           <SectionCard className="hidden md:block">
             <SectionHeading
-              eyebrow="Live Preview"
-              title="How this profile reads"
-              description="Updates as you type."
+              eyebrow={t('account:edit.previewEyebrow')}
+              title={t('account:edit.previewTitle')}
+              description={t('account:edit.previewDesc')}
             />
 
             <div className="mt-6 space-y-4">
@@ -329,7 +349,7 @@ export default function EditProfilePage() {
             <div className="flex items-center justify-between gap-4 rounded-[24px] bg-dark px-5 py-4 text-white">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-[0.18em] text-white/70">
-                  Profile completeness
+                  {t('account:edit.completenessEyebrow')}
                 </p>
                 <p className="mt-1 text-2xl font-semibold">{completeness}%</p>
               </div>
@@ -346,7 +366,7 @@ export default function EditProfilePage() {
 
             {missingFields.length > 0 ? (
               <div className="mt-4 space-y-2">
-                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted">Still missing</p>
+                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted">{t('account:edit.missingLabel')}</p>
                 {missingFields.map((field) => (
                   <div key={field} className="flex items-center gap-3 rounded-2xl border border-gray-200 bg-[#fcfcfb] px-4 py-2.5">
                     <span className="h-1.5 w-1.5 rounded-full bg-amber-400" />
@@ -357,7 +377,7 @@ export default function EditProfilePage() {
             ) : (
               <p className="mt-4 text-sm font-semibold text-emerald-600">
                 <CheckCheck size={14} className="mr-1 inline" />
-                All fields complete
+                {t('account:edit.allComplete')}
               </p>
             )}
           </SectionCard>

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { MessageCircleHeart, Sparkles, Star } from 'lucide-react'
 import { format, parseISO } from 'date-fns'
 import {
@@ -51,6 +52,7 @@ function getHostResponse(review, hotel) {
 }
 
 export default function MyReviewsPage() {
+  const { t } = useTranslation('property')
   const [reviews, setReviews] = useState([])
   const [hotelMap, setHotelMap] = useState({})
   const [loading, setLoading] = useState(true)
@@ -82,18 +84,18 @@ export default function MyReviewsPage() {
 
   return (
     <PortalShell
-      eyebrow="Reviews"
-      title="Your review hub."
-      mobileTitle="Reviews"
-      description="All the reviews you've submitted — track status, rating, and hotel responses."
+      eyebrow={t('property:myReviews.eyebrow')}
+      title={t('property:myReviews.title')}
+      mobileTitle={t('property:myReviews.mobileTitle')}
+      description={t('property:myReviews.desc')}
       actions={[
-        { label: 'Trips', href: '/trips', secondary: true },
-        { label: 'Browse stays', href: '/search' },
+        { label: t('property:myReviews.tripsLink'), href: '/trips', secondary: true },
+        { label: t('property:myReviews.browseStays'), href: '/search' },
       ]}
       stats={[
-        { label: 'Published reviews', value: String(reviews.filter((r) => r.status === 'APPROVED').length), note: 'Approved by moderators' },
-        { label: 'Total submitted', value: String(reviews.length), note: 'All statuses' },
-        { label: 'Average rating', value: avgRating, note: 'From your reviews' },
+        { label: t('property:myReviews.publishedCount'), value: String(reviews.filter((r) => r.status === 'APPROVED').length), note: t('property:myReviews.publishedNote') },
+        { label: t('property:myReviews.totalSubmitted'), value: String(reviews.length), note: t('property:myReviews.allStatuses') },
+        { label: t('property:myReviews.avgRating'), value: avgRating, note: t('property:myReviews.fromYourReviews') },
       ]}
       accent="from-amber-50 via-white to-violet-50"
     >
@@ -101,21 +103,22 @@ export default function MyReviewsPage() {
         {/* Left: write a review CTA */}
         <SectionCard>
           <SectionHeading
-            eyebrow="Share your experience"
-            title="Review a recent stay"
-            description="Visit a completed trip to leave a review for that property."
+            eyebrow={t('property:myReviews.shareEyebrow')}
+            title={t('property:myReviews.shareTitle')}
+            description={t('property:myReviews.shareDesc')}
           />
 
           <div className="mt-6 grid gap-4 rounded-[28px] border border-gray-200 bg-[#fcfcfb] p-5">
             <p className="text-sm leading-6 text-muted">
-              Open any trip from your bookings list and use the{' '}
-              <span className="font-semibold text-dark">Leave a review</span> button on completed stays.
+              {t('property:myReviews.shareHintPre')}{' '}
+              <span className="font-semibold text-dark">{t('property:myReviews.shareHintAction')}</span>{' '}
+              {t('property:myReviews.shareHintPost')}
             </p>
             <Link
               to="/trips"
               className="inline-flex w-full items-center justify-center rounded-full bg-dark px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-gray-800 sm:w-auto"
             >
-              Go to trips
+              {t('property:myReviews.goToTrips')}
             </Link>
           </div>
         </SectionCard>
@@ -123,16 +126,15 @@ export default function MyReviewsPage() {
         {/* Right: editorial tips */}
         <SectionCard className="hidden md:block">
           <SectionHeading
-            eyebrow="Review tone"
-            title="What strong guest reviews usually do"
-            description="A lightweight editorial guideline makes the review system feel intentional."
+            eyebrow={t('property:myReviews.toneEyebrow')}
+            title={t('property:myReviews.toneTitle')}
           />
 
           <div className="mt-6 space-y-3">
             {[
-              'Describe arrival, cleanliness, and host communication clearly.',
-              'Call out what made the stay memorable or practical.',
-              'Mention who the place is ideal for when that is obvious.',
+              t('property:myReviews.tip1'),
+              t('property:myReviews.tip2'),
+              t('property:myReviews.tip3'),
             ].map((item) => (
               <div
                 key={item}
@@ -151,20 +153,20 @@ export default function MyReviewsPage() {
       {/* Submitted reviews */}
       <SectionCard>
         <SectionHeading
-          eyebrow="Published"
-          title="Your review history"
-          description="All reviews you've submitted, with their current moderation status."
+          eyebrow={t('property:myReviews.publishedEyebrow')}
+          title={t('property:myReviews.publishedTitle')}
+          description={t('property:myReviews.publishedDesc')}
         />
 
         {loading && (
-          <div className="py-16 text-center text-sm text-muted">Loading reviews…</div>
+          <div className="py-16 text-center text-sm text-muted">{t('property:myReviews.loading')}</div>
         )}
 
         {!loading && reviews.length === 0 && (
           <div className="py-16 text-center text-sm text-muted">
-            No reviews yet.{' '}
-            <Link to="/trips" className="font-semibold underline">Go to your trips</Link>{' '}
-            to leave your first one.
+            {t('property:myReviews.noReviews')}{' '}
+            <Link to="/trips" className="font-semibold underline">{t('property:myReviews.goToTripsLink')}</Link>{' '}
+            {t('property:myReviews.noReviewsEnd')}
           </div>
         )}
 
@@ -197,7 +199,7 @@ export default function MyReviewsPage() {
 
                   <div className="mt-4 flex items-start justify-between gap-4">
                     <h2 className="text-xl font-semibold tracking-tight text-dark">
-                      {review.title || 'Untitled review'}
+                      {review.title || t('property:myReviews.untitledReview')}
                     </h2>
                     <div className="inline-flex flex-shrink-0 items-center gap-1 rounded-full bg-white px-3 py-2 text-sm font-semibold text-dark border border-gray-200">
                       <Star size={14} className="fill-dark text-dark" />
@@ -212,10 +214,10 @@ export default function MyReviewsPage() {
                   {(review.helpfulCount > 0 || review.unhelpfulCount > 0) && (
                     <div className="mt-4 flex gap-3">
                       {review.helpfulCount > 0 && (
-                        <StatusPill tone="success">{review.helpfulCount} helpful</StatusPill>
+                        <StatusPill tone="success">{t('property:myReviews.helpfulLabel', { count: review.helpfulCount })}</StatusPill>
                       )}
                       {review.unhelpfulCount > 0 && (
-                        <StatusPill tone="slate">{review.unhelpfulCount} unhelpful</StatusPill>
+                        <StatusPill tone="slate">{t('property:myReviews.unhelpfulLabel', { count: review.unhelpfulCount })}</StatusPill>
                       )}
                     </div>
                   )}
@@ -226,9 +228,9 @@ export default function MyReviewsPage() {
                         <MessageCircleHeart size={18} />
                       </div>
                       <div>
-                        <p className="text-sm font-semibold text-dark">Host response</p>
+                        <p className="text-sm font-semibold text-dark">{t('property:myReviews.hostResponse')}</p>
                         <p className="mt-1 text-sm leading-6 text-muted">
-                          {hostResponse || 'No response yet.'}
+                          {hostResponse || t('property:myReviews.noHostResponse')}
                         </p>
                       </div>
                     </div>
@@ -238,7 +240,7 @@ export default function MyReviewsPage() {
                     to={`/property/${review.hotelId}`}
                     className="mt-5 inline-flex w-full items-center justify-center rounded-full border border-gray-200 bg-white px-4 py-2.5 text-sm font-semibold text-dark transition-colors hover:bg-gray-50 sm:w-auto"
                   >
-                    View property
+                    {t('property:myReviews.viewProperty')}
                   </Link>
                 </div>
               )

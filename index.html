@@ -3,16 +3,25 @@
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="description" content="Travolish – Discover unique stays and experiences around the world. Book stunning villas, cozy cabins, city apartments, and more." />
     <meta name="theme-color" content="#FF385C" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=optional" media="print" onload="this.media='all'" />
+    <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=optional" /></noscript>
     <title>Travolish – Unique Stays & Experiences</title>
-    <!-- Anti-flash: apply saved theme before first paint to avoid white flash -->
+    <!-- Anti-flash: apply saved theme and RTL direction before first paint -->
     <script>
       (function () {
         var s = localStorage.getItem('travolish-theme');
         var dark = s === 'dark' || (!s && window.matchMedia('(prefers-color-scheme: dark)').matches);
         if (dark) document.documentElement.classList.add('dark');
+        var lang = localStorage.getItem('travolish.language');
+        if (lang) {
+          document.documentElement.setAttribute('lang', lang);
+          if (lang === 'ar') document.documentElement.setAttribute('dir', 'rtl');
+        }
       })();
     </script>
   </head>

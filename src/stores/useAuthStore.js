@@ -8,6 +8,7 @@ import {
 } from '../lib/api'
 import { getMe } from '../services/usersApi'
 import useWishlistStore from './useWishlistStore'
+import { normalizePhoneForStorage } from '../lib/phone'
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL || ''
 
@@ -24,7 +25,7 @@ function deriveProfile(user) {
     email: user.email,
     role: rawRole.toLowerCase(),   // 'guest' | 'host' | 'admin'
     // Pass through all profile fields so viewer and edit-profile pages have them
-    phone: user.phone || null,
+    phone: user.phone ? normalizePhoneForStorage(user.phone, user.phoneCountryCode || '+91') : null,
     city: user.city || null,
     timeZone: user.timeZone || null,
     travelStyle: user.travelStyle || null,

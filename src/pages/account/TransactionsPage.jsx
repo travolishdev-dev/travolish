@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Download, ReceiptText, RotateCcw, Search } from 'lucide-react'
 import { format, parseISO } from 'date-fns'
+import { useTranslation } from 'react-i18next'
 import {
   AccountShell,
   SectionCard,
@@ -24,21 +25,22 @@ function fmt(d) {
   try { return format(parseISO(d), 'MMM d, yyyy') } catch { return d }
 }
 
-function adaptBooking(b) {
+function adaptBooking(b, t) {
   const cancelled = b.status === 'CANCELLED'
   return {
     id: b.id,
-    type: cancelled ? 'Booking Cancelled' : 'Hotel Booking',
+    type: cancelled ? t('account:transactions.bookingCancelled') : t('account:transactions.hotelBooking'),
     direction: cancelled ? 'credit' : 'debit',
     status: b.status,
     note: `Booking #${b.id} · Room ${b.roomId}`,
     date: fmt(b.checkInDate),
-    method: 'Card on file',
+    method: t('account:transactions.cardOnFile'),
     rawAmount: Number(b.totalPrice ?? 0),
   }
 }
 
 export default function TransactionsPage() {
+  const { t } = useTranslation('account')
   const { viewer } = usePortalViewer()
   const backendUserId = useAuthStore((s) => s.backendUserId)
   const [bookings, setBookings] = useState([])
@@ -68,53 +70,53 @@ export default function TransactionsPage() {
     if (booking) {
       printReceipt(booking, { id: booking.hotelId }, formatCurrency)
     } else {
-      setReceiptError('Receipt not available for this booking.')
+      setReceiptError(t('account:transactions.receiptError'))
     }
   }
 
   const transactions = useMemo(
     () =>
-      bookings.map(adaptBooking).map((transaction) => ({
-        ...transaction,
-        amount: formatCurrency(transaction.rawAmount),
+      bookings.map((b) => adaptBooking(b, t)).map((txn) => ({
+        ...txn,
+        amount: formatCurrency(txn.rawAmount),
       })),
-    [bookings, formatCurrency],
+    [bookings, formatCurrency, t],
   )
 
   const visible = useMemo(() => {
     if (!query.trim()) return transactions
     const q = query.toLowerCase()
     return transactions.filter(
-      (t) => t.note.toLowerCase().includes(q) || t.type.toLowerCase().includes(q) || t.date.toLowerCase().includes(q)
+      (txn) => txn.note.toLowerCase().includes(q) || txn.type.toLowerCase().includes(q) || txn.date.toLowerCase().includes(q)
     )
   }, [transactions, query])
 
   const summary = useMemo(() => {
-    const spent = transactions.filter((t) => t.direction === 'debit').reduce((s, t) => s + t.rawAmount, 0)
-    const refunds = transactions.filter((t) => t.direction === 'credit').reduce((s, t) => s + t.rawAmount, 0)
+    const spent = transactions.filter((txn) => txn.direction === 'debit').reduce((s, txn) => s + txn.rawAmount, 0)
+    const refunds = transactions.filter((txn) => txn.direction === 'credit').reduce((s, txn) => s + txn.rawAmount, 0)
     return [
-      { label: 'Total spent', value: formatCurrency(spent) },
-      { label: 'Total bookings', value: String(transactions.length) },
-      { label: 'Refunds / credits', value: refunds > 0 ? formatCurrency(refunds) : formatCurrency(0) },
+      { label: t('account:transactions.totalSpent'), value: formatCurrency(spent) },
+      { label: t('account:transactions.totalBookings'), value: String(transactions.length) },
+      { label: t('account:transactions.refunds'), value: refunds > 0 ? formatCurrency(refunds) : formatCurrency(0) },
     ]
-  }, [formatCurrency, transactions])
+  }, [formatCurrency, transactions, t])
 
   return (
     <AccountShell
-      title="Payments, refunds, and receipts."
-      mobileTitle="Activity"
-      description="Your full booking payment history."
+      title={t('account:transactions.title')}
+      mobileTitle={t('account:transactions.mobileTitle')}
+      description={t('account:transactions.desc')}
       actions={[
-        { label: 'Manage cards', href: '/account/payments', secondary: true },
+        { label: t('account:transactions.manageCards'), href: '/account/payments', secondary: true },
       ]}
       accent="from-amber-50 via-white to-slate-100"
     >
       {/* Summary */}
       <SectionCard className="hidden md:block">
         <SectionHeading
-          eyebrow="Summary"
-          title="This year at a glance"
-          description="A quick ledger overview so you can understand spend and credits without scrolling through every row."
+          eyebrow={t('account:transactions.summaryEyebrow')}
+          title={t('account:transactions.summaryTitle')}
+          description={t('account:transactions.summaryDesc')}
         />
         <div className="mt-6 grid gap-4 md:grid-cols-3">
           {summary.map((item) => (
@@ -130,9 +132,9 @@ export default function TransactionsPage() {
       <SectionCard>
         <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <SectionHeading
-            eyebrow="Ledger"
-            title="Payment history"
-            description="All your booking transactions in one place."
+            eyebrow={t('account:transactions.ledgerEyebrow')}
+            title={t('account:transactions.ledgerTitle')}
+            description={t('account:transactions.ledgerDesc')}
           />
           <div className="grid gap-3 sm:flex sm:flex-wrap sm:gap-3">
             <label className="relative min-w-0 flex-1 lg:flex-none">
@@ -141,7 +143,7 @@ export default function TransactionsPage() {
                 type="text"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                placeholder="Search by booking or date"
+                placeholder={t('account:transactions.searchPlaceholder')}
                 className="w-full rounded-full border border-gray-200 bg-[#fcfcfb] py-3 pl-11 pr-4 text-base text-dark outline-none transition-colors focus:border-dark md:text-sm"
               />
             </label>
@@ -149,7 +151,7 @@ export default function TransactionsPage() {
         </div>
 
         {loading && (
-          <div className="py-16 text-center text-sm text-muted">Loading transactions…</div>
+          <div className="py-16 text-center text-sm text-muted">{t('account:transactions.loading')}</div>
         )}
 
         {receiptError && (
@@ -158,41 +160,41 @@ export default function TransactionsPage() {
 
         {!loading && visible.length === 0 && (
           <div className="py-16 text-center text-sm text-muted">
-            {query ? 'No transactions match your search.' : 'No transactions yet.'}
+            {query ? t('account:transactions.noResults') : t('account:transactions.noTransactions')}
           </div>
         )}
 
         {!loading && visible.length > 0 && (
           <div className="mt-6 divide-y divide-gray-200 border-y border-gray-200">
-            {visible.map((t) => (
-              <div key={t.id} className="py-5">
+            {visible.map((txn) => (
+              <div key={txn.id} className="py-5">
                 <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                   <div className="flex items-start gap-4">
-                    <div className={`rounded-2xl p-3 ${t.direction === 'credit' ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-700'}`}>
-                      {t.direction === 'credit' ? <RotateCcw size={18} /> : <ReceiptText size={18} />}
+                    <div className={`rounded-2xl p-3 ${txn.direction === 'credit' ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-700'}`}>
+                      {txn.direction === 'credit' ? <RotateCcw size={18} /> : <ReceiptText size={18} />}
                     </div>
                     <div>
                       <div className="flex flex-wrap items-center gap-2">
-                        <p className="text-lg font-semibold text-dark">{t.type}</p>
-                        <StatusPill tone={STATUS_TONE[t.status] ?? 'slate'}>{t.status}</StatusPill>
+                        <p className="text-lg font-semibold text-dark">{txn.type}</p>
+                        <StatusPill tone={STATUS_TONE[txn.status] ?? 'slate'}>{txn.status}</StatusPill>
                       </div>
-                      <p className="mt-1 text-sm text-muted">{t.note}</p>
-                      <p className="mt-3 text-sm text-muted">{t.date} · {t.method}</p>
+                      <p className="mt-1 text-sm text-muted">{txn.note}</p>
+                      <p className="mt-3 text-sm text-muted">{txn.date} · {txn.method}</p>
                     </div>
                   </div>
 
                   <div className="flex flex-col items-start gap-3 lg:items-end">
-                    <p className={`text-2xl font-semibold tracking-tight ${t.direction === 'credit' ? 'text-emerald-700' : 'text-dark'}`}>
-                      {t.direction === 'credit' ? '+' : '-'}{t.amount}
+                    <p className={`text-2xl font-semibold tracking-tight ${txn.direction === 'credit' ? 'text-emerald-700' : 'text-dark'}`}>
+                      {txn.direction === 'credit' ? '+' : '-'}{txn.amount}
                     </p>
                     <div className="grid w-full gap-2 sm:flex sm:w-auto sm:gap-3">
                       <button
                         type="button"
                         className="inline-flex w-full items-center justify-center gap-2 rounded-full border border-gray-200 bg-white px-4 py-2.5 text-sm font-semibold text-dark transition-colors hover:bg-gray-50 sm:w-auto"
-                        onClick={() => handleReceipt(t.id)}
+                        onClick={() => handleReceipt(txn.id)}
                       >
                         <Download size={14} />
-                        Receipt
+                        {t('account:transactions.receipt')}
                       </button>
                     </div>
                   </div>

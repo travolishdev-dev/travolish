@@ -17,12 +17,14 @@ import {
   StatusPill,
 } from '../../components/portal/PortalUI'
 import usePortalViewer from '../../hooks/usePortalViewer'
+import { formatPhoneWithCountryCode } from '../../lib/phone'
 
 export default function AccountPage() {
   const { t } = useTranslation('account')
   const { viewer, isPreview } = usePortalViewer()
   const isVerified = viewer.badges.includes('Identity verified') || isPreview
   const verificationStatus = isVerified ? t('verified') : t('notVerified')
+  const formattedPhone = viewer.phone ? formatPhoneWithCountryCode(viewer.phone, '+91') : null
   const completenessItems = [
     Boolean(viewer.fullName),
     Boolean(viewer.email),
@@ -117,7 +119,7 @@ export default function AccountPage() {
             <div className="mt-4 grid gap-2 sm:grid-cols-2">
               {[
                 [t('fields.nameEmail'), viewer.fullName && viewer.email],
-                [t('fields.phone'), viewer.phone],
+                [t('fields.phone'), formattedPhone],
                 [t('fields.bio'), viewer.bio],
                 [t('fields.travelPrefs'), viewer.preferences.length > 0],
                 [t('fields.emergencyContact'), viewer.emergencyContact],

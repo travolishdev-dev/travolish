@@ -3,11 +3,14 @@ import { X, Mail, ArrowLeft, Loader2 } from 'lucide-react'
 import { motion as Motion, AnimatePresence } from 'framer-motion'
 import { GoogleLogin } from '@react-oauth/google'
 import toast from 'react-hot-toast'
+import { useTranslation } from 'react-i18next'
 import useAuthStore from '../../stores/useAuthStore'
+import { useAndroidBackClose } from '../../hooks/useAndroidBackClose'
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 export default function AuthModal() {
+  const { t } = useTranslation('auth')
   const {
     isAuthModalOpen,
     closeAuthModal,
@@ -33,31 +36,33 @@ export default function AuthModal() {
     closeAuthModal()
   }
 
+  useAndroidBackClose(isAuthModalOpen, resetAndClose)
+
   const handleGoogleSuccess = async (credentialResponse) => {
     try {
       localStorage.setItem('travolish_signup_role', role)
       await signInWithGoogle(credentialResponse.credential)
       resetAndClose()
-      toast.success('Signed in successfully!')
+      toast.success(t('toast.signedIn'))
     } catch (error) {
       console.error('Google sign-in error:', error)
-      toast.error(error.message || 'Unable to sign in with Google.')
+      toast.error(error.message || t('toast.googleFailed'))
     }
   }
 
   const handleSendCode = async (e) => {
     e.preventDefault()
     if (!EMAIL_RE.test(email.trim())) {
-      toast.error('Please enter a valid email address.')
+      toast.error(t('toast.invalidEmail'))
       return
     }
     setSubmitting(true)
     try {
       await startEmailSignup(email.trim(), role)
       setStep('code')
-      toast.success('We sent a code to your email.')
+      toast.success(t('toast.codeSent'))
     } catch (error) {
-      toast.error(error.message || 'Could not send verification code.')
+      toast.error(error.message || t('toast.codeFailed'))
     } finally {
       setSubmitting(false)
     }
@@ -66,7 +71,7 @@ export default function AuthModal() {
   const handleVerify = async (e) => {
     e.preventDefault()
     if (code.trim().length < 6) {
-      toast.error('Enter the 6-digit code from your email.')
+      toast.error(t('toast.invalidCode'))
       return
     }
     setSubmitting(true)
@@ -75,9 +80,9 @@ export default function AuthModal() {
         firstName: firstName.trim() || undefined,
       })
       resetAndClose()
-      toast.success('Account created. Welcome to Travolish!')
+      toast.success(t('toast.welcome'))
     } catch (error) {
-      toast.error(error.message || 'Verification failed.')
+      toast.error(error.message || t('toast.verifyFailed'))
     } finally {
       setSubmitting(false)
     }
@@ -103,28 +108,28 @@ export default function AuthModal() {
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
               transition={{ type: 'spring', duration: 0.4, bounce: 0.15 }}
-              className="w-full max-w-md bg-white rounded-2xl shadow-2xl overflow-hidden"
+              className="w-full max-w-md bg-white rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[calc(100dvh-2rem)]"
             >
-              {/* Header */}
-              <div className="flex items-center justify-between px-6 py-5 border-b border-gray-100">
+              {/* Header — stays fixed when keyboard opens */}
+              <div className="flex items-center justify-between px-6 py-5 border-b border-gray-100 flex-shrink-0">
                 <button
                   onClick={step === 'options' ? resetAndClose : () => setStep(step === 'code' ? 'email' : 'options')}
                   className="p-1 rounded-full hover:bg-gray-100 transition-colors"
-                  aria-label={step === 'options' ? 'Close' : 'Back'}
+                  aria-label={step === 'options' ? t('aria.close') : t('aria.back')}
                 >
                   {step === 'options' ? <X size={18} /> : <ArrowLeft size={18} />}
                 </button>
-                <h2 className="text-base font-bold text-dark">Log in or sign up</h2>
+                <h2 className="text-base font-bold text-dark">{t('heading')}</h2>
                 <div className="w-6" />
               </div>
 
-              {/* Body */}
-              <div className="p-6">
+              {/* Body — scrollable so submit button stays reachable when keyboard is open */}
+              <div className="p-6 overflow-y-auto">
                 {step === 'options' && (
                   <>
-                    <h3 className="text-xl font-semibold text-dark mb-2">Welcome to Travolish</h3>
+                    <h3 className="text-xl font-semibold text-dark mb-2">{t('welcome')}</h3>
                     <p className="text-muted text-sm mb-6">
-                      Sign in to save your favorite properties, manage bookings, and list your home.
+                      {t('welcomeDesc')}
                     </p>
 
                     {/* Role Selection */}
@@ -137,7 +142,7 @@ export default function AuthModal() {
                             : 'text-muted hover:text-dark'
                         }`}
                       >
-                        Guest
+                        {t('roleGuest')}
                       </button>
                       <button
                         onClick={() => setRole('host')}
@@ -147,7 +152,7 @@ export default function AuthModal() {
                             : 'text-muted hover:text-dark'
                         }`}
                       >
-                        Host
+                        {t('roleHost')}
                       </button>
                     </div>
 
@@ -157,13 +162,13 @@ export default function AuthModal() {
                       className="w-full flex items-center justify-center gap-2 py-3 mb-3 rounded-xl border border-gray-300 text-sm font-semibold text-dark hover:bg-gray-50 transition-colors"
                     >
                       <Mail size={18} />
-                      Continue with email
+                      {t('continueEmail')}
                     </button>
 
                     {/* Divider */}
                     <div className="flex items-center gap-3 my-4">
                       <div className="flex-1 h-px bg-gray-200" />
-                      <span className="text-[11px] uppercase tracking-wide text-muted">or</span>
+                      <span className="text-[11px] uppercase tracking-wide text-muted">{t('or')}</span>
                       <div className="flex-1 h-px bg-gray-200" />
                     </div>
 
@@ -171,7 +176,7 @@ export default function AuthModal() {
                     <div className="flex justify-center">
                       <GoogleLogin
                         onSuccess={handleGoogleSuccess}
-                        onError={() => toast.error('Google sign-in failed. Please try again.')}
+                        onError={() => toast.error(t('toast.googleError'))}
                         width="368"
                         size="large"
                         shape="rectangular"
@@ -181,39 +186,42 @@ export default function AuthModal() {
                     </div>
 
                     <p className="text-[11px] text-muted mt-6 leading-relaxed">
-                      By continuing, you agree to Travolish's{' '}
-                      <a href="#" className="underline font-semibold text-dark">Terms of Service</a> and
+                      {t('terms')}{' '}
+                      <a href="#" className="underline font-semibold text-dark">{t('termsLink')}</a> and
                       acknowledge our{' '}
-                      <a href="#" className="underline font-semibold text-dark">Privacy Policy</a>.
+                      <a href="#" className="underline font-semibold text-dark">{t('privacyLink')}</a>.
                     </p>
                   </>
                 )}
 
                 {step === 'email' && (
                   <form onSubmit={handleSendCode}>
-                    <h3 className="text-xl font-semibold text-dark mb-2">Sign up with email</h3>
+                    <h3 className="text-xl font-semibold text-dark mb-2">{t('emailStep.heading')}</h3>
                     <p className="text-muted text-sm mb-6">
-                      We'll email you a verification code to create your {role} account.
+                      {t(role === 'guest' ? 'emailStep.descGuest' : 'emailStep.descHost')}
                     </p>
 
-                    <label className="block text-sm font-semibold text-dark mb-1.5">First name <span className="text-muted font-normal">(optional)</span></label>
+                    <label className="block text-sm font-semibold text-dark mb-1.5">
+                      {t('emailStep.firstName')} <span className="text-muted font-normal">{t('emailStep.optional')}</span>
+                    </label>
                     <input
                       type="text"
                       value={firstName}
                       onChange={(e) => setFirstName(e.target.value)}
-                      placeholder="Jane"
-                      className="w-full px-4 py-3 mb-4 rounded-xl border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
+                      placeholder={t('emailStep.firstNamePlaceholder')}
+                      className="w-full px-4 py-3 mb-4 rounded-xl border border-gray-300 text-base focus:outline-none focus:ring-2 focus:ring-primary/40"
                     />
 
-                    <label className="block text-sm font-semibold text-dark mb-1.5">Email</label>
+                    <label className="block text-sm font-semibold text-dark mb-1.5">{t('emailStep.email')}</label>
                     <input
                       type="email"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
-                      placeholder="you@example.com"
+                      placeholder={t('emailStep.emailPlaceholder')}
                       autoFocus
                       required
-                      className="w-full px-4 py-3 mb-6 rounded-xl border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
+                      autoComplete="email"
+                      className="w-full px-4 py-3 mb-6 rounded-xl border border-gray-300 text-base focus:outline-none focus:ring-2 focus:ring-primary/40"
                     />
 
                     <button
@@ -222,16 +230,17 @@ export default function AuthModal() {
                       className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-dark text-white text-sm font-semibold hover:opacity-90 transition-opacity disabled:opacity-60"
                     >
                       {submitting && <Loader2 size={16} className="animate-spin" />}
-                      Send verification code
+                      {t('emailStep.sendCode')}
                     </button>
                   </form>
                 )}
 
                 {step === 'code' && (
                   <form onSubmit={handleVerify}>
-                    <h3 className="text-xl font-semibold text-dark mb-2">Enter your code</h3>
+                    <h3 className="text-xl font-semibold text-dark mb-2">{t('codeStep.heading')}</h3>
                     <p className="text-muted text-sm mb-6">
-                      We sent a 6-digit code to <span className="font-semibold text-dark">{email}</span>.
+                      {t('codeStep.desc')}{' '}
+                      <span className="font-semibold text-dark">{email}</span>.
                     </p>
 
                     <input
@@ -242,6 +251,7 @@ export default function AuthModal() {
                       onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))}
                       placeholder="123456"
                       autoFocus
+                      autoComplete="one-time-code"
                       className="w-full px-4 py-3 mb-6 rounded-xl border border-gray-300 text-center text-2xl font-bold tracking-[0.4em] focus:outline-none focus:ring-2 focus:ring-primary/40"
                     />
 
@@ -251,7 +261,7 @@ export default function AuthModal() {
                       className="w-full flex items-center justify-center gap-2 py-3 mb-3 rounded-xl bg-dark text-white text-sm font-semibold hover:opacity-90 transition-opacity disabled:opacity-60"
                     >
                       {submitting && <Loader2 size={16} className="animate-spin" />}
-                      Verify & create account
+                      {t('codeStep.verify')}
                     </button>
 
                     <button
@@ -260,7 +270,7 @@ export default function AuthModal() {
                       disabled={submitting}
                       className="w-full py-2 text-sm font-semibold text-muted hover:text-dark transition-colors disabled:opacity-60"
                     >
-                      Resend code
+                      {t('codeStep.resend')}
                     </button>
                   </form>
                 )}

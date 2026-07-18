@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { CheckCircle2, Loader2, Sparkles, Star } from 'lucide-react'
 import {
@@ -21,12 +22,12 @@ const PLACEHOLDER_IMAGES = [
   'https://images.unsplash.com/photo-1533929736458-ca588d08c8be?w=800&auto=format&fit=crop',
 ]
 
-const reviewCategories = ['Cleanliness', 'Accuracy', 'Communication', 'Location', 'Check-in', 'Value']
+const REVIEW_CATEGORY_IDS = ['cleanliness', 'accuracy', 'communication', 'location', 'checkIn', 'value']
 
-const reviewTags = [
-  'Great location', 'Spotless', 'Fast check-in', 'Responsive host',
-  'Good value', 'Quiet', 'Great amenities', 'Accurate listing',
-  'Comfortable beds', 'Would return',
+const REVIEW_TAG_IDS = [
+  'greatLocation', 'spotless', 'fastCheckIn', 'responsiveHost',
+  'goodValue', 'quiet', 'greatAmenities', 'accurateListing',
+  'comfortableBeds', 'wouldReturn',
 ]
 
 function placeholderImage(hotelId) {
@@ -34,6 +35,7 @@ function placeholderImage(hotelId) {
 }
 
 export default function ReviewEditorPage() {
+  const { t } = useTranslation('property')
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const hotelId = searchParams.get('hotelId')
@@ -43,9 +45,9 @@ export default function ReviewEditorPage() {
 
   const [overallRating, setOverallRating] = useState(5)
   const [scores, setScores] = useState(
-    reviewCategories.reduce((acc, cat) => ({ ...acc, [cat]: 5 }), {})
+    REVIEW_CATEGORY_IDS.reduce((acc, id) => ({ ...acc, [id]: 5 }), {})
   )
-  const [selectedTags, setSelectedTags] = useState(reviewTags.slice(0, 3))
+  const [selectedTags, setSelectedTags] = useState(REVIEW_TAG_IDS.slice(0, 3))
   const [title, setTitle] = useState('')
   const [summary, setSummary] = useState('')
 
@@ -57,12 +59,22 @@ export default function ReviewEditorPage() {
     if (!hotelId) return
     getHotel(hotelId)
       .then(setHotel)
-      .catch(() => setLoadError('Could not load property details.'))
+      .catch(() => setLoadError(t('property:review.loadError')))
   }, [hotelId])
 
-  const toggleTag = (tag) =>
+  const reviewCategories = useMemo(() =>
+    REVIEW_CATEGORY_IDS.map((id) => ({ id, label: t(`property:review.category.${id}`) })),
+    [t]
+  )
+
+  const reviewTags = useMemo(() =>
+    REVIEW_TAG_IDS.map((id) => ({ id, label: t(`property:review.tag.${id}`) })),
+    [t]
+  )
+
+  const toggleTag = (tagId) =>
     setSelectedTags((cur) =>
-      cur.includes(tag) ? cur.filter((t) => t !== tag) : [...cur, tag]
+      cur.includes(tagId) ? cur.filter((id) => id !== tagId) : [...cur, tagId]
     )
 
   const handleSubmit = async () => {
@@ -77,7 +89,7 @@ export default function ReviewEditorPage() {
       })
       setPublished(result)
     } catch {
-      setSubmitError('Failed to publish review. Please try again.')
+      setSubmitError(t('property:review.submitError'))
     } finally {
       setIsSubmitting(false)
     }
@@ -86,13 +98,13 @@ export default function ReviewEditorPage() {
   if (!hotelId) {
     return (
       <PortalShell
-        eyebrow="Review"
-        title="No property specified."
-        actions={[{ label: 'Back to trips', href: '/trips' }]}
+        eyebrow={t('property:review.eyebrow')}
+        title={t('property:review.noPropertyTitle')}
+        actions={[{ label: t('property:review.backToTrips'), href: '/trips' }]}
       >
         <SectionCard>
           <p className="text-sm text-muted">
-            Open this page from a completed trip — the property link is set automatically.
+            {t('property:review.noPropertyDesc')}
           </p>
         </SectionCard>
       </PortalShell>
@@ -101,7 +113,7 @@ export default function ReviewEditorPage() {
 
   if (loadError) {
     return (
-      <PortalShell eyebrow="Review" title="Property not found." actions={[{ label: 'Back to trips', href: '/trips' }]}>
+      <PortalShell eyebrow={t('property:review.eyebrow')} title={t('property:review.notFoundTitle')} actions={[{ label: t('property:review.backToTrips'), href: '/trips' }]}>
         <SectionCard>
           <p className="text-sm text-muted">{loadError}</p>
         </SectionCard>
@@ -111,10 +123,10 @@ export default function ReviewEditorPage() {
 
   if (published) {
     return (
-      <PortalShell eyebrow="Review" title="Review published!" accent="from-emerald-50 via-white to-sky-50"
+      <PortalShell eyebrow={t('property:review.eyebrow')} title={t('property:review.publishedTitle')} accent="from-emerald-50 via-white to-sky-50"
         actions={[
-          { label: 'Back to trips', href: '/trips', secondary: true },
-          { label: `View ${hotel?.name || 'property'}`, href: `/property/${hotelId}` },
+          { label: t('property:review.backToTrips'), href: '/trips', secondary: true },
+          { label: t('property:review.viewPropertyNamed', { name: hotel?.name || `#${hotelId}` }), href: `/property/${hotelId}` },
         ]}
       >
         <SectionCard>
@@ -122,24 +134,22 @@ export default function ReviewEditorPage() {
             <div className="inline-flex h-16 w-16 items-center justify-center rounded-full bg-emerald-50 mb-4">
               <CheckCircle2 size={32} className="text-emerald-600" />
             </div>
-            <h2 className="text-2xl font-semibold text-dark">Thanks for your review!</h2>
+            <h2 className="text-2xl font-semibold text-dark">{t('property:review.publishedThanks')}</h2>
             <p className="mt-2 text-sm text-muted max-w-sm">
-              Your {overallRating}-star review of{' '}
-              <span className="font-semibold text-dark">{hotel?.name || `Hotel #${hotelId}`}</span>{' '}
-              has been submitted and is pending approval.
+              {t('property:review.publishedDesc', { rating: overallRating, name: hotel?.name || `Hotel #${hotelId}` })}
             </p>
             <div className="mt-6 flex gap-3">
               <button
                 onClick={() => navigate(`/property/${hotelId}`)}
                 className="px-5 py-2.5 bg-dark text-white text-sm font-semibold rounded-full hover:opacity-90 transition-all"
               >
-                View property
+                {t('property:review.viewProperty')}
               </button>
               <button
                 onClick={() => navigate('/trips')}
                 className="px-5 py-2.5 border border-gray-200 text-dark text-sm font-semibold rounded-full hover:bg-gray-50 transition-all"
               >
-                Back to trips
+                {t('property:review.backToTrips')}
               </button>
             </div>
           </div>
@@ -152,17 +162,17 @@ export default function ReviewEditorPage() {
 
   return (
     <PortalShell
-      eyebrow="Write Review"
-      title="Write your stay review."
-      mobileTitle="Write review"
-      description="Share your experience to help future guests."
+      eyebrow={t('property:review.writeEyebrow')}
+      title={t('property:review.writeTitle')}
+      mobileTitle={t('property:review.writeMobileTitle')}
+      description={t('property:review.writeDesc')}
       actions={[
-        { label: 'Back to trips', href: '/trips', secondary: true },
+        { label: t('property:review.backToTrips'), href: '/trips', secondary: true },
       ]}
       stats={[
-        { label: 'Overall rating', value: `${overallRating}.0`, note: hotel?.city || '' },
-        { label: 'Selected tags', value: String(selectedTags.length), note: 'Highlights' },
-        { label: 'Property', value: hotel?.name || `#${hotelId}`, note: hotel?.country || '' },
+        { label: t('property:review.statOverall'), value: `${overallRating}.0`, note: hotel?.city || '' },
+        { label: t('property:review.statTags'), value: String(selectedTags.length), note: t('property:review.statHighlights') },
+        { label: t('property:review.statProperty'), value: hotel?.name || `#${hotelId}`, note: hotel?.country || '' },
       ]}
       accent="from-rose-50 via-white to-sky-50"
     >
@@ -176,7 +186,7 @@ export default function ReviewEditorPage() {
             />
 
             <div className="mt-5 flex flex-wrap items-center gap-2">
-              <StatusPill tone="brand">New review</StatusPill>
+              <StatusPill tone="brand">{t('property:review.newReview')}</StatusPill>
             </div>
 
             <h2 className="mt-4 text-2xl font-semibold tracking-tight text-dark">
@@ -190,15 +200,15 @@ export default function ReviewEditorPage() {
               to={`/property/${hotelId}`}
               className="mt-5 inline-flex w-full items-center justify-center rounded-full border border-gray-200 bg-white px-4 py-2.5 text-sm font-semibold text-dark transition-colors hover:bg-gray-50 sm:w-auto"
             >
-              Open property page
+              {t('property:review.openPropertyPage')}
             </Link>
           </SectionCard>
 
           <SectionCard className="hidden md:block">
             <SectionHeading
-              eyebrow="Preview"
-              title="How the published card could read"
-              description="Validate spacing and tone before submitting."
+              eyebrow={t('property:review.previewEyebrow')}
+              title={t('property:review.previewTitle')}
+              description={t('property:review.previewDesc')}
             />
 
             <div className="mt-6 rounded-[26px] border border-gray-200 bg-[#fcfcfb] p-5">
@@ -208,15 +218,16 @@ export default function ReviewEditorPage() {
                 ))}
               </div>
               <p className="mt-4 text-xl font-semibold tracking-tight text-dark">
-                {title || 'Your review title…'}
+                {title || t('property:review.previewTitlePlaceholder')}
               </p>
               <p className="mt-3 text-sm leading-7 text-dark">
-                {summary || 'Your review body…'}
+                {summary || t('property:review.previewBodyPlaceholder')}
               </p>
               <div className="mt-5 flex flex-wrap gap-2">
-                {selectedTags.map((tag) => (
-                  <StatusPill key={tag} tone="sky">{tag}</StatusPill>
-                ))}
+                {selectedTags.map((tagId) => {
+                  const found = reviewTags.find((rt) => rt.id === tagId)
+                  return <StatusPill key={tagId} tone="sky">{found?.label ?? tagId}</StatusPill>
+                })}
               </div>
             </div>
 
@@ -226,7 +237,7 @@ export default function ReviewEditorPage() {
                   <Sparkles size={18} />
                 </div>
                 <p className="text-sm leading-6 text-muted">
-                  Helpful votes, host replies, and moderation states can all extend from this review model later.
+                  {t('property:review.futureNote')}
                 </p>
               </div>
             </div>
@@ -236,9 +247,9 @@ export default function ReviewEditorPage() {
         <div className="space-y-6">
           <SectionCard>
             <SectionHeading
-              eyebrow="Overall Experience"
-              title="Start with the headline impression"
-              description="The strongest review flows feel composed, not overwhelming."
+              eyebrow={t('property:review.overallEyebrow')}
+              title={t('property:review.overallTitle')}
+              description={t('property:review.overallDesc')}
             />
 
             <div className="mt-6 flex flex-wrap gap-3">
@@ -263,16 +274,16 @@ export default function ReviewEditorPage() {
             </div>
 
             <div className="mt-6 grid gap-4 md:grid-cols-2">
-              {reviewCategories.map((category) => (
-                <div key={category} className="rounded-[24px] border border-gray-200 bg-[#fcfcfb] p-4">
+              {reviewCategories.map(({ id, label }) => (
+                <div key={id} className="rounded-[24px] border border-gray-200 bg-[#fcfcfb] p-4">
                   <div className="flex items-center justify-between gap-4">
-                    <p className="text-sm font-semibold text-dark">{category}</p>
-                    <StatusPill tone="sky">{scores[category]}.0</StatusPill>
+                    <p className="text-sm font-semibold text-dark">{label}</p>
+                    <StatusPill tone="sky">{scores[id]}.0</StatusPill>
                   </div>
                   <input
                     type="range" min="1" max="5" step="1"
-                    value={scores[category]}
-                    onChange={(e) => setScores((cur) => ({ ...cur, [category]: Number(e.target.value) }))}
+                    value={scores[id]}
+                    onChange={(e) => setScores((cur) => ({ ...cur, [id]: Number(e.target.value) }))}
                     className="mt-4 w-full accent-[#222222]"
                   />
                 </div>
@@ -282,34 +293,34 @@ export default function ReviewEditorPage() {
 
           <SectionCard>
             <SectionHeading
-              eyebrow="Written Review"
-              title="Shape the actual story"
-              description="Short fields keep this usable on mobile while still supporting a richer published review."
+              eyebrow={t('property:review.writtenEyebrow')}
+              title={t('property:review.writtenTitle')}
+              description={t('property:review.writtenDesc')}
             />
 
             <div className="mt-6 grid gap-5">
               <label className="block">
                 <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.18em] text-muted">
-                  Review title
+                  {t('property:review.titleLabel')}
                 </span>
                 <input
                   type="text"
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
-                  placeholder="e.g., Thoughtful, easy stay with great host communication"
+                  placeholder={t('property:review.titlePlaceholder')}
                   className="w-full rounded-2xl border border-gray-200 bg-[#fcfcfb] px-4 py-3 text-base text-dark outline-none transition-colors focus:border-dark md:text-sm"
                 />
               </label>
 
               <label className="block">
                 <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.18em] text-muted">
-                  Review body
+                  {t('property:review.bodyLabel')}
                 </span>
                 <textarea
                   rows={7}
                   value={summary}
                   onChange={(e) => setSummary(e.target.value)}
-                  placeholder="Describe what made your stay special…"
+                  placeholder={t('property:review.bodyPlaceholder')}
                   className="min-h-[180px] w-full resize-none rounded-2xl border border-gray-200 bg-[#fcfcfb] px-4 py-3 text-base leading-7 text-dark outline-none transition-colors focus:border-dark md:text-sm"
                 />
               </label>
@@ -317,21 +328,21 @@ export default function ReviewEditorPage() {
           </SectionCard>
 
           <SectionCard>
-            <SectionHeading eyebrow="Highlights" title="What stood out" description="Tags give the published card a stronger visual summary." />
+            <SectionHeading eyebrow={t('property:review.highlightsEyebrow')} title={t('property:review.highlightsTitle')} description={t('property:review.highlightsDesc')} />
 
             <div className="mt-6 flex flex-wrap gap-3">
-              {reviewTags.map((tag) => {
-                const isSelected = selectedTags.includes(tag)
+              {reviewTags.map(({ id, label }) => {
+                const isSelected = selectedTags.includes(id)
                 return (
                   <button
-                    key={tag}
+                    key={id}
                     type="button"
-                    onClick={() => toggleTag(tag)}
+                    onClick={() => toggleTag(id)}
                     className={`rounded-full px-4 py-2.5 text-sm font-semibold transition-colors ${
                       isSelected ? 'bg-dark text-white' : 'border border-gray-200 bg-white text-dark hover:bg-gray-50'
                     }`}
                   >
-                    {tag}
+                    {label}
                   </button>
                 )
               })}
@@ -348,7 +359,7 @@ export default function ReviewEditorPage() {
             disabled={!canSubmit}
             className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-dark px-6 py-3.5 text-sm font-bold text-white transition-colors hover:bg-gray-800 disabled:opacity-30 disabled:cursor-not-allowed"
           >
-            {isSubmitting ? <><Loader2 size={15} className="animate-spin" /> Publishing…</> : 'Publish review'}
+            {isSubmitting ? <><Loader2 size={15} className="animate-spin" /> {t('property:review.publishing')}</> : t('property:review.publishReview')}
           </button>
         </div>
       </div>

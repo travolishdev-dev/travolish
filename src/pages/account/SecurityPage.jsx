@@ -7,6 +7,7 @@ import {
   ShieldCheck,
   Smartphone,
 } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import {
   AccountShell,
   SectionCard,
@@ -19,13 +20,11 @@ const PROVIDER_META = {
   google: {
     label: 'Google',
     Icon: Globe2,
-    detail: 'One-tap sign-in via Google account',
     authNote: 'Your account is secured via Google OAuth. No password is stored on Travolish servers.',
   },
   apple: {
     label: 'Apple',
     Icon: Apple,
-    detail: 'iPhone-native sign-in via Apple ID',
     authNote: 'Your account is secured via Apple Sign-In. Your email may be relayed by Apple.',
   },
 }
@@ -51,7 +50,7 @@ function detectDevice() {
   return { label: 'Browser', Icon: LaptopMinimal }
 }
 
-function buildConnectedAccounts(user) {
+function buildConnectedAccounts(user, t) {
   const activeProvider = (user?.provider || '').toLowerCase()
   return ALL_PROVIDERS.map((key) => {
     const meta = PROVIDER_META[key]
@@ -61,13 +60,17 @@ function buildConnectedAccounts(user) {
       provider: meta.label,
       Icon: meta.Icon,
       status: connected ? 'connected' : 'available',
-      detail: connected ? `Signed in as ${user.email}` : meta.detail,
-      lastUpdated: connected ? 'Active now' : 'Not connected',
+      detail: connected
+        ? t('account:security.providerSignedIn', { email: user.email })
+        : meta.authNote,
+      lastUpdated: connected
+        ? t('account:security.activeNow')
+        : t('account:security.notConnected'),
     }
   })
 }
 
-function buildSecuritySignals(user) {
+function buildSecuritySignals(user, t) {
   const activeProvider = (user?.provider || '').toLowerCase()
   const meta = PROVIDER_META[activeProvider]
   const providerLabel = meta?.label ?? 'Email'
@@ -77,21 +80,21 @@ function buildSecuritySignals(user) {
 
   return [
     {
-      title: 'Sign-in method',
-      status: `${providerLabel} account`,
+      title: t('account:security.signInMethodLabel'),
+      status: t('account:security.signInMethodValue', { provider: providerLabel }),
       description: meta?.authNote ?? 'Email sign-in is active. A magic link is used to authenticate.',
     },
     {
-      title: 'Email address',
+      title: t('account:security.emailAddressLabel'),
       status: maskEmail(user?.email),
-      description: 'Used for booking confirmations, host messages, and account security alerts.',
+      description: t('account:security.emailAddressDesc'),
     },
     ...(memberSince
       ? [
           {
-            title: 'Member since',
+            title: t('account:security.memberSinceLabel'),
             status: memberSince,
-            description: 'Account standing and booking history contribute to your traveler trust score.',
+            description: t('account:security.memberSinceDesc'),
           },
         ]
       : []),
@@ -99,22 +102,23 @@ function buildSecuritySignals(user) {
 }
 
 export default function SecurityPage() {
+  const { t } = useTranslation('account')
   const { user, signOut } = useAuthStore()
 
-  const connectedAccounts = buildConnectedAccounts(user)
-  const securitySignals = buildSecuritySignals(user)
+  const connectedAccounts = buildConnectedAccounts(user, t)
+  const securitySignals = buildSecuritySignals(user, t)
   const { label: deviceLabel, Icon: DeviceIcon } = detectDevice()
   const activeProvider = (user?.provider || '').toLowerCase()
   const activeMeta = PROVIDER_META[activeProvider]
 
   return (
     <AccountShell
-      title="Sign-in and device security."
-      mobileTitle="Security"
-      description="Connected providers, account security status, and your active session."
+      title={t('account:security.title')}
+      mobileTitle={t('account:security.mobileTitle')}
+      description={t('account:security.desc')}
       actions={[
-        { label: 'Back to account', href: '/account', secondary: true },
-        { label: 'Manage payments', href: '/account/payments' },
+        { label: t('account:security.backToAccount'), href: '/account', secondary: true },
+        { label: t('account:security.managePayments'), href: '/account/payments' },
       ]}
       accent="from-emerald-50 via-white to-sky-50"
     >
@@ -122,9 +126,9 @@ export default function SecurityPage() {
         {/* Connected Accounts */}
         <SectionCard>
           <SectionHeading
-            eyebrow="Connected Accounts"
-            title="Provider-based sign-in"
-            description="Your active sign-in method and available social providers."
+            eyebrow={t('account:security.connectedEyebrow')}
+            title={t('account:security.connectedTitle')}
+            description={t('account:security.connectedDesc')}
           />
 
           <div className="mt-6 space-y-4">
@@ -146,7 +150,9 @@ export default function SecurityPage() {
 
                 <div className="flex w-full items-center justify-between gap-3 md:w-auto md:justify-start">
                   <StatusPill tone={account.status === 'connected' ? 'success' : 'slate'}>
-                    {account.status === 'connected' ? 'Connected' : 'Available'}
+                    {account.status === 'connected'
+                      ? t('account:security.connected')
+                      : t('account:security.available')}
                   </StatusPill>
                   {account.status === 'connected' ? (
                     <button
@@ -154,7 +160,7 @@ export default function SecurityPage() {
                       onClick={signOut}
                       className="rounded-full border border-gray-200 bg-white px-4 py-2.5 text-sm font-semibold text-dark transition-colors hover:bg-rose-50 hover:border-rose-200 hover:text-rose-700"
                     >
-                      Sign out
+                      {t('account:security.signOut')}
                     </button>
                   ) : (
                     <button
@@ -162,7 +168,7 @@ export default function SecurityPage() {
                       disabled
                       className="cursor-not-allowed rounded-full border border-gray-200 bg-white px-4 py-2.5 text-sm font-semibold text-muted"
                     >
-                      Connect
+                      {t('account:security.connect')}
                     </button>
                   )}
                 </div>
@@ -174,9 +180,9 @@ export default function SecurityPage() {
         {/* Security Posture */}
         <SectionCard>
           <SectionHeading
-            eyebrow="Security Posture"
-            title="Account status"
-            description="Security signals derived from your account and sign-in provider."
+            eyebrow={t('account:security.postureEyebrow')}
+            title={t('account:security.postureTitle')}
+            description={t('account:security.postureDesc')}
           />
 
           <div className="mt-6 space-y-4">
@@ -204,9 +210,9 @@ export default function SecurityPage() {
       {/* Current Session */}
       <SectionCard>
         <SectionHeading
-          eyebrow="Active Session"
-          title="Current device"
-          description="You are signed in on this device. Full session history will be available when session management launches."
+          eyebrow={t('account:security.sessionEyebrow')}
+          title={t('account:security.sessionTitle')}
+          description={t('account:security.sessionDesc')}
         />
 
         <div className="mt-6 grid gap-4 xl:grid-cols-3">
@@ -215,19 +221,19 @@ export default function SecurityPage() {
               <div className="rounded-2xl bg-white p-3 text-dark shadow-sm">
                 <DeviceIcon size={20} />
               </div>
-              <StatusPill tone="sky">Current session</StatusPill>
+              <StatusPill tone="sky">{t('account:security.currentSession')}</StatusPill>
             </div>
             <p className="mt-5 text-lg font-semibold text-dark">{deviceLabel}</p>
-            <p className="mt-1 text-sm text-muted">Active now</p>
+            <p className="mt-1 text-sm text-muted">{t('account:security.activeNow')}</p>
             <p className="mt-4 text-sm font-medium text-dark">
-              Signed in via {activeMeta?.label ?? 'your account'}
+              {t('account:security.signedInVia', { provider: activeMeta?.label ?? 'your account' })}
             </p>
             <button
               type="button"
               onClick={signOut}
               className="mt-5 inline-flex rounded-full border border-gray-200 bg-white px-4 py-2.5 text-sm font-semibold text-dark transition-colors hover:bg-rose-50 hover:border-rose-200 hover:text-rose-700"
             >
-              Sign out
+              {t('account:security.signOut')}
             </button>
           </div>
 
@@ -237,8 +243,8 @@ export default function SecurityPage() {
               <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-white shadow-sm">
                 <Clock3 size={18} className="text-muted" />
               </div>
-              <p className="text-sm font-medium text-dark">Session history</p>
-              <p className="mt-1 text-xs text-muted">Coming soon</p>
+              <p className="text-sm font-medium text-dark">{t('account:security.sessionHistory')}</p>
+              <p className="mt-1 text-xs text-muted">{t('account:security.comingSoon')}</p>
             </div>
           </div>
         </div>
@@ -249,15 +255,13 @@ export default function SecurityPage() {
         <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_280px] lg:items-center">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted">
-              Recovery Controls
+              {t('account:security.recoveryEyebrow')}
             </p>
             <h2 className="mt-2 text-2xl font-semibold tracking-tight text-dark">
-              Keep fallback access simple
+              {t('account:security.recoveryTitle')}
             </h2>
             <p className="mt-2 text-sm leading-6 text-muted">
-              Your account is tied to your {activeMeta?.label ?? 'sign-in'} provider.
-              If you ever lose access, use the provider's own account recovery flow to
-              regain entry to Travolish.
+              {t('account:security.recoveryDesc', { provider: activeMeta?.label ?? 'sign-in' })}
             </p>
           </div>
 
@@ -268,13 +272,13 @@ export default function SecurityPage() {
               </div>
               <div>
                 <p className="text-xs font-semibold uppercase tracking-[0.18em] text-white/70">
-                  Risk status
+                  {t('account:security.riskStatusLabel')}
                 </p>
-                <p className="mt-1 text-2xl font-semibold">Low</p>
+                <p className="mt-1 text-2xl font-semibold">{t('account:security.riskLow')}</p>
               </div>
             </div>
             <p className="mt-4 text-sm leading-6 text-white/80">
-              No unusual sign-in activity or unresolved account alerts detected.
+              {t('account:security.riskNote')}
             </p>
           </div>
         </div>

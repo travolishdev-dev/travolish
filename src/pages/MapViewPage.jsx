@@ -7,6 +7,7 @@ import {
   Star,
   Users,
 } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import 'leaflet/dist/leaflet.css'
 import { searchHotels, listRooms } from '../services/hotelsApi'
 import { adaptHotels } from '../lib/hotelAdapter'
@@ -20,6 +21,7 @@ const mapboxToken = import.meta.env.VITE_MAPBOX_TOKEN
 
 export default function MapViewPage() {
   const navigate = useNavigate()
+  const { t } = useTranslation('common')
   const sharedLocation = useNativeAppLocationStore()
   const mapContainerRef = useRef(null)
   const mapInstanceRef = useRef(null)
@@ -66,6 +68,7 @@ export default function MapViewPage() {
     }
   }, [sharedLocation.hasSharedLocation])
 
+  const yourLocationLabel = t('common:map.yourLocation')
   useEffect(() => {
     if (!sharedLocation.hasSharedLocation || !mapContainerRef.current || !nearbyProperties.length) {
       return
@@ -148,7 +151,7 @@ export default function MapViewPage() {
           weight: 2,
         },
       )
-        .bindTooltip('Your location', {
+        .bindTooltip(yourLocationLabel, {
           direction: 'top',
           offset: [0, -6],
         })
@@ -175,7 +178,7 @@ export default function MapViewPage() {
 
       propertyMarkersRef.current = new Map()
     }
-  }, [nearbyProperties, sharedLocation])
+  }, [nearbyProperties, sharedLocation, yourLocationLabel])
 
   useEffect(() => {
     if (!selectedProperty) {
@@ -211,14 +214,13 @@ export default function MapViewPage() {
           className="inline-flex items-center gap-2 rounded-full border border-gray-200 px-4 py-2 text-sm font-semibold text-dark transition-colors hover:bg-gray-50"
         >
           <ArrowLeft size={16} />
-          Back
+          {t('common:map.back')}
         </button>
 
         <div className="mx-auto mt-24 max-w-xl text-center">
-          <h1 className="text-3xl font-semibold text-dark">Map view is unavailable</h1>
+          <h1 className="text-3xl font-semibold text-dark">{t('common:map.unavailableTitle')}</h1>
           <p className="mt-3 text-muted">
-            A shared location is required before nearby properties can be shown on
-            the map.
+            {t('common:map.unavailableDesc')}
           </p>
         </div>
       </main>
@@ -244,15 +246,17 @@ export default function MapViewPage() {
           <div>
             <div className="inline-flex items-center gap-2 rounded-full bg-rose-50 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-brand">
               <MapPin size={12} />
-              Map View
+              {t('common:map.eyebrow')}
             </div>
             <h1 className="mt-3 text-2xl font-semibold text-dark md:text-3xl">
-              Browse nearby stays on the map
+              {t('common:map.title')}
             </h1>
             <p className="mt-2 text-sm text-muted md:text-[15px]">
-              {nearbyProperties.length} propert{nearbyProperties.length === 1 ? 'y' : 'ies'} around{' '}
-              {formatCoordinates(sharedLocation.latitude, sharedLocation.longitude)}.
-              Tap a marker to focus the matching card below.
+              {t('common:map.nearbyCount', {
+                count: nearbyProperties.length,
+                coords: formatCoordinates(sharedLocation.latitude, sharedLocation.longitude),
+              })}{' '}
+              {t('common:map.tapMarker')}
             </p>
           </div>
 
@@ -262,7 +266,7 @@ export default function MapViewPage() {
             className="inline-flex items-center gap-2 self-start rounded-full border border-gray-200 px-4 py-2 text-sm font-semibold text-dark transition-colors hover:bg-gray-50"
           >
             <ArrowLeft size={16} />
-            Back to home
+            {t('common:map.backHome')}
           </button>
         </div>
 
@@ -274,7 +278,7 @@ export default function MapViewPage() {
           <div className="mb-4 flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted">
-                Nearby Properties
+                {t('common:map.nearbyLabel')}
               </p>
               {selectedProperty && (
                 <>
@@ -293,7 +297,7 @@ export default function MapViewPage() {
                 to={`/property/${selectedProperty.id}`}
                 className="inline-flex items-center gap-2 self-start rounded-full bg-dark px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-gray-800"
               >
-                Open property
+                {t('common:map.openProperty')}
               </Link>
             )}
           </div>
@@ -332,7 +336,7 @@ export default function MapViewPage() {
                       </div>
                       {property.host.superhost && (
                         <div className="absolute right-3 top-3 rounded-full bg-dark/90 px-3 py-1 text-[11px] font-semibold text-white shadow-sm">
-                          Superhost
+                          {t('common:map.superhost')}
                         </div>
                       )}
                     </div>
@@ -358,11 +362,11 @@ export default function MapViewPage() {
                       <div className="flex flex-wrap gap-2">
                         <span className="inline-flex items-center gap-1 rounded-full bg-gray-100 px-2.5 py-1 text-xs font-medium text-dark">
                           <Users size={12} />
-                          {property.guests} guests
+                          {t('common:guest', { count: property.guests })}
                         </span>
                         <span className="inline-flex items-center gap-1 rounded-full bg-gray-100 px-2.5 py-1 text-xs font-medium text-dark">
                           <BedDouble size={12} />
-                          {property.bedrooms} bedrooms
+                          {t('common:bedroom', { count: property.bedrooms })}
                         </span>
                       </div>
 
@@ -371,7 +375,7 @@ export default function MapViewPage() {
                       </p>
 
                       <div className="pt-1 text-sm font-semibold text-dark">
-                        Select property
+                        {t('common:map.selectProperty')}
                       </div>
                     </div>
                   </button>

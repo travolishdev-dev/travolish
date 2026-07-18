@@ -1,0 +1,62 @@
+{
+  "title": "نتائج البحث",
+  "finding": "جارٍ البحث عن إقامات…",
+  "noResults": "لم يتم العثور على نتائج",
+  "noResultsHint": "جرّب وجهة مختلفة، أو عدّل التواريخ، أو خفّف فلاتر السعر والتقييم.",
+  "refineHint": "استخدم لوحة البحث العلوية لتحسين الوجهة والتواريخ والضيوف والفلاتر.",
+  "sortedByLocation": "تم ترتيب نتائج البحث حسب موقعك المشترك",
+  "locationNotShared": "لم تتم مشاركة الموقع من التطبيق",
+  "permissionGranted": "تم منح الإذن",
+  "showingDefault": "عرض ترتيب النتائج الافتراضي.",
+  "types": {
+    "any": "الكل",
+    "hotel": "فندق",
+    "apartment": "شقة",
+    "villa": "فيلا",
+    "homestay": "إقامة منزلية",
+    "resort": "منتجع",
+    "guestHouse": "بيت ضيافة"
+  },
+  "amenities": {
+    "wifi": "واي فاي",
+    "kitchen": "مطبخ",
+    "parking": "مواقف مجانية",
+    "pool": "مسبح",
+    "ac": "تكييف هواء",
+    "breakfast": "إفطار",
+    "workspace": "مساحة عمل",
+    "washer": "غسالة",
+    "petFriendly": "مناسب للحيوانات الأليفة",
+    "gym": "صالة رياضية",
+    "airportPickup": "استقبال من المطار",
+    "freeCancellation": "إلغاء مجاني",
+    "policyVaries": "السياسة تتفاوت"
+  },
+  "filters": {
+    "priceRange": "نطاق السعر",
+    "rating": "التقييم",
+    "propertyType": "نوع العقار",
+    "amenities": "المرافق",
+    "sortBy": "ترتيب حسب",
+    "newest": "الأحدث",
+    "priceLow": "السعر: من الأقل إلى الأعلى",
+    "priceHigh": "السعر: من الأعلى إلى الأقل",
+    "topRated": "الأعلى تقييماً",
+    "recommended": "موصى به",
+    "priceLowToHigh": "السعر من الأدنى للأعلى",
+    "priceHighToLow": "السعر من الأعلى للأدنى",
+    "highestRated": "الأعلى تقييماً",
+    "minPrice": "أقل سعر",
+    "maxPrice": "أعلى سعر",
+    "bookingOptions": "خيارات الحجز",
+    "instantBookOnly": "الحجز الفوري فقط",
+    "guestRating": "تقييم الضيوف",
+    "anyRating": "أي تقييم",
+    "clearFilters": "مسح الفلاتر"
+  },
+  "controls": {
+    "filters": "فلاتر",
+    "decreaseLabel": "تقليل {{label}}",
+    "increaseLabel": "زيادة {{label}}"
+  }
+}

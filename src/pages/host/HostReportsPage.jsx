@@ -279,7 +279,7 @@ export default function HostReportsPage() {
               type="date"
               value={dateRange.from}
               onChange={updateDateRange('from')}
-              className="h-12 w-full rounded-xl border border-gray-300 px-3 text-sm font-semibold text-dark outline-none focus:border-dark"
+              className="h-12 w-full rounded-xl border border-gray-300 px-3 text-base md:text-sm font-semibold text-dark outline-none focus:border-dark"
             />
           </label>
           <label>
@@ -288,7 +288,7 @@ export default function HostReportsPage() {
               type="date"
               value={dateRange.to}
               onChange={updateDateRange('to')}
-              className="h-12 w-full rounded-xl border border-gray-300 px-3 text-sm font-semibold text-dark outline-none focus:border-dark"
+              className="h-12 w-full rounded-xl border border-gray-300 px-3 text-base md:text-sm font-semibold text-dark outline-none focus:border-dark"
             />
           </label>
           <button

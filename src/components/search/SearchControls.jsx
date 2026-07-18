@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   CalendarDays,
   Check,
+  ChevronDown,
   MapPin,
   Minus,
   Plus,
@@ -16,18 +17,10 @@ import {
   formatDateRange,
   formatGuestSummary,
 } from '../../lib/searchFormatting'
-
-const PROPERTY_TYPES = ['Any', 'Hotel', 'Apartment', 'Villa', 'Homestay', 'Resort', 'Guest house']
-const AMENITY_FILTERS = ['Wifi', 'Pool', 'Kitchen', 'Free parking', 'Workspace', 'Breakfast', 'Pet friendly', 'Gym']
-const SORT_OPTIONS = [
-  { value: 'recommended', label: 'Recommended' },
-  { value: 'price-low', label: 'Price low to high' },
-  { value: 'price-high', label: 'Price high to low' },
-  { value: 'rating', label: 'Highest rated' },
-  { value: 'newest', label: 'Newest' },
-]
+import { useTranslation } from 'react-i18next'
 
 function CounterControl({ label, value, min = 0, onChange }) {
+  const { t } = useTranslation('search')
   return (
     <div className="flex items-center justify-between gap-5">
       <p className="text-sm font-semibold text-dark">{label}</p>
@@ -37,7 +30,7 @@ function CounterControl({ label, value, min = 0, onChange }) {
           onClick={() => onChange(Math.max(min, value - 1))}
           disabled={value <= min}
           className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-gray-300 text-dark transition-colors hover:border-dark disabled:cursor-not-allowed disabled:opacity-35"
-          aria-label={`Decrease ${label}`}
+          aria-label={t('controls.decreaseLabel', { label })}
         >
           <Minus size={14} />
         </button>
@@ -48,7 +41,7 @@ function CounterControl({ label, value, min = 0, onChange }) {
           type="button"
           onClick={() => onChange(value + 1)}
           className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-gray-300 text-dark transition-colors hover:border-dark"
-          aria-label={`Increase ${label}`}
+          aria-label={t('controls.increaseLabel', { label })}
         >
           <Plus size={14} />
         </button>
@@ -81,6 +74,36 @@ export default function SearchControls({
   const [activePanel, setActivePanel] = useState(null)
   const [showFilters, setShowFilters] = useState(false)
   const panelRef = useRef(null)
+  const { t } = useTranslation(['search', 'home'])
+
+  const propertyTypes = useMemo(() => [
+    { value: 'Any', label: t('search:types.any') },
+    { value: 'Hotel', label: t('search:types.hotel') },
+    { value: 'Apartment', label: t('search:types.apartment') },
+    { value: 'Villa', label: t('search:types.villa') },
+    { value: 'Homestay', label: t('search:types.homestay') },
+    { value: 'Resort', label: t('search:types.resort') },
+    { value: 'Guest house', label: t('search:types.guestHouse') },
+  ], [t])
+
+  const amenityFilters = useMemo(() => [
+    { value: 'Wifi', label: t('search:amenities.wifi') },
+    { value: 'Pool', label: t('search:amenities.pool') },
+    { value: 'Kitchen', label: t('search:amenities.kitchen') },
+    { value: 'Free parking', label: t('search:amenities.parking') },
+    { value: 'Workspace', label: t('search:amenities.workspace') },
+    { value: 'Breakfast', label: t('search:amenities.breakfast') },
+    { value: 'Pet friendly', label: t('search:amenities.petFriendly') },
+    { value: 'Gym', label: t('search:amenities.gym') },
+  ], [t])
+
+  const sortOptions = useMemo(() => [
+    { value: 'recommended', label: t('search:filters.recommended') },
+    { value: 'price-low', label: t('search:filters.priceLowToHigh') },
+    { value: 'price-high', label: t('search:filters.priceHighToLow') },
+    { value: 'rating', label: t('search:filters.highestRated') },
+    { value: 'newest', label: t('search:filters.newest') },
+  ], [t])
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -90,6 +113,12 @@ export default function SearchControls({
     }
     document.addEventListener('mousedown', handleClickOutside)
     return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
+
+  useEffect(() => {
+    const closeOnScroll = () => setActivePanel(null)
+    window.addEventListener('scroll', closeOnScroll, { passive: true })
+    return () => window.removeEventListener('scroll', closeOnScroll)
   }, [])
 
   const matchingDestinations = useMemo(() => {
@@ -146,7 +175,7 @@ export default function SearchControls({
               </span>
               <span className="min-w-0 flex-1 text-left">
                 <span className="block text-[11px] font-semibold uppercase tracking-[0.12em] text-muted">
-                  Destination
+                  {t('home:destination')}
                 </span>
                 <span className="relative mt-1 block">
                   <input
@@ -156,15 +185,17 @@ export default function SearchControls({
                       setActivePanel('destination')
                     }}
                     onFocus={() => setActivePanel('destination')}
-                    placeholder="Search Indian places"
-                    className="w-full bg-transparent pr-8 text-sm font-semibold text-dark outline-none placeholder:text-gray-400"
+                    placeholder={t('home:destinationPlaceholder')}
+                    enterKeyHint="search"
+                    autoComplete="off"
+                    className="w-full bg-transparent pr-8 text-base font-semibold text-dark outline-none placeholder:text-gray-400"
                   />
                   {searchDraft.destination && (
                     <button
                       type="button"
                       onClick={() => updateSearchDraft({ destination: '' })}
                       className="absolute right-0 top-1/2 inline-flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-full text-muted transition-colors hover:bg-gray-100 hover:text-dark"
-                      aria-label="Clear destination"
+                      aria-label={t('home:clearDestination')}
                     >
                       <X size={14} />
                     </button>
@@ -214,7 +245,7 @@ export default function SearchControls({
                 </span>
                 <span className="min-w-0">
                   <span className="block text-[11px] font-semibold uppercase tracking-[0.12em] text-muted">
-                    Check-in/out
+                    {t('home:checkInOut')}
                   </span>
                   <span className="mt-1 block truncate text-sm font-semibold text-dark">
                     {formatDateRange(searchDraft.checkIn, searchDraft.checkOut)}
@@ -246,7 +277,7 @@ export default function SearchControls({
                 </span>
                 <span className="min-w-0">
                   <span className="block text-[11px] font-semibold uppercase tracking-[0.12em] text-muted">
-                    Guests
+                    {t('home:guests')}
                   </span>
                   <span className="mt-1 block truncate text-sm font-semibold text-dark">
                     {formatGuestSummary(searchDraft.adults, searchDraft.children)}
@@ -257,14 +288,14 @@ export default function SearchControls({
               {activePanel === 'guests' && (
                 <div className="absolute left-0 right-0 top-[calc(100%+10px)] z-[80] space-y-4 rounded-[20px] border border-gray-200 bg-white p-4 shadow-[0_18px_50px_rgba(15,23,42,0.16)] lg:w-[320px]">
                   <CounterControl
-                    label="Adults"
+                    label={t('home:adults')}
                     value={searchDraft.adults}
                     min={1}
                     onChange={(adults) => updateSearchDraft({ adults })}
                   />
                   <div className="border-t border-gray-100" />
                   <CounterControl
-                    label="Children"
+                    label={t('home:children')}
                     value={searchDraft.children}
                     onChange={(children) => updateSearchDraft({ children })}
                   />
@@ -282,7 +313,7 @@ export default function SearchControls({
               }`}
             >
               <SlidersHorizontal size={17} />
-              Filters
+              {t('search:controls.filters')}
               {activeFilterCount > 0 && (
                 <span className="inline-flex h-5 min-w-[20px] items-center justify-center rounded-full bg-dark px-1.5 text-[10px] font-bold text-white">
                   {activeFilterCount}
@@ -296,66 +327,102 @@ export default function SearchControls({
               className="inline-flex min-h-[54px] items-center justify-center gap-2 rounded-[20px] bg-brand px-7 text-sm font-semibold text-white transition-colors hover:bg-brand-dark lg:min-h-full"
             >
               <Search size={17} />
-              Search
+              {t('home:search')}
             </button>
           </div>
 
           {showFilters && (
             <div className="mt-2 grid gap-4 rounded-[22px] bg-gray-50 p-4">
               <div className="grid gap-3 md:grid-cols-4">
-                <label className="block">
+                <div className="block">
                   <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted">
-                    Property type
+                    {t('search:filters.propertyType')}
                   </span>
-                  <select
-                    value={propertyType}
-                    onChange={(event) => onPropertyTypeChange(event.target.value)}
-                    className="mt-1 w-full rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm font-semibold text-dark outline-none transition-colors focus:border-dark"
-                  >
-                    {PROPERTY_TYPES.map((type) => (
-                      <option key={type} value={type}>{type}</option>
-                    ))}
-                  </select>
-                </label>
+                  <div className="relative mt-1">
+                    <button
+                      type="button"
+                      onClick={() => setActivePanel(activePanel === 'propertyType' ? null : 'propertyType')}
+                      className="flex w-full items-center justify-between rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-base font-semibold text-dark outline-none transition-colors focus:border-dark"
+                    >
+                      <span>{propertyTypes.find((opt) => opt.value === propertyType)?.label ?? propertyType}</span>
+                      <ChevronDown size={14} className="text-muted" />
+                    </button>
+                    {activePanel === 'propertyType' && (
+                      <div className="absolute left-0 right-0 top-[calc(100%+4px)] z-[80] overflow-hidden rounded-xl border border-gray-200 bg-white shadow-[0_18px_50px_rgba(15,23,42,0.16)]">
+                        {propertyTypes.map((opt) => (
+                          <button
+                            key={opt.value}
+                            type="button"
+                            onClick={() => { onPropertyTypeChange(opt.value); setActivePanel(null) }}
+                            className={`flex w-full items-center justify-between px-4 py-3 text-sm font-semibold transition-colors hover:bg-gray-50 ${propertyType === opt.value ? 'text-dark' : 'text-muted'}`}
+                          >
+                            {opt.label}
+                            {propertyType === opt.value && <Check size={14} />}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="block">
+                  <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted">
+                    {t('search:filters.sortBy')}
+                  </span>
+                  <div className="relative mt-1">
+                    <button
+                      type="button"
+                      onClick={() => setActivePanel(activePanel === 'sortBy' ? null : 'sortBy')}
+                      className="flex w-full items-center justify-between rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-base font-semibold text-dark outline-none transition-colors focus:border-dark"
+                    >
+                      <span>{sortOptions.find((opt) => opt.value === sortOption)?.label ?? sortOption}</span>
+                      <ChevronDown size={14} className="text-muted" />
+                    </button>
+                    {activePanel === 'sortBy' && (
+                      <div className="absolute left-0 right-0 top-[calc(100%+4px)] z-[80] overflow-hidden rounded-xl border border-gray-200 bg-white shadow-[0_18px_50px_rgba(15,23,42,0.16)]">
+                        {sortOptions.map((opt) => (
+                          <button
+                            key={opt.value}
+                            type="button"
+                            onClick={() => { onSortOptionChange(opt.value); setActivePanel(null) }}
+                            className={`flex w-full items-center justify-between px-4 py-3 text-sm font-semibold transition-colors hover:bg-gray-50 ${sortOption === opt.value ? 'text-dark' : 'text-muted'}`}
+                          >
+                            {opt.label}
+                            {sortOption === opt.value && <Check size={14} />}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
 
                 <label className="block">
                   <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted">
-                    Sort by
-                  </span>
-                  <select
-                    value={sortOption}
-                    onChange={(event) => onSortOptionChange(event.target.value)}
-                    className="mt-1 w-full rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm font-semibold text-dark outline-none transition-colors focus:border-dark"
-                  >
-                    {SORT_OPTIONS.map((option) => (
-                      <option key={option.value} value={option.value}>{option.label}</option>
-                    ))}
-                  </select>
-                </label>
-
-                <label className="block">
-                  <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted">
-                    Min price
+                    {t('search:filters.minPrice')}
                   </span>
                   <input
-                    type="number"
+                    type="text"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
                     value={minPrice}
-                    onChange={(event) => onMinPriceChange(event.target.value)}
+                    onChange={(event) => onMinPriceChange(event.target.value.replace(/\D/g, ''))}
                     placeholder="0"
-                    className="mt-1 w-full rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm text-dark outline-none transition-colors focus:border-dark"
+                    className="mt-1 w-full rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-base text-dark outline-none transition-colors focus:border-dark"
                   />
                 </label>
 
                 <label className="block">
                   <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted">
-                    Max price
+                    {t('search:filters.maxPrice')}
                   </span>
                   <input
-                    type="number"
+                    type="text"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
                     value={maxPrice}
-                    onChange={(event) => onMaxPriceChange(event.target.value)}
+                    onChange={(event) => onMaxPriceChange(event.target.value.replace(/\D/g, ''))}
                     placeholder="Any"
-                    className="mt-1 w-full rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm text-dark outline-none transition-colors focus:border-dark"
+                    className="mt-1 w-full rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-base text-dark outline-none transition-colors focus:border-dark"
                   />
                 </label>
               </div>
@@ -363,16 +430,16 @@ export default function SearchControls({
               <div className="grid gap-4 lg:grid-cols-[1.2fr_1fr_1fr]">
                 <div>
                   <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted">
-                    Amenities
+                    {t('search:filters.amenities')}
                   </span>
                   <div className="mt-2 flex flex-wrap gap-2">
-                    {AMENITY_FILTERS.map((amenity) => {
-                      const active = selectedAmenities.includes(amenity)
+                    {amenityFilters.map((amenity) => {
+                      const active = selectedAmenities.includes(amenity.value)
                       return (
                         <button
-                          key={amenity}
+                          key={amenity.value}
                           type="button"
-                          onClick={() => toggleAmenity(amenity)}
+                          onClick={() => toggleAmenity(amenity.value)}
                           className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-2 text-xs font-semibold transition-colors ${
                             active
                               ? 'border-dark bg-dark text-white'
@@ -380,7 +447,7 @@ export default function SearchControls({
                           }`}
                         >
                           {active ? <Check size={12} /> : null}
-                          {amenity}
+                          {amenity.label}
                         </button>
                       )
                     })}
@@ -389,11 +456,11 @@ export default function SearchControls({
 
                 <div>
                   <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted">
-                    Booking options
+                    {t('search:filters.bookingOptions')}
                   </span>
                   <div className="mt-2 grid gap-2">
                     <label className="flex cursor-pointer items-center justify-between gap-3 rounded-2xl border border-gray-200 bg-white px-4 py-3">
-                      <span className="text-sm font-semibold text-dark">Instant booking only</span>
+                      <span className="text-sm font-semibold text-dark">{t('search:filters.instantBookOnly')}</span>
                       <input
                         type="checkbox"
                         checked={instantBookOnly}
@@ -402,7 +469,7 @@ export default function SearchControls({
                       />
                     </label>
                     <label className="flex cursor-pointer items-center justify-between gap-3 rounded-2xl border border-gray-200 bg-white px-4 py-3">
-                      <span className="text-sm font-semibold text-dark">Free cancellation</span>
+                      <span className="text-sm font-semibold text-dark">{t('search:amenities.freeCancellation')}</span>
                       <input
                         type="checkbox"
                         checked={freeCancellationOnly}
@@ -415,18 +482,18 @@ export default function SearchControls({
 
                 <div>
                   <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted">
-                    Guests
+                    {t('home:guests')}
                   </span>
                   <div className="mt-2 rounded-2xl border border-gray-200 bg-white px-4 py-2">
                     <CounterControl
-                      label="Adults"
+                      label={t('home:adults')}
                       value={searchDraft.adults}
                       min={1}
                       onChange={(adults) => updateSearchDraft({ adults })}
                     />
                     <div className="my-2 border-t border-gray-100" />
                     <CounterControl
-                      label="Children"
+                      label={t('home:children')}
                       value={searchDraft.children}
                       onChange={(children) => updateSearchDraft({ children })}
                     />
@@ -437,7 +504,7 @@ export default function SearchControls({
               <div className="grid gap-3 md:grid-cols-[1fr_auto] md:items-end">
                 <div>
                   <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted">
-                    Guest rating
+                    {t('search:filters.guestRating')}
                   </span>
                   <div className="mt-1 flex flex-wrap gap-2">
                     {[0, 4, 4.5].map((rating) => (
@@ -451,7 +518,7 @@ export default function SearchControls({
                             : 'border-gray-200 bg-white text-muted hover:border-gray-300'
                         }`}
                       >
-                        {rating === 0 ? 'Any rating' : `${rating}+`}
+                        {rating === 0 ? t('search:filters.anyRating') : `${rating}+`}
                       </button>
                     ))}
                   </div>
@@ -462,7 +529,7 @@ export default function SearchControls({
                   onClick={onClearFilters}
                   className="rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-semibold text-dark transition-colors hover:bg-gray-100"
                 >
-                  Clear filters
+                  {t('search:filters.clearFilters')}
                 </button>
               </div>
             </div>

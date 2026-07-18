@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { DayPicker } from 'react-day-picker'
 import 'react-day-picker/dist/style.css'
 import { CalendarDays, Moon, X } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { formatDateRange } from '../../lib/searchFormatting'
 
 function toDate(dateValue) {
@@ -60,7 +61,6 @@ function useIsWideCalendar() {
 }
 
 function formatSingleDate(dateValue) {
-  if (!dateValue) return 'Select date'
   return formatDateRange(dateValue, '').split(' - ')[0]
 }
 
@@ -71,6 +71,7 @@ export default function HomeDateRangePicker({
   onClose,
   panelClassName = 'absolute left-0 right-0 top-[calc(100%+10px)] z-30 rounded-[24px] border border-gray-200 bg-white p-4 shadow-[0_18px_50px_rgba(15,23,42,0.16)] lg:left-1/2 lg:right-auto lg:w-[720px] lg:-translate-x-1/2',
 }) {
+  const { t } = useTranslation(['home', 'common'])
   const isWideCalendar = useIsWideCalendar()
   const selectedRange = useMemo(
     () => ({
@@ -87,12 +88,12 @@ export default function HomeDateRangePicker({
     const weekend = getThisWeekendRange()
 
     return [
-      { label: 'Tonight', range: { from: today, to: tomorrow } },
-      { label: 'Tomorrow', range: { from: tomorrow, to: addDays(tomorrow, 1) } },
-      { label: 'This weekend', range: weekend },
-      { label: 'Next 7 days', range: { from: today, to: addDays(today, 7) } },
+      { label: t('home:preset.tonight'), range: { from: today, to: tomorrow } },
+      { label: t('home:preset.tomorrow'), range: { from: tomorrow, to: addDays(tomorrow, 1) } },
+      { label: t('home:preset.thisWeekend'), range: weekend },
+      { label: t('home:preset.next7Days'), range: { from: today, to: addDays(today, 7) } },
     ]
-  }, [])
+  }, [t])
 
   const handleRangeSelect = (range) => {
     onChange({
@@ -112,16 +113,16 @@ export default function HomeDateRangePicker({
     <div className={panelClassName}>
       <div className="flex items-start justify-between gap-4">
         <div>
-          <p className="text-base font-semibold text-dark">Select your stay</p>
+          <p className="text-base font-semibold text-dark">{t('home:datePicker.heading')}</p>
           <p className="mt-1 text-xs text-muted">
-            Pick a check-in date, then choose your check-out date.
+            {t('home:datePicker.subheading')}
           </p>
         </div>
         <button
           type="button"
           onClick={onClose}
           className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-gray-200 text-dark transition-colors hover:bg-gray-50"
-          aria-label="Close date picker"
+          aria-label={t('home:datePicker.closePicker')}
         >
           <X size={16} />
         </button>
@@ -130,18 +131,18 @@ export default function HomeDateRangePicker({
       <div className="mt-4 grid gap-2 sm:grid-cols-2">
         <div className="rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3">
           <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted">
-            Check-in
+            {t('home:datePicker.checkIn')}
           </p>
           <p className="mt-1 text-sm font-semibold text-dark">
-            {formatSingleDate(checkIn)}
+            {checkIn ? formatSingleDate(checkIn) : t('home:datePicker.selectDate')}
           </p>
         </div>
         <div className="rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3">
           <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted">
-            Check-out
+            {t('home:datePicker.checkOut')}
           </p>
           <p className="mt-1 text-sm font-semibold text-dark">
-            {formatSingleDate(checkOut)}
+            {checkOut ? formatSingleDate(checkOut) : t('home:datePicker.selectDate')}
           </p>
         </div>
       </div>
@@ -152,7 +153,7 @@ export default function HomeDateRangePicker({
             key={preset.label}
             type="button"
             onClick={() => handlePresetSelect(preset.range)}
-            className="flex-shrink-0 rounded-full border border-gray-200 px-3.5 py-2 text-xs font-semibold text-dark transition-colors hover:border-brand hover:bg-rose-50 hover:text-brand"
+            className="flex-shrink-0 min-h-[44px] rounded-full border border-gray-200 px-3.5 py-3 text-xs font-semibold text-dark transition-colors hover:border-brand hover:bg-rose-50 hover:text-brand"
           >
             {preset.label}
           </button>
@@ -176,8 +177,8 @@ export default function HomeDateRangePicker({
           </span>
           <span>
             {nights > 0
-              ? `${nights} night${nights === 1 ? '' : 's'} selected`
-              : 'Select both dates to continue'}
+              ? t('home:datePicker.nightsSelected', { count: nights })
+              : t('home:datePicker.selectBothDates')}
           </span>
         </div>
 
@@ -188,7 +189,7 @@ export default function HomeDateRangePicker({
               onClick={() => onChange({ checkIn: '', checkOut: '' })}
               className="rounded-full border border-gray-200 px-4 py-2 text-sm font-semibold text-dark transition-colors hover:bg-gray-50"
             >
-              Clear
+              {t('common:actions.clear')}
             </button>
           )}
           <button
@@ -196,7 +197,7 @@ export default function HomeDateRangePicker({
             onClick={onClose}
             className="rounded-full bg-dark px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-gray-800"
           >
-            Done
+            {t('common:actions.done')}
           </button>
         </div>
       </div>

@@ -6,7 +6,7 @@ import {
   SectionHeading,
   StatusPill,
 } from '../../components/host/HostPortalUI'
-import { HostPillButton } from '../../components/host/HostFormFields'
+import { HostField, HostPillButton, HostSelect } from '../../components/host/HostFormFields'
 import {
   getPricingRulesForHotel,
   createPricingRule,
@@ -235,33 +235,30 @@ export default function HostPricingRulesPage() {
                 onChange={updateNewRule('basePrice')}
                 placeholder="200"
               />
-              <div>
-                <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.18em] text-muted">
-                  Room (optional)
-                </label>
-                {rooms.length > 0 ? (
-                  <select
-                    value={newRule.roomId}
-                    onChange={updateNewRule('roomId')}
-                    className="w-full rounded-xl border border-gray-300 bg-white px-4 py-3.5 text-sm text-dark outline-none transition-all focus:border-dark focus:ring-1 focus:ring-dark"
-                  >
-                    <option value="">— All rooms (hotel-wide) —</option>
-                    {rooms.map((r) => (
-                      <option key={r.id} value={String(r.id)}>
-                        {r.number ?? r.name ?? `Room ${r.id}`} — {r.type ?? ''}
-                      </option>
-                    ))}
-                  </select>
-                ) : (
+              {rooms.length > 0 ? (
+                <HostSelect
+                  label="Room (optional)"
+                  value={newRule.roomId}
+                  onChange={updateNewRule('roomId')}
+                  options={[
+                    { value: '', label: '— All rooms (hotel-wide) —' },
+                    ...rooms.map((r) => ({ value: String(r.id), label: `${r.number ?? r.name ?? `Room ${r.id}`} — ${r.type ?? ''}` })),
+                  ]}
+                />
+              ) : (
+                <label className="block">
+                  <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.18em] text-muted">Room (optional)</span>
                   <input
-                    type="number"
+                    type="text"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
                     value={newRule.roomId}
-                    onChange={updateNewRule('roomId')}
+                    onChange={(e) => { e.target.value = e.target.value.replace(/\D/g, ''); updateNewRule('roomId')(e) }}
                     placeholder="Leave blank for hotel-wide rule"
-                    className="w-full rounded-xl border border-gray-300 bg-white px-4 py-3.5 text-sm text-dark outline-none transition-all focus:border-dark focus:ring-1 focus:ring-dark"
+                    className="w-full rounded-xl border border-gray-300 bg-white px-4 py-3.5 text-base md:text-sm text-dark outline-none transition-all focus:border-dark focus:ring-1 focus:ring-dark"
                   />
-                )}
-              </div>
+                </label>
+              )}
             </div>
 
             <div className="mt-4">

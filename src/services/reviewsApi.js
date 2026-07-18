@@ -15,3 +15,15 @@ export async function submitReview(hotelId, { title, content, rating }, userId =
 export async function getHotelRatingStats(hotelId) {
   return get(`/api/reviews/hotels/${hotelId}/stats`)
 }
+
+export async function submitGuestReview(guestId, bookingId, { title, content, rating, hotelId, cleanlinessRating, theftRating, behaviorRating }, hostUserId) {
+  return post(
+    `/api/reviews/guests/${guestId}?bookingId=${bookingId}`,
+    { title, content, rating, hotelId, cleanlinessRating, theftRating, behaviorRating },
+    { 'X-Host-Id': String(hostUserId) },
+  )
+}
+
+export async function getGuestReviews(guestId, { page = 0, size = 20 } = {}) {
+  return get(`/api/reviews/guests/${guestId}`, { page, size })
+}

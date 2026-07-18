@@ -86,3 +86,7 @@ export const toggleCatalogItem = (id, newStatus) =>
   patch(`/api/admin/catalog/${id}/toggle?status=${encodeURIComponent(newStatus)}`)
 
 export const deleteCatalogItem = (id) => del(`/api/admin/catalog/${id}`)
+
+// ─── Email Activity Log ───────────────────────────────────────────────────────
+export const getEmailLogs = (params = {}) => get('/api/admin/email-logs', params)
+export const getEmailLogStats = () => get('/api/admin/email-logs/stats')

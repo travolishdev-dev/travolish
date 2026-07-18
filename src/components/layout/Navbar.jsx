@@ -183,6 +183,7 @@ export default function Navbar() {
   const navigate = useNavigate()
   const { pathname } = useLocation()
   const isHomePage = pathname === '/'
+  const isTransparent = isHomePage && !isScrolled
   const hideCompactSearch =
     isHomePage || pathname === '/search' || pathname.startsWith('/property/')
   const hideHostCta = hideCompactSearch
@@ -218,25 +219,30 @@ export default function Navbar() {
 
   return (
     <header
-      className={`fixed top-0 left-0 right-0 z-50 bg-white transition-shadow duration-300 ${
-        isScrolled ? 'shadow-md' : 'border-b border-gray-100'
+      className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 ${
+        isTransparent
+          ? 'bg-transparent border-b border-white/10'
+          : `bg-white/95 backdrop-blur-sm ${isScrolled ? 'shadow-[0_1px_24px_rgba(15,23,42,0.08)]' : 'border-b border-gray-100/80'}`
       }`}
     >
       <div className="max-w-[1760px] mx-auto px-6 md:px-10 xl:px-20">
         <div className="flex items-center justify-between h-20">
           {/* Logo */}
           <Link to="/" className="flex flex-shrink-0 items-center">
-            <TravolishWordmark className="h-10 sm:h-12" />
+            <TravolishWordmark
+              className="h-10 sm:h-12 transition-[filter] duration-500"
+              style={isTransparent ? { filter: 'brightness(0) invert(1)' } : undefined}
+            />
           </Link>
 
          
           {/* Right Actions */}
           <div className="flex items-center gap-1 flex-shrink-0">
-            <ThemeToggle className="hidden md:flex" />
+            <ThemeToggle className={`hidden md:flex ${isTransparent ? 'text-white' : ''}`} />
             <button
               type="button"
               onClick={() => setIsLocaleOpen(true)}
-              className="hidden md:flex p-3 rounded-full hover:bg-gray-50 transition-colors"
+              className={`hidden md:flex p-3 rounded-full transition-colors ${isTransparent ? 'text-white/85 hover:bg-white/10' : 'hover:bg-gray-50'}`}
               aria-label={t('common:region.title')}
             >
               <Globe size={18} />
@@ -246,12 +252,12 @@ export default function Navbar() {
               <button
                 type="button"
                 onClick={() => navigate('/notifications')}
-                className="relative flex p-3 rounded-full hover:bg-gray-50 transition-colors"
-                aria-label="Notifications"
+                className={`relative flex p-3 rounded-full transition-colors ${isTransparent ? 'text-white/85 hover:bg-white/10' : 'hover:bg-gray-50'}`}
+                aria-label={t('nav:notifications')}
               >
                 <Bell size={18} />
                 {unreadCount > 0 && (
-                  <span className="absolute right-1 top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-bold leading-none text-white">
+                  <span className="absolute right-1 top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-brand px-1 text-[9px] font-bold leading-none text-white">
                     {unreadCount}
                   </span>
                 )}
@@ -262,10 +268,14 @@ export default function Navbar() {
             <div className="relative" ref={menuRef}>
               <button
                 onClick={() => (user ? setIsMenuOpen(!isMenuOpen) : openAuthModal())}
-                className="flex items-center gap-3 border border-gray-200 rounded-full pl-3 pr-1.5 py-1.5 hover:shadow-md transition-all duration-200"
+                className={`flex items-center gap-3 rounded-full pl-3 pr-1.5 py-1.5 transition-all duration-200 ${
+                  isTransparent
+                    ? 'border border-white/25 hover:bg-white/10'
+                    : 'border border-gray-200 hover:shadow-md'
+                }`}
               >
-                <Menu size={16} className="text-gray-600" />
-                <div className="w-[30px] h-[30px] rounded-full bg-gradient-to-br from-gray-600 to-gray-800 flex items-center justify-center">
+                <Menu size={16} className={isTransparent ? 'text-white/80' : 'text-gray-600'} />
+                <div className="w-[30px] h-[30px] rounded-full bg-gradient-to-br from-rose-500 to-rose-700 flex items-center justify-center">
                   {user ? (
                     <span className="text-white text-xs font-semibold">{getInitial()}</span>
                   ) : (
@@ -281,13 +291,13 @@ export default function Navbar() {
                     animate={{ opacity: 1, scale: 1, y: 0 }}
                     exit={{ opacity: 0, scale: 0.95, y: -5 }}
                     transition={{ duration: 0.15 }}
-                    className="absolute right-0 top-14 w-80 bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden z-50"
+                    className="absolute end-0 top-14 w-80 max-w-[calc(100vw-2rem)] bg-white rounded-2xl shadow-[0_16px_48px_rgba(15,23,42,0.14)] ring-1 ring-black/[0.05] overflow-hidden z-50"
                   >
                     {user ? (
                       <div>
                         {/* User header */}
                         <div className="flex items-center gap-3 px-4 py-4 border-b border-gray-100">
-                          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-gray-600 to-gray-800 text-sm font-semibold text-white">
+                          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-rose-500 to-rose-700 text-sm font-semibold text-white">
                             {getInitial()}
                           </div>
                           <div className="min-w-0 flex-1">
@@ -309,7 +319,7 @@ export default function Navbar() {
 
                         {/* Traveller section */}
                         <div className="px-2 pt-3 pb-1">
-                          <p className="mb-1 px-2 text-[10px] font-semibold uppercase tracking-widest text-muted/70">Traveller</p>
+                          <p className="mb-1 px-2 text-[10px] font-semibold uppercase tracking-wider text-muted/60">{t('nav:traveller')}</p>
                           <Link to="/account" onClick={() => setIsMenuOpen(false)}
                             className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-dark transition-colors hover:bg-gray-50">
                             <Settings2 size={15} className="text-gray-400" />
@@ -335,7 +345,7 @@ export default function Navbar() {
                         {/* Hosting section — host and admin only */}
                         {(isHost || isAdmin) && (
                           <div className="px-2 pt-2 pb-1">
-                            <p className="mb-1 px-2 text-[10px] font-semibold uppercase tracking-widest text-muted/70">Hosting</p>
+                            <p className="mb-1 px-2 text-[10px] font-semibold uppercase tracking-wider text-muted/60">{t('nav:hosting')}</p>
                             <Link to="/host" onClick={() => setIsMenuOpen(false)}
                               className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-dark transition-colors hover:bg-gray-50">
                               <LayoutDashboard size={15} className="text-gray-400" />
@@ -344,7 +354,7 @@ export default function Navbar() {
                             <Link to="/host/listings/new" onClick={() => setIsMenuOpen(false)}
                               className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-dark transition-colors hover:bg-gray-50">
                               <Plus size={15} className="text-gray-400" />
-                              List a new property
+                              {t('nav:listNewProperty')}
                             </Link>
                           </div>
                         )}
@@ -352,11 +362,11 @@ export default function Navbar() {
                         {/* Admin section — admin only */}
                         {isAdmin && (
                           <div className="px-2 pt-2 pb-1">
-                            <p className="mb-1 px-2 text-[10px] font-semibold uppercase tracking-widest text-muted/70">Admin</p>
+                            <p className="mb-1 px-2 text-[10px] font-semibold uppercase tracking-wider text-muted/60">{t('nav:admin')}</p>
                             <Link to="/admin" onClick={() => setIsMenuOpen(false)}
                               className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-dark transition-colors hover:bg-gray-50">
                               <LayoutDashboard size={15} className="text-red-400" />
-                              Admin dashboard
+                              {t('nav:adminDashboard')}
                             </Link>
                           </div>
                         )}
@@ -367,7 +377,7 @@ export default function Navbar() {
                             <Link to="/host/onboarding" onClick={() => setIsMenuOpen(false)}
                               className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-dark transition-colors hover:bg-gray-50">
                               <Plus size={15} className="text-gray-400" />
-                              Become a host
+                              {t('nav:becomeHost')}
                             </Link>
                           </div>
                         )}
@@ -393,12 +403,20 @@ export default function Navbar() {
                         </button>
                         <div className="mt-1">
                           <Link
+                            to="/search"
+                            onClick={() => setIsMenuOpen(false)}
+                            className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium text-dark transition-colors hover:bg-gray-50"
+                          >
+                            <Search size={15} className="text-gray-400" />
+                            Search stays
+                          </Link>
+                          <Link
                             to="/host/onboarding"
                             onClick={() => setIsMenuOpen(false)}
                             className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium text-dark transition-colors hover:bg-gray-50"
                           >
                             <Plus size={15} className="text-gray-400" />
-                            Become a host
+                            {t('nav:becomeHost')}
                           </Link>
                         </div>
                       </div>

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { Check, ChevronDown } from 'lucide-react'
 import toast from 'react-hot-toast'
 import AdminManagementPage from '../../components/admin/AdminManagementPage'
 import { AdminCard, AdminSectionHeading } from '../../components/admin/AdminPortalUI'
@@ -54,6 +55,19 @@ function UserEditPanel({ record, rawMap, onSave, setNotice }) {
   const [role, setRole] = useState('')
   const [status, setStatus] = useState('')
   const [saving, setSaving] = useState(false)
+  const [roleOpen, setRoleOpen] = useState(false)
+  const [statusOpen, setStatusOpen] = useState(false)
+  const roleRef = useRef(null)
+  const statusRef = useRef(null)
+
+  useEffect(() => {
+    const handleClick = (e) => {
+      if (roleRef.current && !roleRef.current.contains(e.target)) setRoleOpen(false)
+      if (statusRef.current && !statusRef.current.contains(e.target)) setStatusOpen(false)
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [])
 
   // Sync selects when selected user changes
   useEffect(() => {
@@ -131,15 +145,31 @@ function UserEditPanel({ record, rawMap, onSave, setNotice }) {
       <div className="space-y-3">
         <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted">Change role</p>
         <div className="flex items-center gap-3">
-          <select
-            value={role}
-            onChange={(e) => setRole(e.target.value)}
-            className="h-10 flex-1 rounded-card border border-gray-200 bg-white px-3 text-sm font-semibold text-dark outline-none focus:border-brand"
-          >
-            {ROLES.map((r) => (
-              <option key={r} value={r}>{r.charAt(0) + r.slice(1).toLowerCase()}</option>
-            ))}
-          </select>
+          <div ref={roleRef} className="relative flex-1">
+            <button
+              type="button"
+              onClick={() => setRoleOpen((prev) => !prev)}
+              className="flex h-10 w-full items-center justify-between rounded-card border border-gray-200 bg-white px-3 text-base md:text-sm font-semibold text-dark outline-none"
+            >
+              <span>{role.charAt(0) + role.slice(1).toLowerCase()}</span>
+              <ChevronDown size={14} className="shrink-0 text-muted" />
+            </button>
+            {roleOpen && (
+              <div className="absolute left-0 right-0 top-[calc(100%+4px)] z-[80] overflow-hidden rounded-card border border-gray-200 bg-white shadow-[0_12px_32px_rgba(15,23,42,0.12)]">
+                {ROLES.map((r) => (
+                  <button
+                    key={r}
+                    type="button"
+                    onClick={() => { setRole(r); setRoleOpen(false) }}
+                    className={`flex w-full items-center justify-between px-3 py-2.5 text-sm font-semibold transition-colors hover:bg-gray-50 ${role === r ? 'text-dark' : 'text-muted'}`}
+                  >
+                    {r.charAt(0) + r.slice(1).toLowerCase()}
+                    {role === r && <Check size={13} className="shrink-0" />}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
           <button
             type="button"
             disabled={saving || role === (user.role || 'GUEST')}
@@ -155,15 +185,31 @@ function UserEditPanel({ record, rawMap, onSave, setNotice }) {
       <div className="space-y-3">
         <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted">Change status</p>
         <div className="flex items-center gap-3">
-          <select
-            value={status}
-            onChange={(e) => setStatus(e.target.value)}
-            className="h-10 flex-1 rounded-card border border-gray-200 bg-white px-3 text-sm font-semibold text-dark outline-none focus:border-brand"
-          >
-            {STATUSES.map((s) => (
-              <option key={s} value={s}>{s.charAt(0) + s.slice(1).toLowerCase()}</option>
-            ))}
-          </select>
+          <div ref={statusRef} className="relative flex-1">
+            <button
+              type="button"
+              onClick={() => setStatusOpen((prev) => !prev)}
+              className="flex h-10 w-full items-center justify-between rounded-card border border-gray-200 bg-white px-3 text-base md:text-sm font-semibold text-dark outline-none"
+            >
+              <span>{status.charAt(0) + status.slice(1).toLowerCase()}</span>
+              <ChevronDown size={14} className="shrink-0 text-muted" />
+            </button>
+            {statusOpen && (
+              <div className="absolute left-0 right-0 top-[calc(100%+4px)] z-[80] overflow-hidden rounded-card border border-gray-200 bg-white shadow-[0_12px_32px_rgba(15,23,42,0.12)]">
+                {STATUSES.map((s) => (
+                  <button
+                    key={s}
+                    type="button"
+                    onClick={() => { setStatus(s); setStatusOpen(false) }}
+                    className={`flex w-full items-center justify-between px-3 py-2.5 text-sm font-semibold transition-colors hover:bg-gray-50 ${status === s ? 'text-dark' : 'text-muted'}`}
+                  >
+                    {s.charAt(0) + s.slice(1).toLowerCase()}
+                    {status === s && <Check size={13} className="shrink-0" />}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
           <button
             type="button"
             disabled={saving || status === (user.status || 'ACTIVE')}

@@ -47,6 +47,10 @@ function authHeaders() {
   return _accessToken ? { Authorization: `Bearer ${_accessToken}` } : {}
 }
 
+export function getAuthHeaders() {
+  return authHeaders()
+}
+
 async function request(method, path, { params = {}, body, extraHeaders = {} } = {}) {
   const doFetch = () => {
     const url = new URL(`${BASE_URL}${path}`, window.location.origin)

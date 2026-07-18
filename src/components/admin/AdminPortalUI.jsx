@@ -1,4 +1,4 @@
-import { createElement, useState } from 'react'
+import { createElement, useEffect, useRef, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import {
   AlertTriangle,
@@ -6,7 +6,9 @@ import {
   Bell,
   Building2,
   CalendarCheck,
+  Check,
   CheckCircle2,
+  ChevronDown,
   ChevronRight,
   ClipboardCheck,
   CreditCard,
@@ -16,6 +18,7 @@ import {
   Home,
   Layers3,
   LayoutDashboard,
+  Mail,
   Menu,
   Search,
   Settings2,
@@ -36,6 +39,7 @@ const iconMap = {
   moderation: FileSearch,
   amenities: Layers3,
   pricing: CreditCard,
+  mail: Mail,
 }
 
 const toneClasses = {
@@ -340,6 +344,54 @@ export function AdminStatusPill({ children, tone = 'neutral' }) {
   )
 }
 
+function FilterDropdown({ filter, value, onFilterChange }) {
+  const [isOpen, setIsOpen] = useState(false)
+  const ref = useRef(null)
+  useEffect(() => {
+    const handleClick = (e) => { if (ref.current && !ref.current.contains(e.target)) setIsOpen(false) }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [])
+  const current = value || ''
+  return (
+    <div ref={ref} className="relative">
+      <button
+        type="button"
+        onClick={() => setIsOpen((prev) => !prev)}
+        className="inline-flex h-12 items-center gap-2 rounded-card border border-gray-200 bg-white pl-9 pr-3 text-base md:text-sm font-semibold text-dark outline-none transition-colors hover:border-brand"
+        aria-label={filter.label}
+      >
+        <Filter size={15} className="pointer-events-none absolute left-3 text-muted" />
+        <span>{current ? current : `${filter.label}: All`}</span>
+        <ChevronDown size={13} className="shrink-0 text-muted" />
+      </button>
+      {isOpen && (
+        <div className="absolute left-0 top-[calc(100%+4px)] z-[80] min-w-[160px] max-h-60 overflow-y-auto rounded-card border border-gray-200 bg-white shadow-[0_12px_32px_rgba(15,23,42,0.12)]">
+          <button
+            type="button"
+            onClick={() => { onFilterChange(filter.field, ''); setIsOpen(false) }}
+            className={`flex w-full items-center justify-between px-4 py-2.5 text-sm font-semibold transition-colors hover:bg-gray-50 ${!current ? 'text-dark' : 'text-muted'}`}
+          >
+            {filter.label}: All
+            {!current && <Check size={13} className="shrink-0" />}
+          </button>
+          {(filter.options ?? []).map((option) => (
+            <button
+              key={option}
+              type="button"
+              onClick={() => { onFilterChange(filter.field, option); setIsOpen(false) }}
+              className={`flex w-full items-center justify-between px-4 py-2.5 text-sm font-semibold transition-colors hover:bg-gray-50 ${current === option ? 'text-dark' : 'text-muted'}`}
+            >
+              {option}
+              {current === option && <Check size={13} className="shrink-0" />}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 export function AdminFilterBar({
   searchPlaceholder,
   searchQuery,
@@ -366,24 +418,12 @@ export function AdminFilterBar({
         </div>
         <div className="flex flex-wrap gap-2">
           {filters.map((filter) => (
-            <label key={filter.label} className="relative">
-              <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted">
-                <Filter size={15} />
-              </span>
-              <select
-                value={activeFilters[filter.field] ?? ''}
-                onChange={(event) => onFilterChange(filter.field, event.target.value)}
-                className="h-12 rounded-card border border-gray-200 bg-white pl-9 pr-8 text-sm font-semibold text-dark outline-none transition-colors hover:border-brand focus:border-brand"
-                aria-label={filter.label}
-              >
-                <option value="">{filter.label}: All</option>
-                {(filter.options ?? []).map((option) => (
-                  <option key={option} value={option}>
-                    {option}
-                  </option>
-                ))}
-              </select>
-            </label>
+            <FilterDropdown
+              key={filter.label}
+              filter={filter}
+              value={activeFilters[filter.field] ?? ''}
+              onFilterChange={onFilterChange}
+            />
           ))}
           <button
             type="button"

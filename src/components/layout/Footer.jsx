@@ -10,9 +10,12 @@ const socialLinks = [
   { icon: Linkedin,  label: 'LinkedIn',  href: '#' },
 ]
 
+const LANG_LABELS = { en: 'English (US)', hi: 'हिन्दी', es: 'Español', fr: 'Français', ar: 'العربية' }
+
 export default function Footer() {
-  const { t } = useTranslation('footer')
+  const { t, i18n } = useTranslation('footer')
   const scrollToTop = () => window.scrollTo({ top: 0, behavior: 'smooth' })
+  const langLabel = LANG_LABELS[i18n.resolvedLanguage || 'en'] ?? 'English (US)'
 
   const footerLinks = {
     discover: {
@@ -75,7 +78,7 @@ export default function Footer() {
                   key={label}
                   href={href}
                   aria-label={label}
-                  className="w-8 h-8 rounded-full border border-rose-100 bg-white flex items-center justify-center text-gray-500 hover:text-brand hover:border-rose-300 transition-colors shadow-sm"
+                  className="w-11 h-11 rounded-full border border-gray-200 bg-white flex items-center justify-center text-gray-400 hover:text-brand hover:border-brand/25 hover:bg-rose-50/70 transition-all shadow-sm"
                 >
                   <Icon size={15} />
                 </a>
@@ -123,7 +126,7 @@ export default function Footer() {
             <div className="flex items-center gap-5">
               <button className="flex items-center gap-1.5 text-sm font-medium text-gray-600 hover:text-brand transition-colors">
                 <Globe size={15} />
-                English (US)
+                {langLabel}
               </button>
               <button
                 onClick={scrollToTop}

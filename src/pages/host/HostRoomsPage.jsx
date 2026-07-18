@@ -34,6 +34,7 @@ function adaptRoom(r) {
 function adaptListing(h) {
   return {
     id: h.id,
+    category: h.category ?? '',
     status: h.status ?? 'Live',
     market: h.city ?? h.market ?? '—',
     description: h.description ?? '',
@@ -130,9 +131,9 @@ export default function HostRoomsPage() {
       description="Room setup and basic status."
       actions={[
         { label: 'Edit listing', href: `/host/listings/${listing.id}/edit`, secondary: true },
-        { label: 'Add room', href: `/host/rooms/new?listingId=${listing.id}` },
+        { label: 'Add room', href: `/host/rooms/new?listingId=${listing.id}&category=${listing.category}` },
       ]}
-      mobileAction={{ label: 'Add', href: `/host/rooms/new?listingId=${listing.id}` }}
+      mobileAction={{ label: 'Add', href: `/host/rooms/new?listingId=${listing.id}&category=${listing.category}` }}
       stats={[
         { label: 'Rooms', value: String(rooms.length), note: listing.property.location },
         { label: 'Occupancy', value: listing.occupancy30, note: 'Next 30 days' },
@@ -220,7 +221,7 @@ export default function HostRoomsPage() {
                     </p>
                     <p className="mt-1 text-sm text-muted">{room.upsells}</p>
                     <Link
-                      to={`/host/rooms/${room.id}/edit`}
+                      to={`/host/rooms/${room.id}/edit?category=${listing.category}`}
                       className="mt-5 inline-flex items-center gap-2 rounded-2xl bg-dark px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-gray-800"
                     >
                       <PencilLine size={14} />

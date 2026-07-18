@@ -14,13 +14,6 @@ import useCurrency from '../../hooks/useCurrency'
 const fallbackImage =
   'https://images.unsplash.com/photo-1566073771259-6a8506099945?w=800&auto=format&fit=crop'
 
-function getRatingLabel(rating) {
-  if (rating >= 4.8) return 'Excellent'
-  if (rating >= 4.4) return 'Very good'
-  if (rating >= 4) return 'Good'
-  return 'Guest rated'
-}
-
 export default function SearchPropertyCard({ property }) {
   const { t } = useTranslation(['property', 'search', 'booking', 'common'])
   const toggleWishlist = useWishlistStore((state) => state.toggleWishlist)
@@ -29,7 +22,7 @@ export default function SearchPropertyCard({ property }) {
   const image = property.images?.[0] || fallbackImage
   const priceLabel =
     property.price === null || property.price === undefined
-      ? 'Price on request'
+      ? t('common:priceOnRequest')
       : formatCurrency(property.price)
 
   const handleWishlist = (event) => {
@@ -54,7 +47,7 @@ export default function SearchPropertyCard({ property }) {
           type="button"
           onClick={handleWishlist}
           className="absolute right-2.5 top-2.5 z-10 inline-flex h-8 w-8 items-center justify-center rounded-full bg-white/95 text-dark shadow-sm transition-transform active:scale-95"
-          aria-label="Save property"
+          aria-label={t('common:saveProperty')}
         >
           <Heart
             size={16}
@@ -63,7 +56,7 @@ export default function SearchPropertyCard({ property }) {
         </button>
         {property.host?.superhost && (
           <span className="absolute left-2.5 top-2.5 rounded-full bg-white/95 px-2.5 py-1 text-[11px] font-semibold text-dark shadow-sm">
-            Superhost
+            {t('common:superhost')}
           </span>
         )}
       </div>
@@ -106,27 +99,24 @@ export default function SearchPropertyCard({ property }) {
               </span>
             )}
             <span className="inline-flex items-center gap-1.5 rounded-full bg-gray-100 px-2 py-0.5 text-[11px] font-semibold text-dark">
-              {getRatingLabel(property.rating || 0)}
-            </span>
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-gray-100 px-2 py-0.5 text-[11px] font-semibold text-dark">
               <UsersRound size={12} />
-              {property.guests || 2} guests
+              {t('common:guest', { count: property.guests || 2 })}
             </span>
             <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-700">
               <ShieldCheck size={12} />
-              {property.freeCancellation ? t('search:amenities.freeCancellation') : 'Policy varies'}
+              {property.freeCancellation ? t('search:amenities.freeCancellation') : t('search:amenities.policyVaries')}
             </span>
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-sky-50 px-2 py-0.5 text-[11px] font-semibold text-sky-700">
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-gray-100 px-2 py-0.5 text-[11px] font-medium text-muted">
               {property.instantBookable ? t('booking:instantBook') : t('booking:requestToBook')}
             </span>
           </div>
         </div>
 
         <div className="flex items-center justify-between gap-3 border-t border-gray-100 pt-2">
-          <p className="text-xs text-muted">Taxes shown at checkout</p>
+          <p className="text-xs text-muted">{t('booking:taxesAtCheckout')}</p>
           <span className="inline-flex items-center gap-2 text-xs font-semibold text-dark">
-            {t('common:actions.view')} details
-            <span className="inline-flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg border border-gray-300 text-dark transition-colors group-hover:border-brand group-hover:bg-brand group-hover:text-white">
+            {t('common:viewDetails')}
+            <span className="inline-flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-xl border border-gray-200 text-dark transition-colors group-hover:border-brand group-hover:bg-brand group-hover:text-white">
               <ArrowRight size={15} />
             </span>
           </span>

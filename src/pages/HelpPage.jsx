@@ -79,7 +79,7 @@ export default function HelpPage() {
             <input
               type="text"
               placeholder="Search help articles…"
-              className="w-full pl-11 pr-4 py-3.5 rounded-2xl border border-gray-200 bg-white text-sm text-dark outline-none focus:border-brand shadow-sm"
+              className="w-full pl-11 pr-4 py-3.5 rounded-2xl border border-gray-200 bg-white text-base text-dark outline-none focus:border-brand shadow-sm"
             />
           </div>
         </div>

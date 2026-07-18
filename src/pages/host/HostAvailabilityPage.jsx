@@ -1,11 +1,12 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { ChevronLeft, ChevronRight, RefreshCw } from 'lucide-react'
+import { Check, ChevronDown, ChevronLeft, ChevronRight, RefreshCw } from 'lucide-react'
 import {
   HostShell,
   SectionCard,
   SectionHeading,
 } from '../../components/host/HostPortalUI'
+import { HostField, HostToggle } from '../../components/host/HostFormFields'
 import { getHotelAvailabilityRange, blockRoomDate, unblockRoomDate } from '../../services/availabilityApi'
 import { getHostRooms } from '../../services/hostListingsApi'
 import useHostContext from '../../hooks/useHostContext'
@@ -283,6 +284,56 @@ export default function HostAvailabilityPage() {
     minimumStay: '2',
     rateOverride: '',
   }))
+  const [bookingSettings, setBookingSettings] = useState({
+    minimumStay: '1',
+    maximumStay: '',
+    bookingWindow: '365',
+    lastMinuteBooking: false,
+    lastMinuteCutoffHours: '24',
+    sameDayBooking: false,
+  })
+  const [savingSettings, setSavingSettings] = useState(false)
+  const [settingsNotice, setSettingsNotice] = useState('')
+  const [actionOpen, setActionOpen] = useState(false)
+  const actionRef = useRef(null)
+
+  useEffect(() => {
+    const handleClick = (e) => {
+      if (actionRef.current && !actionRef.current.contains(e.target)) setActionOpen(false)
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [])
+
+  function setBookingSetting(key, val) {
+    setBookingSettings((prev) => ({ ...prev, [key]: val }))
+  }
+
+  async function handleSaveBookingSettings() {
+    if (!primaryHotelId) return
+    setSavingSettings(true)
+    setSettingsNotice('')
+    try {
+      // Booking settings are sent as part of the listing update payload
+      const { updateHotel } = await import('../../services/hostListingsApi')
+      if (updateHotel) {
+        await updateHotel(primaryHotelId, {
+          minimumStay:          Number(bookingSettings.minimumStay) || 1,
+          maximumStay:          bookingSettings.maximumStay ? Number(bookingSettings.maximumStay) : null,
+          bookingWindow:        Number(bookingSettings.bookingWindow) || 365,
+          lastMinuteBooking:    bookingSettings.lastMinuteBooking,
+          lastMinuteCutoffHours: Number(bookingSettings.lastMinuteCutoffHours) || 24,
+          sameDayBooking:       bookingSettings.sameDayBooking,
+        })
+      }
+      setSettingsNotice('Booking settings saved.')
+    } catch {
+      setSettingsNotice('Could not save settings. Please try again.')
+    } finally {
+      setSavingSettings(false)
+    }
+  }
+
   const [availabilityNotice, setAvailabilityNotice] = useState('')
   const [currentMonth, setCurrentMonth] = useState(() => startOfMonth(new Date()))
   const [selectedListingId, setSelectedListingId] = useState('all')
@@ -515,6 +566,82 @@ export default function HostAvailabilityPage() {
       ]}
       stats={stats}
     >
+      {/* ── Booking rules ── */}
+      <SectionCard>
+        <SectionHeading
+          eyebrow="Booking Rules"
+          title="Stay &amp; window settings"
+          description="Control how far in advance guests can book, and what lengths of stay are accepted."
+        />
+        <div className="mt-6 grid gap-5 md:grid-cols-2 lg:grid-cols-3">
+          <HostField
+            label="Minimum stay (nights)"
+            value={bookingSettings.minimumStay}
+            onChange={(e) => setBookingSetting('minimumStay', e.target.value)}
+            placeholder="1"
+            type="number"
+          />
+          <HostField
+            label="Maximum stay (nights)"
+            value={bookingSettings.maximumStay}
+            onChange={(e) => setBookingSetting('maximumStay', e.target.value)}
+            placeholder="No limit"
+            type="number"
+          />
+          <HostField
+            label="Booking window (days in advance)"
+            value={bookingSettings.bookingWindow}
+            onChange={(e) => setBookingSetting('bookingWindow', e.target.value)}
+            placeholder="365"
+            type="number"
+          />
+        </div>
+
+        <div className="mt-5 grid gap-3 md:grid-cols-2">
+          <HostToggle
+            label="Allow last-minute bookings"
+            description="Accept bookings made very close to the check-in date."
+            checked={bookingSettings.lastMinuteBooking}
+            onChange={(e) => setBookingSetting('lastMinuteBooking', e.target.checked)}
+          />
+          <HostToggle
+            label="Allow same-day bookings"
+            description="Accept bookings made on the same day as check-in."
+            checked={bookingSettings.sameDayBooking}
+            onChange={(e) => setBookingSetting('sameDayBooking', e.target.checked)}
+          />
+        </div>
+
+        {bookingSettings.lastMinuteBooking && (
+          <div className="mt-4 max-w-xs">
+            <HostField
+              label="Last-minute cutoff (hours before check-in)"
+              value={bookingSettings.lastMinuteCutoffHours}
+              onChange={(e) => setBookingSetting('lastMinuteCutoffHours', e.target.value)}
+              placeholder="24"
+              type="number"
+            />
+          </div>
+        )}
+
+        {settingsNotice && (
+          <p className={`mt-4 text-sm ${settingsNotice.includes('saved') ? 'text-green-700' : 'text-red-600'}`}>
+            {settingsNotice}
+          </p>
+        )}
+
+        <div className="mt-5">
+          <button
+            type="button"
+            onClick={handleSaveBookingSettings}
+            disabled={savingSettings}
+            className="inline-flex items-center rounded-2xl bg-dark px-6 py-2.5 text-sm font-semibold text-white hover:bg-gray-800 disabled:opacity-50"
+          >
+            {savingSettings ? 'Saving…' : 'Save booking rules'}
+          </button>
+        </div>
+      </SectionCard>
+
       <SectionCard>
         <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
           <SectionHeading
@@ -538,7 +665,7 @@ export default function HostAvailabilityPage() {
               type="month"
               value={monthInputValue(currentMonth)}
               onChange={handleMonthInputChange}
-              className="h-10 rounded-xl border border-gray-200 bg-white px-3 text-sm font-semibold text-dark outline-none focus:border-dark"
+              className="h-10 rounded-xl border border-gray-200 bg-white px-3 text-base md:text-sm font-semibold text-dark outline-none focus:border-dark"
               aria-label="Choose month"
             />
             <button
@@ -598,7 +725,7 @@ export default function HostAvailabilityPage() {
               type="date"
               value={availabilityAction.start}
               onChange={updateAvailabilityAction('start')}
-              className="h-12 w-full rounded-xl border border-gray-300 bg-white px-3 text-sm font-semibold text-dark outline-none focus:border-dark"
+              className="h-12 w-full rounded-xl border border-gray-300 bg-white px-3 text-base md:text-sm font-semibold text-dark outline-none focus:border-dark"
             />
           </label>
           <label>
@@ -607,42 +734,59 @@ export default function HostAvailabilityPage() {
               type="date"
               value={availabilityAction.end}
               onChange={updateAvailabilityAction('end')}
-              className="h-12 w-full rounded-xl border border-gray-300 bg-white px-3 text-sm font-semibold text-dark outline-none focus:border-dark"
+              className="h-12 w-full rounded-xl border border-gray-300 bg-white px-3 text-base md:text-sm font-semibold text-dark outline-none focus:border-dark"
             />
           </label>
-          <label>
+          <div>
             <span className="mb-2 block text-sm font-semibold text-dark">Action</span>
-            <select
-              value={availabilityAction.action}
-              onChange={updateAvailabilityAction('action')}
-              className="h-12 w-full rounded-xl border border-gray-300 bg-white px-3 text-sm font-semibold text-dark outline-none focus:border-dark"
-            >
-              <option>Block dates</option>
-              <option>Open dates</option>
-              <option>Set minimum stay</option>
-              <option>Set rate override</option>
-            </select>
-          </label>
+            <div ref={actionRef} className="relative">
+              <button
+                type="button"
+                onClick={() => setActionOpen((prev) => !prev)}
+                className="flex h-12 w-full items-center justify-between rounded-xl border border-gray-300 bg-white px-3 text-base md:text-sm font-semibold text-dark outline-none"
+              >
+                <span>{availabilityAction.action}</span>
+                <ChevronDown size={14} className="shrink-0 text-muted" />
+              </button>
+              {actionOpen && (
+                <div className="absolute left-0 right-0 top-[calc(100%+4px)] z-[80] overflow-hidden rounded-xl border border-gray-200 bg-white shadow-[0_12px_32px_rgba(15,23,42,0.12)]">
+                  {['Block dates', 'Open dates', 'Set minimum stay', 'Set rate override'].map((opt) => (
+                    <button
+                      key={opt}
+                      type="button"
+                      onClick={() => { updateAvailabilityAction('action')({ target: { value: opt } }); setActionOpen(false) }}
+                      className={`flex w-full items-center justify-between px-4 py-3 text-sm font-semibold transition-colors hover:bg-gray-50 ${availabilityAction.action === opt ? 'text-dark' : 'text-muted'}`}
+                    >
+                      {opt}
+                      {availabilityAction.action === opt && <Check size={14} className="shrink-0" />}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
           <div className="grid grid-cols-2 gap-3">
             <label>
               <span className="mb-2 block text-sm font-semibold text-dark">Min nights</span>
               <input
-                type="number"
-                min="1"
+                type="text"
+                inputMode="numeric"
+                pattern="[0-9]*"
                 value={availabilityAction.minimumStay}
-                onChange={updateAvailabilityAction('minimumStay')}
-                className="h-12 w-full rounded-xl border border-gray-300 bg-white px-3 text-sm font-semibold text-dark outline-none focus:border-dark"
+                onChange={(e) => { e.target.value = e.target.value.replace(/\D/g, ''); updateAvailabilityAction('minimumStay')(e) }}
+                className="h-12 w-full rounded-xl border border-gray-300 bg-white px-3 text-base md:text-sm font-semibold text-dark outline-none focus:border-dark"
               />
             </label>
             <label>
               <span className="mb-2 block text-sm font-semibold text-dark">Rate</span>
               <input
-                type="number"
-                min="0"
+                type="text"
+                inputMode="numeric"
+                pattern="[0-9]*"
                 value={availabilityAction.rateOverride}
-                onChange={updateAvailabilityAction('rateOverride')}
+                onChange={(e) => { e.target.value = e.target.value.replace(/\D/g, ''); updateAvailabilityAction('rateOverride')(e) }}
                 placeholder="Optional"
-                className="h-12 w-full rounded-xl border border-gray-300 bg-white px-3 text-sm font-semibold text-dark outline-none focus:border-dark"
+                className="h-12 w-full rounded-xl border border-gray-300 bg-white px-3 text-base md:text-sm font-semibold text-dark outline-none focus:border-dark"
               />
             </label>
           </div>

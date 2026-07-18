@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Link, useParams } from 'react-router-dom'
 import { ArrowLeft, CheckCheck, ImagePlus, Paperclip, SendHorizonal, X } from 'lucide-react'
 import { format, parseISO } from 'date-fns'
@@ -10,12 +11,6 @@ import {
 } from '../../components/portal/PortalUI'
 import { getConversation, getMessages, sendMessage } from '../../services/chatApi'
 import useAuthStore from '../../stores/useAuthStore'
-
-const quickReplies = [
-  'Looks great, thank you.',
-  'Can you confirm the arrival timing?',
-  'Please share the check-in notes again.',
-]
 
 function formatTime(dt) {
   if (!dt) return ''
@@ -29,6 +24,7 @@ function formatFileSize(size) {
 }
 
 export default function ConversationPage() {
+  const { t } = useTranslation('messages')
   const userId = useAuthStore((s) => s.backendUserId)
   const { id } = useParams()
   const [conversation, setConversation] = useState(null)
@@ -81,6 +77,12 @@ export default function ConversationPage() {
     }
   }, [conversation?.id])
 
+  const quickReplies = useMemo(() => [
+    t('messages:quickReply.looksGreat'),
+    t('messages:quickReply.confirmArrival'),
+    t('messages:quickReply.checkInNotes'),
+  ], [t])
+
   const receiverId = conversation
     ? conversation.userId1 === userId
       ? conversation.userId2
@@ -97,7 +99,7 @@ export default function ConversationPage() {
     const optimistic = {
       id: `tmp-${Date.now()}`,
       senderId: userId,
-      messageText: trimmed || `${attachedFiles.length} attachment${attachedFiles.length === 1 ? '' : 's'}`,
+      messageText: trimmed || t('messages:conv.attachment', { count: attachedFiles.length }),
       createdAt: new Date().toISOString(),
       attachments: attachedFiles,
       deliveryStatus: 'sending',
@@ -134,7 +136,7 @@ export default function ConversationPage() {
     if (!selected.length) return
 
     setAttachments((prev) => [...prev, ...selected].slice(0, 5))
-    setAttachmentNotice(`${selected.length} file${selected.length === 1 ? '' : 's'} ready to send.`)
+    setAttachmentNotice(t('messages:conv.filesReady', { count: selected.length }))
     event.target.value = ''
   }
 
@@ -143,16 +145,16 @@ export default function ConversationPage() {
   }
 
   function getReceiptLabel(message) {
-    if (message.deliveryStatus === 'sending' || String(message.id).startsWith('tmp-')) return 'Sending'
-    if (message.readAt || message.isRead || message.readByReceiver) return 'Read'
-    return 'Delivered'
+    if (message.deliveryStatus === 'sending' || String(message.id).startsWith('tmp-')) return t('messages:conv.receiptSending')
+    if (message.readAt || message.isRead || message.readByReceiver) return t('messages:conv.receiptRead')
+    return t('messages:conv.receiptDelivered')
   }
 
   if (loading) {
     return (
-      <PortalShell eyebrow="Conversation" title="Loading…" actions={[{ label: 'Back to inbox', href: '/messages', secondary: true }]}>
+      <PortalShell eyebrow={t('messages:conv.eyebrow')} title={t('messages:conv.loadingTitle')} actions={[{ label: t('messages:conv.backToInbox'), href: '/messages', secondary: true }]}>
         <SectionCard>
-          <div className="py-16 text-center text-sm text-muted">Fetching messages…</div>
+          <div className="py-16 text-center text-sm text-muted">{t('messages:conv.fetchingMessages')}</div>
         </SectionCard>
       </PortalShell>
     )
@@ -160,9 +162,9 @@ export default function ConversationPage() {
 
   if (!conversation) {
     return (
-      <PortalShell eyebrow="Conversation" title="Not found." actions={[{ label: 'Back to inbox', href: '/messages' }]}>
+      <PortalShell eyebrow={t('messages:conv.eyebrow')} title={t('messages:conv.notFound')} actions={[{ label: t('messages:conv.backToInbox'), href: '/messages' }]}>
         <SectionCard>
-          <p className="text-sm text-muted">This conversation does not exist.</p>
+          <p className="text-sm text-muted">{t('messages:conv.notFoundDesc')}</p>
         </SectionCard>
       </PortalShell>
     )
@@ -173,17 +175,17 @@ export default function ConversationPage() {
 
   return (
     <PortalShell
-      eyebrow="Conversation"
-      title={`Chat with User #${otherUserId}`}
-      mobileTitle="Chat"
-      description="Send and receive messages in real time."
+      eyebrow={t('messages:conv.eyebrow')}
+      title={t('messages:conv.titlePattern', { id: otherUserId })}
+      mobileTitle={t('messages:conv.mobileTitle')}
+      description={t('messages:conv.desc')}
       actions={[
-        { label: 'Back to inbox', href: '/messages', secondary: true },
+        { label: t('messages:conv.backToInbox'), href: '/messages', secondary: true },
       ]}
       stats={[
-        { label: 'Thread', value: `#${conversation.id}`, note: conversation.isActive ? 'Active' : 'Inactive' },
-        { label: 'Participant', value: `User #${otherUserId}`, note: 'Other user' },
-        { label: 'Unread', value: String(unread ?? 0), note: 'In this thread' },
+        { label: t('messages:conv.statThread'), value: `#${conversation.id}`, note: conversation.isActive ? t('messages:conv.statActive') : t('messages:conv.statInactive') },
+        { label: t('messages:conv.statParticipant'), value: `User #${otherUserId}`, note: t('messages:conv.statOtherUser') },
+        { label: t('messages:conv.statUnread'), value: String(unread ?? 0), note: t('messages:conv.statInThread') },
       ]}
       accent="from-sky-50 via-white to-emerald-50"
     >
@@ -192,20 +194,20 @@ export default function ConversationPage() {
         className="inline-flex items-center gap-2 self-start text-sm font-semibold text-dark transition-colors hover:text-muted"
       >
         <ArrowLeft size={16} />
-        Back to inbox
+        {t('messages:conv.backToInbox')}
       </Link>
 
       <SectionCard>
         <SectionHeading
-          eyebrow="Thread"
-          title={`Conversation #${conversation.id}`}
-          description="Messages are sent and stored in real time."
+          eyebrow={t('messages:conv.sectionEyebrow')}
+          title={t('messages:conv.sectionTitlePattern', { id: conversation.id })}
+          description={t('messages:conv.sectionDesc')}
         />
 
         {/* Message list */}
         <div className="mt-6 space-y-4 max-h-[480px] overflow-y-auto pr-1">
           {messages.length === 0 && (
-            <p className="py-10 text-center text-sm text-muted">No messages yet. Say hello!</p>
+            <p className="py-10 text-center text-sm text-muted">{t('messages:conv.noMessages')}</p>
           )}
           {messages.map((message) => {
             const isMe = message.senderId === userId
@@ -250,7 +252,7 @@ export default function ConversationPage() {
           {typingPulse && (
             <div className="flex justify-start">
               <div className="inline-flex items-center gap-2 rounded-[22px] border border-gray-200 bg-[#fcfcfb] px-4 py-3 text-sm text-muted">
-                <span>User #{otherUserId} is typing</span>
+                <span>{t('messages:conv.typingPattern', { id: otherUserId })}</span>
                 <span className="flex gap-1">
                   <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-gray-400" />
                   <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-gray-400 [animation-delay:120ms]" />
@@ -296,7 +298,7 @@ export default function ConversationPage() {
                     type="button"
                     onClick={() => removeAttachment(file.id)}
                     className="inline-flex h-5 w-5 items-center justify-center rounded-full text-muted hover:bg-gray-100 hover:text-dark"
-                    aria-label={`Remove ${file.name}`}
+                    aria-label={t('messages:conv.removeFile', { name: file.name })}
                   >
                     <X size={12} />
                   </button>
@@ -312,7 +314,7 @@ export default function ConversationPage() {
             onKeyDown={(e) => {
               if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) handleSend()
             }}
-            placeholder="Write a message… (⌘↵ to send)"
+            placeholder={t('messages:conv.composePlaceholder')}
             className="min-h-[108px] flex-1 resize-none bg-transparent text-base leading-7 text-dark outline-none placeholder:text-gray-400 md:text-sm"
           />
           <input
@@ -326,7 +328,7 @@ export default function ConversationPage() {
             type="button"
             onClick={() => fileInputRef.current?.click()}
             className="inline-flex h-12 w-full items-center justify-center rounded-2xl border border-gray-200 bg-white text-dark transition-colors hover:bg-gray-50 sm:w-12"
-            aria-label="Attach files"
+            aria-label={t('messages:conv.attachFiles')}
           >
             <Paperclip size={16} />
           </button>

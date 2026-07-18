@@ -1,5 +1,3 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
-
 /* ── Design Token CSS Variables ── */
 :root {
   --color-dark:    34  34  34;   /* #222222 — headings / body text */
@@ -39,6 +37,7 @@ html.dark {
   margin: 0;
   padding: 0;
   box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
 }
 
 html {
@@ -116,6 +115,38 @@ body {
   @apply transition-all duration-200 ease-in-out;
 }
 
+/* ── Pointer-only hover lift (suppressed on touch/mobile) ── */
+@media (hover: hover) and (pointer: fine) {
+  .card-hover-lift {
+    transition: transform 0.25s cubic-bezier(0.25, 0.46, 0.45, 0.94), box-shadow 0.25s ease;
+  }
+  .card-hover-lift:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 20px 48px rgba(15, 23, 42, 0.10);
+  }
+}
+
+/* ── Text selection colour ── */
+::selection {
+  background-color: rgba(255, 56, 92, 0.12);
+  color: inherit;
+}
+
+/* ── Chrome autofill background override ── */
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus {
+  -webkit-box-shadow: 0 0 0 1000px #ffffff inset;
+  box-shadow: 0 0 0 1000px #ffffff inset;
+}
+
+html.dark input:-webkit-autofill,
+html.dark input:-webkit-autofill:hover,
+html.dark input:-webkit-autofill:focus {
+  -webkit-box-shadow: 0 0 0 1000px rgb(var(--color-card)) inset;
+  box-shadow: 0 0 0 1000px rgb(var(--color-card)) inset;
+}
+
 /* ── Brand Wordmark ── */
 .travolish-wordmark {
   display: inline-flex;
@@ -145,7 +176,7 @@ body {
 .traveller-assistant-cloud::after {
   content: '';
   position: absolute;
-  right: 1.35rem;
+  inset-inline-end: 1.35rem;
   bottom: -0.42rem;
   width: 0.78rem;
   height: 0.78rem;
@@ -171,38 +202,53 @@ body {
   z-index: 10;
   overflow: visible;
   isolation: isolate;
-  background:
-    radial-gradient(circle at 18% 18%, rgba(255, 56, 92, 0.08), transparent 26%),
-    radial-gradient(circle at 82% 12%, rgba(34, 34, 34, 0.06), transparent 24%),
-    linear-gradient(180deg, #fffdfb 0%, #fafafa 54%, #ffffff 100%);
+  min-height: 65vh;
+  min-height: 65dvh;
+  background: #0a0a0a;
+}
+
+@media (min-width: 768px) {
+  .home-search-hero {
+    min-height: 92vh;
+    min-height: 92dvh;
+  }
 }
 
 .home-search-hero::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  z-index: 0;
-  background-image:
-    linear-gradient(rgba(34, 34, 34, 0.055) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(34, 34, 34, 0.055) 1px, transparent 1px);
-  background-size: 44px 44px;
-  mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 0.82), transparent 82%);
-  pointer-events: none;
+  content: none;
 }
 
 .home-search-hero::after {
-  content: '';
+  content: none;
+}
+
+/* Hero image slideshow */
+.hero-bg-layer {
   position: absolute;
-  left: 50%;
-  bottom: -46px;
+  inset: 0;
+  overflow: hidden;
   z-index: 0;
-  width: min(960px, 82vw);
-  height: 260px;
-  transform: translateX(-50%);
-  border-radius: 50%;
-  background: rgba(255, 56, 92, 0.06);
-  filter: blur(12px);
   pointer-events: none;
+}
+
+.hero-bg-img {
+  position: absolute;
+  inset: 0;
+  background-size: cover;
+  background-position: center;
+  opacity: 0;
+  transition: opacity 1.8s cubic-bezier(0.4, 0, 0.2, 1);
+  will-change: opacity, transform;
+}
+
+.hero-bg-img.is-active {
+  opacity: 1;
+  animation: heroKenBurns 12s ease-in-out alternate forwards;
+}
+
+@keyframes heroKenBurns {
+  0%   { transform: scale(1)    translate(0px, 0px); }
+  100% { transform: scale(1.07) translate(-10px, -5px); }
 }
 
 /* ── Footer Gradient ── */
@@ -269,12 +315,12 @@ body {
 }
 
 .travolish-calendar .rdp-cell {
-  height: 38px;
+  height: 44px;
 }
 
 .travolish-calendar .rdp-button {
-  width: 36px;
-  height: 36px;
+  width: 44px;
+  height: 44px;
   border-radius: 9999px;
   font-size: 13px;
   font-weight: 600;
@@ -300,7 +346,7 @@ body {
   color: #222222;
 }
 
-@media (max-width: 899px) {
+@media (max-width: 767px) {
   .travolish-calendar .rdp-months {
     display: block;
   }
@@ -325,7 +371,12 @@ html.dark .bg-\[white\] { background-color: rgb(var(--color-card)); }
 html.dark .bg-white\/45  { background-color: rgba(24, 24, 24, 0.45); }
 html.dark .bg-white\/50  { background-color: rgba(24, 24, 24, 0.50); }
 html.dark .bg-white\/78  { background-color: rgba(24, 24, 24, 0.85); }
+html.dark .bg-white\/95  { background-color: rgba(13, 13, 13, 0.97); }
 html.dark .bg-white\/98  { background-color: rgba(18, 18, 18, 0.98); }
+
+/* Off-white card surfaces — must match card token in dark mode */
+html.dark .bg-\[\#fcfcfb\] { background-color: rgb(var(--color-card)); }
+html.dark .bg-\[\#fcfbf8\] { background-color: rgb(var(--color-card)); }
 
 /* Hover backgrounds */
 html.dark .hover\:bg-gray-50:hover  { background-color: rgb(var(--color-surface)); }
@@ -372,21 +423,13 @@ html.dark .skeleton-shimmer {
   animation: shimmer 1.5s ease-in-out infinite;
 }
 
-/* Home search hero */
+/* Home search hero — same in both modes (images handle the look) */
 html.dark .home-search-hero {
-  background:
-    radial-gradient(circle at 18% 18%, rgba(255, 56, 92, 0.06), transparent 26%),
-    radial-gradient(circle at 82% 12%, rgba(200, 200, 200, 0.03), transparent 24%),
-    linear-gradient(180deg, #0d0d0d 0%, #0a0a0a 54%, #0d0d0d 100%);
+  background: #0a0a0a;
 }
-html.dark .home-search-hero::before {
-  background-image:
-    linear-gradient(rgba(255, 255, 255, 0.04) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255, 255, 255, 0.04) 1px, transparent 1px);
-}
-html.dark .home-search-hero::after {
-  background: rgba(255, 56, 92, 0.04);
-}
+
+/* Transparent navbar search section dividers in dark mode */
+html.dark .lg\:border-gray-100 { border-color: rgb(var(--color-border)); }
 
 /* Footer */
 html.dark .footer-pink-grid {

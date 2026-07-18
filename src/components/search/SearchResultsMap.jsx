@@ -217,9 +217,12 @@ export default function SearchResultsMap({
 
   if (!properties.length) {
     return (
-      <div className={`flex items-center justify-center border border-gray-200 bg-white text-center shadow-sm ${
+      <div
+      className={`flex items-center justify-center border border-gray-200 bg-white text-center shadow-sm ${
         compact ? 'h-[420px]' : 'sticky top-[184px] h-[calc(100vh-184px)] min-h-[540px]'
-      }`}>
+      }`}
+      style={compact ? undefined : { height: 'calc(100dvh - 184px)' }}
+    >
         <div>
           <MapPin size={36} className="mx-auto text-gray-300" />
           <p className="mt-3 text-sm font-semibold text-dark">Map will update here</p>
@@ -230,15 +233,21 @@ export default function SearchResultsMap({
   }
 
   return (
-    <div className={`relative overflow-hidden border border-gray-200 bg-white shadow-sm ${
-      compact ? '' : 'sticky top-[184px] flex h-[calc(100vh-184px)] min-h-[540px] flex-col border-r-0'
-    }`}>
+    <div
+      className={`relative overflow-hidden border border-gray-200 bg-white shadow-sm ${
+        compact ? '' : 'sticky top-[184px] flex h-[calc(100vh-184px)] min-h-[540px] flex-col border-r-0'
+      }`}
+      style={compact ? { touchAction: 'pan-y' } : { height: 'calc(100dvh - 184px)' }}
+    >
       <MapContainer
         center={markers[0]?.latLng ?? [22.9734, 78.6569]}
         zoom={5}
         scrollWheelZoom
         zoomControl
         attributionControl
+        dragging={!compact}
+        touchZoom={!compact}
+        doubleClickZoom={!compact}
         className={compact ? 'classic-search-map h-[420px] w-full' : 'classic-search-map min-h-0 flex-1 w-full h-full'}
         style={{ zIndex: 0 }}
       >

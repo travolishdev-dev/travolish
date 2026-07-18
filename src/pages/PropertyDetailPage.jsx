@@ -7,11 +7,11 @@ import {
   Eye, Tv, Dumbbell, Coffee, MapPin, DoorOpen, Mountain, Sailboat,
   Snowflake, Thermometer, Monitor, Zap, PawPrint, ShieldCheck,
   BadgeCheck, Clock3, FileText, PlayCircle, ReceiptText, TrainFront,
-  UserRound,
+  UserRound, Plane, Building2, Landmark, ShoppingBag, Hospital, Trees,
 } from 'lucide-react'
 import { motion as Motion } from 'framer-motion'
 import { format, parseISO } from 'date-fns'
-import { getHotel, listRooms, getHotelReviews } from '../services/hotelsApi'
+import { getHotel, listRooms, getHotelReviews, getNearbyAttractions } from '../services/hotelsApi'
 import { getHotelRatingStats } from '../services/reviewsApi'
 import { adaptHotel } from '../lib/hotelAdapter'
 import useWishlistStore from '../stores/useWishlistStore'
@@ -37,11 +37,89 @@ const HOUSE_RULES = [
   'Pets allowed only where the room policy confirms it',
 ]
 
-const NEARBY_ATTRACTIONS = [
-  { title: 'Central market and cafes', detail: '8 min walk', icon: Coffee },
-  { title: 'Metro or local transit stop', detail: '6 min drive', icon: TrainFront },
-  { title: 'Waterfront or old-town walk', detail: '12 min away', icon: MapPin },
-]
+const ATTRACTION_TYPE_ICON = {
+  AIRPORT: Plane,
+  TRAIN_STATION: TrainFront,
+  METRO: TrainFront,
+  BEACH: Waves,
+  CITY_CENTRE: Building2,
+  LANDMARK: Landmark,
+  RESTAURANT: Utensils,
+  SHOPPING: ShoppingBag,
+  HOSPITAL: Hospital,
+  PARK: Trees,
+  OTHER: MapPin,
+}
+
+function normalizeConfigured(items) {
+  return items.map((item) => ({
+    id: String(item.id),
+    title: item.name,
+    detail: item.distanceText || '',
+    icon: ATTRACTION_TYPE_ICON[item.attractionType] ?? MapPin,
+  }))
+}
+
+function haversineKm(lat1, lon1, lat2, lon2) {
+  const R = 6371
+  const dLat = ((lat2 - lat1) * Math.PI) / 180
+  const dLon = ((lon2 - lon1) * Math.PI) / 180
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos((lat1 * Math.PI) / 180) *
+      Math.cos((lat2 * Math.PI) / 180) *
+      Math.sin(dLon / 2) ** 2
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+}
+
+function formatDistance(km) {
+  if (km < 0.12) return 'Under 2 min walk'
+  if (km < 0.5) return `${Math.round(km * 1000)} m walk`
+  if (km < 2) return `${(Math.round(km * 10) / 10).toFixed(1)} km · ${Math.round(km * 12)} min walk`
+  return `${(Math.round(km * 10) / 10).toFixed(1)} km · ${Math.round(km * 3)} min drive`
+}
+
+function osmTagToIcon(tags) {
+  if (tags.aeroway === 'aerodrome') return Plane
+  if (tags.railway === 'station' || tags.railway === 'halt') return TrainFront
+  if (tags.public_transport === 'station') return TrainFront
+  if (tags.highway === 'bus_stop') return TrainFront
+  if (tags.natural === 'beach') return Waves
+  if (tags.leisure === 'park' || tags.leisure === 'garden') return Trees
+  if (tags.tourism === 'attraction' || tags.tourism === 'museum' || tags.tourism === 'gallery') return Landmark
+  if (tags.amenity === 'shopping_mall') return ShoppingBag
+  if (tags.amenity === 'hospital') return Hospital
+  if (tags.amenity === 'restaurant' || tags.amenity === 'cafe' || tags.amenity === 'bar' || tags.amenity === 'fast_food') return Utensils
+  return MapPin
+}
+
+async function fetchAutoAttractions(lat, lng) {
+  const query = `[out:json][timeout:10];(node["amenity"~"^(restaurant|cafe|bar|fast_food|shopping_mall|hospital)$"]["name"](around:1000,${lat},${lng});node["railway"~"^(station|halt)$"]["name"](around:1500,${lat},${lng});node["highway"="bus_stop"]["name"](around:600,${lat},${lng});node["leisure"~"^(park|garden)$"]["name"](around:1000,${lat},${lng});node["natural"="beach"]["name"](around:2500,${lat},${lng});node["tourism"~"^(attraction|museum|gallery)$"]["name"](around:1500,${lat},${lng});node["aeroway"="aerodrome"]["name"](around:8000,${lat},${lng}););out 16;`
+  const res = await fetch('https://overpass-api.de/api/interpreter', {
+    method: 'POST',
+    body: `data=${encodeURIComponent(query)}`,
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+  })
+  if (!res.ok) return []
+  const data = await res.json()
+  const seen = new Set()
+  return (data.elements ?? [])
+    .map((el) => {
+      const name = el.tags?.name || el.tags?.['name:en']
+      if (!name || el.lat == null || el.lon == null) return null
+      const km = haversineKm(lat, lng, el.lat, el.lon)
+      return { id: `osm-${el.id}`, title: name, detail: formatDistance(km), icon: osmTagToIcon(el.tags ?? {}), km }
+    })
+    .filter((item) => {
+      if (!item) return false
+      const key = item.title.slice(0, 20).toLowerCase()
+      if (seen.has(key)) return false
+      seen.add(key)
+      return true
+    })
+    .sort((a, b) => a.km - b.km)
+    .slice(0, 6)
+}
 
 function formatReviewDate(iso) {
   try {
@@ -117,7 +195,7 @@ function buildPricePreview(property, rooms) {
 
 function DetailSkeleton() {
   return (
-    <div className="pt-24 pb-16 px-6 md:px-10 xl:px-20 max-w-[1120px] mx-auto animate-pulse">
+    <div className="pt-20 pb-16 px-6 md:px-10 xl:px-20 max-w-[1120px] mx-auto animate-pulse">
       <div className="h-8 bg-gray-200 rounded w-2/3 mb-4" />
       <div className="aspect-[16/9] bg-gray-200 rounded-2xl mb-10" />
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_375px] gap-12">
@@ -145,6 +223,9 @@ export default function PropertyDetailPage() {
   const [ratingStats, setRatingStats] = useState(null)
   const [isLoading, setIsLoading] = useState(true)
   const [notFound, setNotFound] = useState(false)
+  const [configuredAttractions, setConfiguredAttractions] = useState([])
+  const [autoAttractions, setAutoAttractions] = useState([])
+  const [attractionsLoading, setAttractionsLoading] = useState(false)
 
   const toggleWishlist = useWishlistStore((s) => s.toggleWishlist)
   const isWishlisted = useWishlistStore((s) => s.isWishlisted(id))
@@ -156,11 +237,12 @@ export default function PropertyDetailPage() {
       setIsLoading(true)
       setNotFound(false)
       try {
-        const [hotel, hotelRooms, reviewsPage, stats] = await Promise.all([
+        const [hotel, hotelRooms, reviewsPage, stats, nearbyRaw] = await Promise.all([
           getHotel(id),
           listRooms(id),
           getHotelReviews(id),
           getHotelRatingStats(id).catch(() => null),
+          getNearbyAttractions(id).catch(() => []),
         ])
         if (cancelled) return
 
@@ -180,12 +262,22 @@ export default function PropertyDetailPage() {
         adapted.rating = Math.round(avg * 10) / 10 || hotel.rating || 0
         adapted.guests = hotelRooms.length > 0 ? hotelRooms.length * 2 : 2
 
+        const configured = normalizeConfigured(Array.isArray(nearbyRaw) ? nearbyRaw : [])
+        setConfiguredAttractions(configured)
         setProperty(adapted)
         setRooms(hotelRooms)
         setReviews(approvedReviews)
         setTotalReviews(count)
         setAvgRating(adapted.rating)
         setRatingStats(stats)
+
+        if (configured.length === 0 && adapted.coordinates?.lat && adapted.coordinates?.lng) {
+          setAttractionsLoading(true)
+          fetchAutoAttractions(adapted.coordinates.lat, adapted.coordinates.lng)
+            .then((results) => { if (!cancelled) setAutoAttractions(results) })
+            .catch(() => {})
+            .finally(() => { if (!cancelled) setAttractionsLoading(false) })
+        }
       } catch {
         if (!cancelled) setNotFound(true)
       } finally {
@@ -200,12 +292,15 @@ export default function PropertyDetailPage() {
 
   if (notFound || !property) {
     return (
-      <div className="pt-28 text-center min-h-screen">
-        <div className="text-6xl mb-4">🏠</div>
-        <h1 className="text-2xl font-semibold">{t('notFound')}</h1>
+      <div className="flex min-h-screen flex-col items-center justify-center px-6 pb-16 pt-20 text-center">
+        <span className="flex h-16 w-16 items-center justify-center rounded-2xl bg-gray-50 text-dark">
+          <Home size={32} />
+        </span>
+        <h1 className="mt-5 text-2xl font-semibold text-dark">{t('notFound')}</h1>
+        <p className="mt-2 max-w-sm text-sm text-muted">This property may no longer be available or the link is incorrect.</p>
         <button
           onClick={() => navigate('/')}
-          className="mt-4 text-brand underline font-semibold"
+          className="mt-6 rounded-full bg-brand px-6 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-brand-dark"
         >
           {t('goHome')}
         </button>
@@ -226,7 +321,7 @@ export default function PropertyDetailPage() {
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ duration: 0.3 }}
-      className="pt-24 pb-16 px-6 md:px-10 xl:px-20 max-w-[1120px] mx-auto"
+      className="pt-20 pb-16 px-6 md:px-10 xl:px-20 max-w-[1120px] mx-auto"
     >
       {/* Back Button (mobile) */}
       <button
@@ -260,13 +355,13 @@ export default function PropertyDetailPage() {
             </span>
           </div>
           <div className="flex items-center gap-2">
-            <button className="flex items-center gap-1.5 text-sm font-semibold underline hover:bg-gray-50 rounded-lg px-3 py-2 transition-colors">
+            <button className="flex items-center gap-1.5 text-sm font-semibold hover:bg-gray-50 rounded-lg px-3 py-2 transition-colors">
               <Share2 size={16} />
               {t('share')}
             </button>
             <button
               onClick={() => toggleWishlist(property.id)}
-              className="flex items-center gap-1.5 text-sm font-semibold underline hover:bg-gray-50 rounded-lg px-3 py-2 transition-colors"
+              className="flex items-center gap-1.5 text-sm font-semibold hover:bg-gray-50 rounded-lg px-3 py-2 transition-colors"
             >
               <Heart
                 size={16}
@@ -297,7 +392,7 @@ export default function PropertyDetailPage() {
                 {roomSummary && ` · from ${formatCurrency(roomSummary.cheapestPrice)}/${t('perNight')}`}
               </p>
             </div>
-            <div className="w-14 h-14 rounded-full bg-gradient-to-br from-gray-700 to-gray-900 flex items-center justify-center flex-shrink-0 ml-4">
+            <div className="w-14 h-14 rounded-full bg-gradient-to-br from-rose-500 to-rose-700 flex items-center justify-center flex-shrink-0 ml-4">
               <span className="text-white font-semibold text-lg">
                 {property.title[0]}
               </span>
@@ -342,7 +437,9 @@ export default function PropertyDetailPage() {
           {/* Highlights */}
           <div className="py-8 border-b border-gray-200 space-y-6">
             <div className="flex gap-5">
-              <MapPin size={26} className="text-dark flex-shrink-0 mt-0.5" />
+              <span className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-2xl bg-gray-50 text-dark">
+                <MapPin size={20} />
+              </span>
               <div>
                 <p className="font-semibold text-dark">{t('greatLocation')}</p>
                 <p className="text-muted text-sm mt-1">
@@ -351,7 +448,9 @@ export default function PropertyDetailPage() {
               </div>
             </div>
             <div className="flex gap-5">
-              <Home size={26} className="text-dark flex-shrink-0 mt-0.5" />
+              <span className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-2xl bg-gray-50 text-dark">
+                <Home size={20} />
+              </span>
               <div>
                 <p className="font-semibold text-dark">{t('selfCheckIn')}</p>
                 <p className="text-muted text-sm mt-1">
@@ -397,7 +496,9 @@ export default function PropertyDetailPage() {
                   const Icon = amenityIconMap[amenity] || Home
                   return (
                     <div key={amenity} className="flex items-center gap-4 py-2.5">
-                      <Icon size={24} className="text-gray-600 flex-shrink-0" strokeWidth={1.5} />
+                      <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl bg-gray-50 text-dark">
+                        <Icon size={18} strokeWidth={1.5} />
+                      </span>
                       <span className="text-dark text-[15px]">{amenity}</span>
                     </div>
                   )
@@ -414,7 +515,7 @@ export default function PropertyDetailPage() {
                 {rooms.map((room) => (
                   <div
                     key={room.id}
-                    className="border border-gray-200 rounded-xl p-4 flex items-center justify-between"
+                    className="border border-gray-200 rounded-2xl p-4 flex items-center justify-between"
                   >
                     <div className="flex items-center gap-3">
                       <BedDouble size={20} className="text-gray-500 flex-shrink-0" />
@@ -501,21 +602,43 @@ export default function PropertyDetailPage() {
             </div>
           </div>
 
-          <div className="py-8 border-b border-gray-200">
-            <h2 className="text-xl font-semibold text-dark">{t('nearbyAttractions')}</h2>
-            <div className="mt-5 grid gap-3 sm:grid-cols-3">
-              {NEARBY_ATTRACTIONS.map((item) => {
-                const Icon = item.icon
-                return (
-                  <div key={item.title} className="rounded-[22px] border border-gray-200 bg-[#fcfcfb] p-4">
-                    <Icon size={22} className="text-brand" />
-                    <p className="mt-3 text-sm font-semibold text-dark">{item.title}</p>
-                    <p className="mt-1 text-xs text-muted">{item.detail}</p>
+          {(() => {
+            const displayAttractions = configuredAttractions.length > 0 ? configuredAttractions : autoAttractions
+            const isAuto = configuredAttractions.length === 0 && autoAttractions.length > 0
+            if (!attractionsLoading && displayAttractions.length === 0) return null
+            return (
+              <div className="py-8 border-b border-gray-200">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-xl font-semibold text-dark">{t('nearbyAttractions')}</h2>
+                  {isAuto && (
+                    <span className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted">
+                      Auto-detected
+                    </span>
+                  )}
+                </div>
+                {attractionsLoading ? (
+                  <div className="mt-5 grid gap-3 sm:grid-cols-3">
+                    {Array.from({ length: 3 }).map((_, i) => (
+                      <div key={i} className="h-[88px] rounded-[22px] skeleton-shimmer" />
+                    ))}
                   </div>
-                )
-              })}
-            </div>
-          </div>
+                ) : (
+                  <div className="mt-5 grid gap-3 sm:grid-cols-3">
+                    {displayAttractions.map((item) => {
+                      const Icon = item.icon
+                      return (
+                        <div key={item.id} className="rounded-[22px] border border-gray-200 bg-[#fcfcfb] p-4">
+                          <Icon size={22} className="text-brand" />
+                          <p className="mt-3 text-sm font-semibold text-dark">{item.title}</p>
+                          <p className="mt-1 text-xs text-muted">{item.detail}</p>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
+            )
+          })()}
 
           {/* Reviews */}
           <div className="py-8 border-b border-gray-200">
@@ -545,7 +668,7 @@ export default function PropertyDetailPage() {
                       <span className="text-sm text-dark w-14 flex-shrink-0">{item.label}</span>
                       <div className="flex-1 h-1.5 bg-gray-200 rounded-full overflow-hidden">
                         <div
-                          className="h-full bg-dark rounded-full transition-all"
+                          className="h-full bg-brand rounded-full transition-all"
                           style={{ width: `${pct}%` }}
                         />
                       </div>
@@ -562,7 +685,7 @@ export default function PropertyDetailPage() {
                 {reviews.map((review) => (
                   <div key={review.id} className="space-y-2.5">
                     <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-gray-600 to-gray-800 flex items-center justify-center flex-shrink-0">
+                      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-rose-500 to-rose-700 flex items-center justify-center flex-shrink-0">
                         <span className="text-white text-sm font-semibold">G</span>
                       </div>
                       <div>
@@ -609,14 +732,14 @@ export default function PropertyDetailPage() {
 
       {/* Mobile Booking Bar */}
       {property.price !== null && (
-        <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 px-6 py-4 flex items-center justify-between lg:hidden z-50">
+        <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 px-6 pt-4 pb-[calc(1rem+env(safe-area-inset-bottom))] flex items-center justify-between lg:hidden z-50">
           <div>
             <p className="text-[15px]">
               <span className="font-bold">{formatCurrency(property.price)}</span>
               <span className="text-muted"> {t('perNight')}</span>
             </p>
           </div>
-          <button className="bg-gradient-to-r from-brand to-rose-500 text-white rounded-xl px-6 py-3 text-sm font-bold">
+          <button className="bg-brand hover:bg-brand-dark text-white rounded-2xl px-6 py-3 text-sm font-bold transition-colors">
             {t('reserve')}
           </button>
         </div>

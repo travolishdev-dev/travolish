@@ -1,5 +1,6 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import {
   BellRing,
   CalendarRange,
@@ -16,35 +17,32 @@ import {
   UserRound,
   X,
 } from 'lucide-react'
-import { AnimatePresence, motion as Motion } from 'framer-motion'
+import { AnimatePresence, motion as Motion, useReducedMotion } from 'framer-motion'
 import usePortalViewer from '../../hooks/usePortalViewer'
+import { useAndroidBackClose } from '../../hooks/useAndroidBackClose'
 import useAccountInsights from '../../hooks/useAccountInsights'
 import useAuthStore from '../../stores/useAuthStore'
 
-const accountNavGroups = [
+const ACCOUNT_NAV_GROUP_DEFS = [
   {
-    title: 'Account',
+    titleKey: 'portalAccountGroup',
     items: [
-      { label: 'Overview', href: '/account', icon: UserRound },
-      { label: 'Edit profile', href: '/account/edit', icon: Sparkles },
-      { label: 'Security', href: '/account/security', icon: ShieldCheck },
-      { label: 'Payment methods', href: '/account/payments', icon: CreditCard },
-      { label: 'Transactions', href: '/account/transactions', icon: Receipt },
-      {
-        label: 'Notification settings',
-        href: '/account/notification-settings',
-        icon: BellRing,
-      },
+      { labelKey: 'overview', href: '/account', icon: UserRound },
+      { labelKey: 'editProfile', href: '/account/edit', icon: Sparkles },
+      { labelKey: 'security', href: '/account/security', icon: ShieldCheck },
+      { labelKey: 'paymentMethods', href: '/account/payments', icon: CreditCard },
+      { labelKey: 'transactions', href: '/account/transactions', icon: Receipt },
+      { labelKey: 'notificationSettings', href: '/account/notification-settings', icon: BellRing },
     ],
   },
   {
-    title: 'Travel',
+    titleKey: 'portalTravelGroup',
     items: [
-      { label: 'Trips', href: '/trips', icon: CalendarRange },
-      { label: 'Offers', href: '/offers', icon: TicketPercent },
-      { label: 'Emergency', href: '/emergency', icon: LifeBuoy },
-      { label: 'Messages', href: '/messages', icon: MessageCircleMore },
-      { label: 'Reviews', href: '/reviews/me', icon: Star },
+      { labelKey: 'trips', href: '/trips', icon: CalendarRange },
+      { labelKey: 'offers', href: '/offers', icon: TicketPercent },
+      { labelKey: 'emergency', href: '/emergency', icon: LifeBuoy },
+      { labelKey: 'messages', href: '/messages', icon: MessageCircleMore },
+      { labelKey: 'reviews', href: '/reviews/me', icon: Star },
     ],
   },
 ]
@@ -61,32 +59,23 @@ const toneClasses = {
   danger: 'bg-rose-50 text-rose-700 border-rose-200',
 }
 
-const mobileBottomNav = [
-  { label: 'Home', href: '/', icon: Home },
-  { label: 'Trips', href: '/trips', icon: CalendarRange },
-  { label: 'Offers', href: '/offers', icon: TicketPercent },
-  { label: 'Messages', href: '/messages', icon: MessageCircleMore },
-  { label: 'Account', href: '/account', icon: UserRound },
+const MOBILE_BOTTOM_NAV_DEFS = [
+  { labelKey: 'home', href: '/', icon: Home },
+  { labelKey: 'trips', href: '/trips', icon: CalendarRange },
+  { labelKey: 'offers', href: '/offers', icon: TicketPercent },
+  { labelKey: 'messages', href: '/messages', icon: MessageCircleMore },
+  { labelKey: 'account', href: '/account', icon: UserRound },
 ]
 
-const mobileDrawerSections = [
-  {
-    title: 'Main',
-    items: [
-      { label: 'Home', href: '/', icon: Home },
-      { label: 'Trips', href: '/trips', icon: CalendarRange },
-      { label: 'Offers', href: '/offers', icon: TicketPercent },
-      { label: 'Emergency', href: '/emergency', icon: LifeBuoy },
-      { label: 'Messages', href: '/messages', icon: MessageCircleMore },
-      { label: 'Reviews', href: '/reviews/me', icon: Star },
-      { label: 'Notifications', href: '/notifications', icon: BellRing },
-      { label: 'Account', href: '/account', icon: UserRound },
-    ],
-  },
-  {
-    title: 'Account',
-    items: accountNavGroups[0].items,
-  },
+const MOBILE_DRAWER_MAIN_ITEMS = [
+  { labelKey: 'home', href: '/', icon: Home },
+  { labelKey: 'trips', href: '/trips', icon: CalendarRange },
+  { labelKey: 'offers', href: '/offers', icon: TicketPercent },
+  { labelKey: 'emergency', href: '/emergency', icon: LifeBuoy },
+  { labelKey: 'messages', href: '/messages', icon: MessageCircleMore },
+  { labelKey: 'reviews', href: '/reviews/me', icon: Star },
+  { labelKey: 'notifications', href: '/notifications', icon: BellRing },
+  { labelKey: 'account', href: '/account', icon: UserRound },
 ]
 
 function isActiveRoute(pathname, href) {
@@ -184,6 +173,24 @@ function PortalMobileChrome({ title, mobileAction }) {
   const [isDrawerOpen, setIsDrawerOpen] = useState(false)
   const { pathname } = useLocation()
   const { viewer } = usePortalViewer()
+  const { t, i18n } = useTranslation('nav')
+  const isRTL = i18n.dir() === 'rtl'
+  const prefersReduced = useReducedMotion()
+  useAndroidBackClose(isDrawerOpen, () => setIsDrawerOpen(false))
+  const mobileDrawerSections = useMemo(() => [
+    {
+      title: t('nav:portalMainGroup'),
+      items: MOBILE_DRAWER_MAIN_ITEMS.map((d) => ({ ...d, label: t(`nav:${d.labelKey}`) })),
+    },
+    {
+      title: t('nav:portalAccountGroup'),
+      items: ACCOUNT_NAV_GROUP_DEFS[0].items.map((d) => ({ ...d, label: t(`nav:${d.labelKey}`) })),
+    },
+  ], [t])
+  const mobileBottomNav = useMemo(
+    () => MOBILE_BOTTOM_NAV_DEFS.map((d) => ({ ...d, label: t(`nav:${d.labelKey}`) })),
+    [t],
+  )
 
   return (
     <>
@@ -232,11 +239,11 @@ function PortalMobileChrome({ title, mobileAction }) {
               className="fixed inset-0 z-40 bg-black/35 md:hidden"
             />
             <Motion.aside
-              initial={{ x: '-100%' }}
+              initial={{ x: isRTL ? '100%' : '-100%' }}
               animate={{ x: 0 }}
-              exit={{ x: '-100%' }}
-              transition={{ duration: 0.22, ease: 'easeOut' }}
-              className="fixed inset-y-0 left-0 z-50 flex w-[88%] max-w-[320px] flex-col bg-white shadow-[0_24px_60px_rgba(15,23,42,0.18)] md:hidden"
+              exit={{ x: isRTL ? '100%' : '-100%' }}
+              transition={{ duration: prefersReduced ? 0 : 0.22, ease: 'easeOut' }}
+              className="fixed inset-y-0 start-0 z-50 flex w-[88%] max-w-[320px] flex-col bg-white shadow-[0_24px_60px_rgba(15,23,42,0.18)] md:hidden"
             >
               <div className="border-b border-gray-200 px-4 pb-4 pt-5">
                 <div className="flex items-start justify-between gap-4">
@@ -369,6 +376,7 @@ export function StatusPill({ tone = 'slate', children }) {
 
 export function PreviewModeNotice({ className = '' }) {
   const { isPreview } = usePortalViewer()
+  const { t } = useTranslation('nav')
 
   if (!isPreview || !import.meta.env.DEV) {
     return null
@@ -378,8 +386,7 @@ export function PreviewModeNotice({ className = '' }) {
     <div
       className={`hidden rounded-2xl border border-dashed border-rose-200 bg-rose-50/80 px-4 py-3 text-sm text-rose-700 md:block ${className}`}
     >
-      Preview data is shown because no signed-in user is active. The current auth
-      and location flows remain untouched.
+      {t('nav:previewNotice')}
     </div>
   )
 }
@@ -401,7 +408,7 @@ export function PortalShell({
     : 'pb-[calc(5.75rem+env(safe-area-inset-bottom))]'
 
   return (
-    <main className={`min-h-screen bg-[#fcfbf8] pt-0 ${mobilePadding} md:pb-16 md:pt-24`}>
+    <main className={`min-h-screen bg-[#fcfbf8] pt-0 ${mobilePadding} md:pb-16 md:pt-24 overscroll-y-contain`}>
       <div className="mx-auto flex max-w-[1760px] flex-col gap-4 px-4 pt-4 md:gap-6 md:px-10 md:pt-0 xl:px-20">
         <PortalMobileChrome title={mobileTitle} mobileAction={mobileAction} />
         <MobileBottomAction action={mobileBottomAction} />
@@ -466,6 +473,7 @@ export function AccountShell({
   children,
 }) {
   const { pathname } = useLocation()
+  const { t } = useTranslation('nav')
   // AccountShell only needs a few display fields — read directly from auth store
   // to avoid duplicating the expensive listBookings calls that page-level hooks already make.
   const { user, profile } = useAuthStore()
@@ -475,16 +483,24 @@ export function AccountShell({
     email: user?.email || profile?.email || '',
     city: profile?.city || user?.city || null,
     joinedLabel: user?.createdAt
-      ? `Member since ${new Date(user.createdAt).getFullYear()}`
+      ? t('nav:memberSince', { year: new Date(user.createdAt).getFullYear() })
       : null,
   }
+  const accountNavGroups = useMemo(
+    () =>
+      ACCOUNT_NAV_GROUP_DEFS.map((g) => ({
+        title: t(`nav:${g.titleKey}`),
+        items: g.items.map((d) => ({ ...d, label: t(`nav:${d.labelKey}`) })),
+      })),
+    [t],
+  )
   const insights = useAccountInsights()
   const mobilePadding = mobileBottomAction
     ? 'pb-[calc(10.5rem+env(safe-area-inset-bottom))]'
     : 'pb-[calc(5.75rem+env(safe-area-inset-bottom))]'
 
   return (
-    <main className={`min-h-screen bg-[#fcfbf8] pt-0 ${mobilePadding} md:pb-16 md:pt-24`}>
+    <main className={`min-h-screen bg-[#fcfbf8] pt-0 ${mobilePadding} md:pb-16 md:pt-24 overscroll-y-contain`}>
       <div className="mx-auto flex max-w-[1760px] flex-col gap-4 px-4 pt-4 md:gap-6 md:px-10 md:pt-0 xl:px-20">
         <PortalMobileChrome title={mobileTitle} mobileAction={mobileAction} />
         <MobileBottomAction action={mobileBottomAction} />
@@ -584,7 +600,7 @@ export function AccountShell({
               </div>
             </SectionCard>
 
-            <div className="hidden grid-cols-2 gap-2 sm:grid-cols-3 xl:hidden">
+            <div className="hidden sm:grid grid-cols-2 gap-2 sm:grid-cols-3 xl:hidden">
               {accountNavGroups.flatMap((group) => group.items).map((item) => {
                 const Icon = item.icon
                 const isActive = isActiveRoute(pathname, item.href)

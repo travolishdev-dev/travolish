@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { ArrowRight, Clock3, Search } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { getRecentSearches } from '../../lib/searchHistory'
 import { useSearchContext } from '../../hooks/useSearchContext'
 
@@ -26,6 +27,7 @@ const FALLBACK_SEARCHES = [
 ]
 
 export default function RecentSearches() {
+  const { t } = useTranslation('home')
   const navigate = useNavigate()
   const { updateSearchDraft } = useSearchContext()
   const [searches, setSearches] = useState([])
@@ -43,10 +45,10 @@ export default function RecentSearches() {
         <div>
           <div className="flex items-center gap-2 text-sm font-semibold text-brand">
             <Clock3 size={16} />
-            Pick up where you left off
+            {t('recentSearches.continueFrom')}
           </div>
           <h2 className="mt-2 text-[28px] font-semibold leading-tight text-dark">
-            Recent searches
+            {t('recentSearches.heading')}
           </h2>
         </div>
 
@@ -55,7 +57,7 @@ export default function RecentSearches() {
           onClick={() => navigate('/search')}
           className="hidden items-center gap-2 text-sm font-semibold text-brand transition-colors hover:text-brand-dark sm:inline-flex"
         >
-          View all
+          {t('recentSearches.viewAll')}
           <ArrowRight size={16} />
         </button>
       </div>

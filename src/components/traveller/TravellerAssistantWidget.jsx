@@ -34,6 +34,7 @@ export default function TravellerAssistantWidget() {
   const [loadingHistory, setLoadingHistory] = useState(false)
   const [sending, setSending] = useState(false)
   const [isTyping, setIsTyping] = useState(false)
+  const [isBubbleVisible, setIsBubbleVisible] = useState(false)
   const bottomRef = useRef(null)
 
   // Load conversation history when authenticated user opens the widget
@@ -127,20 +128,22 @@ export default function TravellerAssistantWidget() {
   if (!isOpen) {
     return (
       <>
-        <div className="traveller-assistant-cloud fixed bottom-[9.4rem] right-3 z-40 max-w-[224px] md:bottom-[5.9rem] md:right-5">
-          <p className="relative z-10 px-1 text-center text-xs font-semibold leading-5 text-dark">
-            Ask me about stays, deals, trips, or safety.
-          </p>
-        </div>
+        {isBubbleVisible && (
+          <div className="traveller-assistant-cloud fixed bottom-[calc(9.4rem+env(safe-area-inset-bottom))] end-3 z-40 max-w-[224px] animate-in fade-in duration-150 md:bottom-[5.9rem] md:end-5">
+            <p className="relative z-10 px-1 text-center text-xs font-semibold leading-5 text-dark">
+              Ask me about stays, deals, trips, or safety.
+            </p>
+          </div>
+        )}
         <button
           type="button"
           onClick={() => setIsOpen(true)}
-          className="fixed bottom-24 right-4 z-50 inline-flex h-14 w-14 items-center justify-center rounded-full bg-brand text-white shadow-[0_18px_45px_rgba(255,56,92,0.32)] transition-colors hover:bg-brand-dark md:bottom-6 md:right-6"
+          onMouseEnter={() => setIsBubbleVisible(true)}
+          onMouseLeave={() => setIsBubbleVisible(false)}
+          className="fixed bottom-[calc(6rem+env(safe-area-inset-bottom))] end-4 z-50 inline-flex h-14 w-14 items-center justify-center rounded-full bg-brand text-white shadow-[0_18px_45px_rgba(255,56,92,0.32)] transition-colors hover:bg-brand-dark md:bottom-6 md:end-6"
           aria-label="Open travel assistant"
         >
-          <span className="travolish-wordmark text-[38px] leading-none text-white" aria-hidden="true">
-            <span className="travolish-wordmark-letter">t</span>
-          </span>
+          <TravolishWordmark className="h-6" style={{ filter: 'brightness(0) invert(1)' }} />
         </button>
       </>
     )
@@ -148,7 +151,7 @@ export default function TravellerAssistantWidget() {
 
   return (
     <div
-      className="fixed bottom-24 right-4 z-50 w-[calc(100vw-2rem)] max-w-sm overflow-hidden rounded-[28px] border border-rose-100 bg-white shadow-[0_26px_80px_rgba(15,23,42,0.22)] md:bottom-6 md:right-6"
+      className="fixed bottom-[calc(6rem+env(safe-area-inset-bottom))] end-4 z-50 w-[calc(100vw-2rem)] max-w-sm overflow-hidden rounded-[28px] border border-rose-100 bg-white shadow-[0_26px_80px_rgba(15,23,42,0.22)] md:bottom-6 md:end-6"
       style={{
         backgroundImage:
           'linear-gradient(135deg, rgba(255,255,255,0.98), rgba(255,244,247,0.96) 48%, rgba(255,255,255,0.98)), linear-gradient(rgba(255,56,92,0.08) 1px, transparent 1px), linear-gradient(90deg, rgba(255,56,92,0.08) 1px, transparent 1px)',
@@ -239,7 +242,8 @@ export default function TravellerAssistantWidget() {
             value={input}
             onChange={(event) => setInput(event.target.value)}
             placeholder={userId ? 'Ask a travel question (saved)' : 'Ask a travel question'}
-            className="min-w-0 flex-1 rounded-2xl border border-gray-200 px-3 py-2.5 text-sm outline-none focus:border-dark"
+            enterKeyHint="send"
+            className="min-w-0 flex-1 rounded-2xl border border-gray-200 px-3 py-2.5 text-base outline-none focus:border-dark"
           />
           <button
             type="submit"

@@ -313,9 +313,9 @@ export function SectionHeading({ eyebrow, title, description, action }) {
     <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
       <div className="max-w-3xl">
         {eyebrow ? (
-          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted">
+          <span className="inline-block rounded-full bg-gray-100 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-[0.18em] text-gray-500">
             {eyebrow}
-          </p>
+          </span>
         ) : null}
         <h2 className="mt-1 text-[21px] font-semibold tracking-tight text-dark md:text-[24px]">
           {title}

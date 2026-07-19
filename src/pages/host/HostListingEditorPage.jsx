@@ -2,16 +2,32 @@ import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import {
   Bot,
+  Building2,
+  CalendarDays,
+  Camera,
+  Check,
+  ChevronLeft,
+  ChevronRight,
+  CircleDollarSign,
   Clock3,
+  CreditCard,
   Film,
+  Layers,
   Loader2,
   Lock,
   MapPin,
   Minus,
+  Phone,
   Plus,
+  ScrollText,
+  Sparkles,
+  Star,
+  ToggleRight,
   Upload,
+  Utensils,
   X,
 } from 'lucide-react'
+import { normalizePhoneForStorage } from '../../lib/phone'
 import {
   HostShell,
   SectionCard,
@@ -45,19 +61,19 @@ import {
 // ─── constants ───────────────────────────────────────────────────────────────
 
 const TABS = [
-  { id: 'basics',    label: 'Basics' },
-  { id: 'location',  label: 'Location' },
-  { id: 'details',   label: 'Property Details' },
-  { id: 'amenities', label: 'Amenities' },
-  { id: 'policies',  label: 'Policies' },
-  { id: 'media',     label: 'Photos & Media' },
-  { id: 'pricing',   label: 'Pricing' },
-  { id: 'booking',   label: 'Booking Rules' },
-  { id: 'services',  label: 'Meals & Services' },
-  { id: 'seo',       label: 'AI & SEO' },
-  { id: 'payment',   label: 'Payment Config' },
-  { id: 'contact',   label: 'Contact' },
-  { id: 'status',    label: 'Status' },
+  { id: 'basics',    label: 'Basics',           icon: Layers },
+  { id: 'location',  label: 'Location',         icon: MapPin },
+  { id: 'details',   label: 'Property Details', icon: Building2 },
+  { id: 'amenities', label: 'Amenities',        icon: Star },
+  { id: 'policies',  label: 'Policies',         icon: ScrollText },
+  { id: 'media',     label: 'Photos & Media',   icon: Camera },
+  { id: 'pricing',   label: 'Pricing',          icon: CircleDollarSign },
+  { id: 'booking',   label: 'Booking Rules',    icon: CalendarDays },
+  { id: 'services',  label: 'Meals & Services', icon: Utensils },
+  { id: 'seo',       label: 'AI & SEO',         icon: Sparkles },
+  { id: 'payment',   label: 'Payment Config',   icon: CreditCard },
+  { id: 'contact',   label: 'Contact',          icon: Phone },
+  { id: 'status',    label: 'Status',           icon: ToggleRight },
 ]
 
 const HOTEL_STATUSES = [
@@ -267,12 +283,13 @@ function PillToggle({ active, onClick, children }) {
     <button
       type="button"
       onClick={onClick}
-      className={`rounded-xl border px-3.5 py-2 text-sm transition-colors ${
+      className={`inline-flex items-center gap-1.5 rounded-xl border px-3.5 py-2 text-sm transition-colors ${
         active
           ? 'border-dark bg-dark font-semibold text-white'
           : 'border-gray-200 bg-white text-gray-700 hover:border-gray-400'
       }`}
     >
+      {active && <Check size={11} className="shrink-0" />}
       {children}
     </button>
   )
@@ -604,6 +621,17 @@ export default function HostListingEditorPage() {
   const selectedCategory = getCategoryById(formState.category)
   const coverPhoto = formState.photos.cover?.[0]?.preview
 
+  const completionChecks = [
+    !!formState.title.trim(),
+    !!formState.category,
+    formState.description.length > 50,
+    !!(formState.location && formState.country),
+    formState.amenities.length > 0,
+    !!formState.pricing.weekday,
+    Object.values(formState.photos).flat().length > 0,
+  ]
+  const completionPct = Math.round((completionChecks.filter(Boolean).length / completionChecks.length) * 100)
+
   // ── live location ─────────────────────────────────────────────────────────
 
   function handleLiveLocation() {
@@ -664,10 +692,17 @@ export default function HostListingEditorPage() {
                       key={cat.id}
                       type="button"
                       onClick={() => setField('category', cat.id)}
-                      className={`flex flex-col items-start gap-3 rounded-2xl border-2 p-4 text-left transition-all ${
-                        active ? 'border-dark bg-gray-50' : 'border-gray-200 bg-white hover:border-gray-400'
+                      className={`relative flex flex-col items-start gap-3 rounded-2xl border-2 p-4 text-left transition-all ${
+                        active
+                          ? 'border-dark bg-gray-50 ring-2 ring-dark ring-offset-1'
+                          : 'border-gray-200 bg-white hover:border-gray-400'
                       }`}
                     >
+                      {active && (
+                        <span className="absolute right-2.5 top-2.5 flex h-5 w-5 items-center justify-center rounded-full bg-dark">
+                          <Check size={11} className="text-white" />
+                        </span>
+                      )}
                       <span className="text-2xl">{cat.emoji}</span>
                       <span>
                         <span className="block text-sm font-semibold text-dark">{cat.label}</span>
@@ -1383,29 +1418,36 @@ export default function HostListingEditorPage() {
           <SectionCard>
             <SectionHeading eyebrow="Status" title="Listing status" description="Control whether this property is visible to travellers." />
             <div className="mt-6 grid gap-3">
-              {HOTEL_STATUSES.map((s) => (
-                <label
-                  key={s.value}
-                  className={`flex cursor-pointer items-start gap-4 rounded-2xl border p-4 transition-colors ${
-                    formState.status === s.value
-                      ? 'border-dark bg-gray-50'
-                      : 'border-gray-200 bg-white hover:border-gray-400'
-                  }`}
-                >
-                  <input
-                    type="radio"
-                    name="hotelStatus"
-                    value={s.value}
-                    checked={formState.status === s.value}
-                    onChange={() => setField('status', s.value)}
-                    className="mt-1 accent-brand"
-                  />
-                  <span>
-                    <span className="block text-sm font-semibold text-dark">{s.label}</span>
-                    <span className="mt-1 block text-sm text-muted">{s.description}</span>
-                  </span>
-                </label>
-              ))}
+              {HOTEL_STATUSES.map((s) => {
+                const selected = formState.status === s.value
+                const cfg = {
+                  LIVE:   { dot: 'bg-emerald-500', border: 'border-emerald-500 bg-emerald-50', label: 'text-emerald-700' },
+                  DRAFT:  { dot: 'bg-amber-400',   border: 'border-amber-400 bg-amber-50',    label: 'text-amber-700' },
+                  PAUSED: { dot: 'bg-rose-400',     border: 'border-rose-400 bg-rose-50',      label: 'text-rose-700' },
+                }[s.value]
+                return (
+                  <label
+                    key={s.value}
+                    className={`flex cursor-pointer items-center gap-4 rounded-2xl border p-4 transition-colors ${
+                      selected ? cfg.border : 'border-gray-200 bg-white hover:border-gray-400'
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="hotelStatus"
+                      value={s.value}
+                      checked={selected}
+                      onChange={() => setField('status', s.value)}
+                      className="accent-brand shrink-0"
+                    />
+                    <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${cfg.dot}`} />
+                    <span>
+                      <span className={`block text-sm font-semibold ${selected ? cfg.label : 'text-dark'}`}>{s.label}</span>
+                      <span className="mt-0.5 block text-sm text-muted">{s.description}</span>
+                    </span>
+                  </label>
+                )
+              })}
             </div>
           </SectionCard>
         )
@@ -1433,22 +1475,30 @@ export default function HostListingEditorPage() {
       mobileBottomAction={{ label: saving ? 'Saving…' : (id ? 'Save changes' : 'Save listing'), onClick: handleSave }}
     >
       {/* Tab navigation */}
-      <div className="mb-5 -mx-4 overflow-x-auto px-4 sm:-mx-6 sm:px-6">
-        <div className="flex gap-1 border-b border-gray-200 pb-0">
-          {TABS.map((tab) => (
-            <button
-              key={tab.id}
-              type="button"
-              onClick={() => setActiveTab(tab.id)}
-              className={`shrink-0 rounded-t-xl border-b-2 px-4 py-3 text-sm font-semibold transition-colors ${
-                activeTab === tab.id
-                  ? 'border-dark text-dark'
-                  : 'border-transparent text-muted hover:text-dark'
-              }`}
-            >
-              {tab.label}
-            </button>
-          ))}
+      <div className="mb-5 -mx-4 overflow-x-auto px-4 sm:-mx-6 sm:px-6 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        <div className="flex gap-0.5 border-b border-gray-200">
+          {TABS.map((tab) => {
+            const Icon = tab.icon
+            const active = activeTab === tab.id
+            return (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => setActiveTab(tab.id)}
+                className={`group shrink-0 inline-flex items-center gap-1.5 rounded-t-xl border-b-2 px-3.5 py-3 text-sm font-semibold transition-colors ${
+                  active
+                    ? 'border-dark text-dark'
+                    : 'border-transparent text-muted hover:text-dark'
+                }`}
+              >
+                <Icon
+                  size={13}
+                  className={active ? 'text-dark' : 'text-gray-400 transition-colors group-hover:text-dark'}
+                />
+                {tab.label}
+              </button>
+            )
+          })}
         </div>
       </div>
 
@@ -1469,18 +1519,20 @@ export default function HostListingEditorPage() {
                 <button
                   type="button"
                   onClick={() => setActiveTab(TABS[TABS.findIndex((t) => t.id === activeTab) - 1].id)}
-                  className="rounded-full border border-gray-200 bg-white px-5 py-2.5 text-sm font-semibold text-dark hover:bg-gray-50"
+                  className="inline-flex items-center gap-1.5 rounded-full border border-gray-200 bg-white px-5 py-2.5 text-sm font-semibold text-dark hover:bg-gray-50"
                 >
-                  ← Previous
+                  <ChevronLeft size={15} />
+                  Previous
                 </button>
               )}
               {TABS.findIndex((t) => t.id === activeTab) < TABS.length - 1 && (
                 <button
                   type="button"
                   onClick={() => setActiveTab(TABS[TABS.findIndex((t) => t.id === activeTab) + 1].id)}
-                  className="rounded-full border border-gray-200 bg-white px-5 py-2.5 text-sm font-semibold text-dark hover:bg-gray-50"
+                  className="inline-flex items-center gap-1.5 rounded-full border border-gray-200 bg-white px-5 py-2.5 text-sm font-semibold text-dark hover:bg-gray-50"
                 >
-                  Next →
+                  Next
+                  <ChevronRight size={15} />
                 </button>
               )}
             </div>
@@ -1488,8 +1540,9 @@ export default function HostListingEditorPage() {
               type="button"
               onClick={handleSave}
               disabled={saving}
-              className="rounded-full bg-dark px-6 py-2.5 text-sm font-semibold text-white hover:bg-gray-800 disabled:opacity-60"
+              className="inline-flex items-center gap-2 rounded-full bg-dark px-6 py-2.5 text-sm font-semibold text-white hover:bg-gray-800 disabled:opacity-60"
             >
+              {saving && <Loader2 size={14} className="animate-spin" />}
               {saving ? 'Saving…' : id ? 'Save changes' : 'Save listing'}
             </button>
           </div>
@@ -1499,6 +1552,20 @@ export default function HostListingEditorPage() {
         <div className="hidden xl:block">
           <div className="sticky top-6 space-y-4">
             <SectionCard>
+              <div className="mb-4">
+                <div className="mb-1.5 flex items-center justify-between text-xs">
+                  <span className="font-semibold text-dark">Listing completeness</span>
+                  <span className={`font-bold tabular-nums ${completionPct >= 80 ? 'text-emerald-600' : completionPct >= 50 ? 'text-amber-600' : 'text-rose-500'}`}>
+                    {completionPct}%
+                  </span>
+                </div>
+                <div className="h-1.5 w-full overflow-hidden rounded-full bg-gray-100">
+                  <div
+                    className={`h-full rounded-full transition-all duration-500 ${completionPct >= 80 ? 'bg-emerald-500' : completionPct >= 50 ? 'bg-amber-400' : 'bg-rose-400'}`}
+                    style={{ width: `${completionPct}%` }}
+                  />
+                </div>
+              </div>
               <div className="aspect-[4/3] overflow-hidden rounded-[20px] bg-[#f4f1ea]">
                 {coverPhoto && (
                   <img src={coverPhoto} alt={formState.title} className="h-full w-full object-cover" />

@@ -9,6 +9,7 @@ import {
 import { getMe } from '../services/usersApi'
 import useWishlistStore from './useWishlistStore'
 import { normalizePhoneForStorage } from '../lib/phone'
+import queryClient from '../lib/queryClient'
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL || ''
 
@@ -136,6 +137,9 @@ const useAuthStore = create((set, get) => ({
     clearTokens()
     set({ user: null, profile: null, backendUserId: null })
     useWishlistStore.getState().clearWishlists()
+    // Flush all cached query data so a subsequent user on the same device
+    // cannot see private data served from the in-memory stale cache.
+    queryClient.clear()
   },
 
   updateAvatar: (avatarUrl) => {

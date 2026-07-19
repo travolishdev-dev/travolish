@@ -22,6 +22,7 @@ import usePortalViewer from '../../hooks/usePortalViewer'
 import { useAndroidBackClose } from '../../hooks/useAndroidBackClose'
 import useAccountInsights from '../../hooks/useAccountInsights'
 import useAuthStore from '../../stores/useAuthStore'
+import ThemeToggle from '../common/ThemeToggle'
 
 const ACCOUNT_NAV_GROUP_DEFS = [
   {
@@ -301,6 +302,13 @@ function PortalMobileChrome({ title, mobileAction }) {
                   </div>
                 ))}
               </div>
+
+              <div className="flex-shrink-0 border-t border-gray-200 px-4 py-3">
+                <div className="flex items-center justify-between rounded-2xl bg-[#fcfcfb] px-4 py-2">
+                  <p className="text-sm font-semibold text-dark">Appearance</p>
+                  <ThemeToggle />
+                </div>
+              </div>
             </Motion.aside>
           </>
         )}
@@ -416,7 +424,7 @@ export function PortalShell({
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.28, ease: 'easeOut' }}
-          className={`hidden border-y border-gray-200/80 bg-gradient-to-r ${accent} md:block`}
+          className={`portal-header-gradient hidden border-y border-gray-200/80 bg-gradient-to-r ${accent} md:block`}
         >
           <div className="space-y-4 px-4 py-5 md:px-5">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
@@ -508,7 +516,7 @@ export function AccountShell({
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.28, ease: 'easeOut' }}
-          className={`hidden border-y border-gray-200/80 bg-gradient-to-r ${accent} md:block`}
+          className={`portal-header-gradient hidden border-y border-gray-200/80 bg-gradient-to-r ${accent} md:block`}
         >
           <div className="space-y-4 px-4 py-5 md:px-5">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">

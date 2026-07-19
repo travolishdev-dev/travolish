@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { CheckCheck, CreditCard, Loader2, ShieldEllipsis, WalletCards } from 'lucide-react'
+import { CheckCheck, CreditCard, Loader2, Plus, ShieldEllipsis, Star, WalletCards } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import useAuthStore from '../../stores/useAuthStore'
 import {
@@ -116,9 +116,9 @@ export default function PaymentMethodsPage() {
   }
 
   const transactionSummary = [
-    { label: t('account:payments.savedCards'), value: loading ? '—' : String(methods.length) },
-    { label: t('account:payments.defaultMethod'), value: methods.find((m) => m.primary)?.brand ?? (loading ? '—' : t('account:payments.noMethod')) },
-    { label: t('account:payments.billingStatus'), value: methods.length > 0 ? t('account:payments.ready') : (loading ? '—' : t('account:payments.noCard')) },
+    { label: t('account:payments.savedCards'), value: loading ? '—' : String(methods.length), Icon: WalletCards, bg: 'bg-sky-50 text-sky-700' },
+    { label: t('account:payments.defaultMethod'), value: methods.find((m) => m.primary)?.brand ?? (loading ? '—' : t('account:payments.noMethod')), Icon: Star, bg: 'bg-amber-50 text-amber-600' },
+    { label: t('account:payments.billingStatus'), value: methods.length > 0 ? t('account:payments.ready') : (loading ? '—' : t('account:payments.noCard')), Icon: ShieldEllipsis, bg: 'bg-emerald-50 text-emerald-700' },
   ]
 
   useEffect(() => {
@@ -153,6 +153,24 @@ export default function PaymentMethodsPage() {
 
           {loading ? (
             <div className="mt-6 py-10 text-center text-sm text-muted">{t('account:payments.loading')}</div>
+          ) : methods.length === 0 ? (
+            <div className="mt-6 flex flex-col items-center justify-center gap-4 rounded-2xl border border-dashed border-gray-200 bg-[#fcfcfb] py-14 text-center">
+              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gray-100 text-muted">
+                <WalletCards size={22} />
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-dark">No payment methods yet</p>
+                <p className="mt-1 text-xs text-muted">Add a card below to get started</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setAddingCard(true)}
+                className="inline-flex items-center gap-2 rounded-full bg-dark px-5 py-2.5 text-sm font-semibold text-white hover:bg-gray-800 transition-colors"
+              >
+                <Plus size={15} />
+                Add Card
+              </button>
+            </div>
           ) : (
             <div className="mt-6 grid gap-4 lg:grid-cols-2">
               {methods.map((method) => (
@@ -221,14 +239,19 @@ export default function PaymentMethodsPage() {
               description={t('account:payments.snapshotDesc')}
             />
 
-            <div className="mt-6 divide-y divide-gray-200 border-y border-gray-200">
-              {transactionSummary.map((item) => (
-                <div key={item.label} className="py-4">
-                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted">
-                    {item.label}
-                  </p>
-                  <p className="mt-2 text-2xl font-semibold tracking-tight text-dark">
-                    {item.value}
+            <div className="mt-6 space-y-3">
+              {transactionSummary.map(({ label, value, Icon, bg }) => (
+                <div key={label} className="flex items-center justify-between gap-3 rounded-2xl border border-gray-200 bg-[#fcfcfb] px-4 py-3.5">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className={`flex-shrink-0 rounded-xl p-2 ${bg}`}>
+                      <Icon size={14} />
+                    </div>
+                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted truncate">
+                      {label}
+                    </p>
+                  </div>
+                  <p className="flex-shrink-0 text-sm font-bold text-dark tabular-nums">
+                    {value}
                   </p>
                 </div>
               ))}

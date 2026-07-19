@@ -62,7 +62,7 @@ function buildConnectedAccounts(user, t) {
       status: connected ? 'connected' : 'available',
       detail: connected
         ? t('account:security.providerSignedIn', { email: user.email })
-        : meta.authNote,
+        : null,
       lastUpdated: connected
         ? t('account:security.activeNow')
         : t('account:security.notConnected'),
@@ -75,7 +75,7 @@ function buildSecuritySignals(user, t) {
   const meta = PROVIDER_META[activeProvider]
   const providerLabel = meta?.label ?? 'Email'
   const memberSince = user?.createdAt
-    ? new Date(user.createdAt).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
+    ? new Date(user.createdAt).toLocaleDateString(undefined, { month: 'long', year: 'numeric' })
     : null
 
   return [
@@ -135,16 +135,22 @@ export default function SecurityPage() {
             {connectedAccounts.map((account) => (
               <div
                 key={account.id}
-                className="flex flex-col gap-4 rounded-[24px] border border-gray-200 bg-[#fcfcfb] p-5 md:flex-row md:items-center md:justify-between"
+                className="flex flex-col gap-4 rounded-2xl border border-gray-200 bg-[#fcfcfb] p-5 md:flex-row md:items-center md:justify-between"
               >
-                <div className="flex items-start gap-4">
-                  <div className="rounded-2xl bg-white p-3 text-dark shadow-sm">
+                <div className="flex min-w-0 items-start gap-4">
+                  <div className={`flex-shrink-0 rounded-2xl p-3 ${
+                    account.id === 'google' && account.status === 'connected' ? 'bg-[#f0f5ff] text-[#4285f4]' :
+                    account.id === 'apple' && account.status === 'connected' ? 'bg-gray-900 text-white' :
+                    'bg-gray-50 text-gray-400 shadow-sm'
+                  }`}>
                     <account.Icon size={20} />
                   </div>
-                  <div>
+                  <div className="min-w-0">
                     <p className="text-lg font-semibold text-dark">{account.provider}</p>
-                    <p className="text-sm text-muted">{account.detail}</p>
-                    <p className="mt-2 text-sm text-muted">{account.lastUpdated}</p>
+                    {account.detail && (
+                      <p className="break-all text-sm text-muted">{account.detail}</p>
+                    )}
+                    <p className={`text-sm text-muted ${account.detail ? 'mt-2' : ''}`}>{account.lastUpdated}</p>
                   </div>
                 </div>
 
@@ -183,13 +189,14 @@ export default function SecurityPage() {
             eyebrow={t('account:security.postureEyebrow')}
             title={t('account:security.postureTitle')}
             description={t('account:security.postureDesc')}
+            action={<StatusPill tone="success">{securitySignals.length}/{securitySignals.length} verified</StatusPill>}
           />
 
           <div className="mt-6 space-y-4">
             {securitySignals.map((item) => (
               <div
                 key={item.title}
-                className="rounded-[24px] border border-gray-200 bg-[#fcfcfb] p-5"
+                className="rounded-2xl border border-gray-200 bg-[#fcfcfb] p-5"
               >
                 <div className="flex items-start justify-between gap-4">
                   <div>
@@ -216,7 +223,7 @@ export default function SecurityPage() {
         />
 
         <div className="mt-6 grid gap-4 xl:grid-cols-3">
-          <div className="rounded-[24px] border border-gray-200 bg-[#fcfcfb] p-5">
+          <div className="rounded-2xl border border-gray-200 bg-[#fcfcfb] p-5">
             <div className="flex items-start justify-between gap-3">
               <div className="rounded-2xl bg-white p-3 text-dark shadow-sm">
                 <DeviceIcon size={20} />
@@ -224,23 +231,22 @@ export default function SecurityPage() {
               <StatusPill tone="sky">{t('account:security.currentSession')}</StatusPill>
             </div>
             <p className="mt-5 text-lg font-semibold text-dark">{deviceLabel}</p>
-            <p className="mt-1 text-sm text-muted">{t('account:security.activeNow')}</p>
+            <p className="mt-1 flex items-center gap-1.5 text-sm text-muted">
+              <span className="relative flex h-2 w-2">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
+                <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
+              </span>
+              {t('account:security.activeNow')}
+            </p>
             <p className="mt-4 text-sm font-medium text-dark">
               {t('account:security.signedInVia', { provider: activeMeta?.label ?? 'your account' })}
             </p>
-            <button
-              type="button"
-              onClick={signOut}
-              className="mt-5 inline-flex rounded-full border border-gray-200 bg-white px-4 py-2.5 text-sm font-semibold text-dark transition-colors hover:bg-rose-50 hover:border-rose-200 hover:text-rose-700"
-            >
-              {t('account:security.signOut')}
-            </button>
           </div>
 
           {/* Placeholder for future sessions */}
-          <div className="flex items-center justify-center rounded-[24px] border border-dashed border-gray-200 bg-gray-50/50 p-5">
+          <div className="flex items-center justify-center rounded-2xl border border-dashed border-gray-200 bg-gray-50/50 p-5">
             <div className="text-center">
-              <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-white shadow-sm">
+              <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-2xl bg-gray-50">
                 <Clock3 size={18} className="text-muted" />
               </div>
               <p className="text-sm font-medium text-dark">{t('account:security.sessionHistory')}</p>
@@ -265,7 +271,7 @@ export default function SecurityPage() {
             </p>
           </div>
 
-          <div className="rounded-[24px] bg-dark p-5 text-white">
+          <div className="rounded-2xl bg-dark p-5 text-white">
             <div className="flex items-center gap-3">
               <div className="rounded-2xl bg-white/10 p-3">
                 <ShieldCheck size={20} />

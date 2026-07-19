@@ -11,7 +11,7 @@
   "verifyNote": "Verifica tu ID de gobierno para mejorar la confianza del anfitrión antes de reservar.",
   "reviewVerification": "Revisar verificación",
   "completeness": "Completitud del perfil",
-  "complete": "% completo",
+  "complete": "completo",
   "fields": {
     "nameEmail": "Nombre y correo",
     "phone": "Número de teléfono",

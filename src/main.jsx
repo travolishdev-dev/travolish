@@ -8,6 +8,9 @@ import App from './App.jsx'
 import { SearchProvider } from './contexts/SearchContext.jsx'
 
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || ''
+if (!GOOGLE_CLIENT_ID && import.meta.env.DEV) {
+  console.error('[Auth] VITE_GOOGLE_CLIENT_ID is not set — Google Sign-In will fail. Restart the dev server after setting it in .env')
+}
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>

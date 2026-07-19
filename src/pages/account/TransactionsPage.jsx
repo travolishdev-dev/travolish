@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Download, ReceiptText, RotateCcw, Search } from 'lucide-react'
+import { Banknote, CalendarDays, Download, ReceiptText, RotateCcw, Search } from 'lucide-react'
 import { format, parseISO } from 'date-fns'
 import { useTranslation } from 'react-i18next'
 import {
@@ -95,9 +95,9 @@ export default function TransactionsPage() {
     const spent = transactions.filter((txn) => txn.direction === 'debit').reduce((s, txn) => s + txn.rawAmount, 0)
     const refunds = transactions.filter((txn) => txn.direction === 'credit').reduce((s, txn) => s + txn.rawAmount, 0)
     return [
-      { label: t('account:transactions.totalSpent'), value: formatCurrency(spent) },
-      { label: t('account:transactions.totalBookings'), value: String(transactions.length) },
-      { label: t('account:transactions.refunds'), value: refunds > 0 ? formatCurrency(refunds) : formatCurrency(0) },
+      { label: t('account:transactions.totalSpent'), value: formatCurrency(spent), Icon: Banknote, bg: 'bg-rose-50 text-brand' },
+      { label: t('account:transactions.totalBookings'), value: String(transactions.length), Icon: CalendarDays, bg: 'bg-sky-50 text-sky-700' },
+      { label: t('account:transactions.refunds'), value: refunds > 0 ? formatCurrency(refunds) : formatCurrency(0), Icon: RotateCcw, bg: 'bg-emerald-50 text-emerald-700' },
     ]
   }, [formatCurrency, transactions, t])
 
@@ -120,9 +120,14 @@ export default function TransactionsPage() {
         />
         <div className="mt-6 grid gap-4 md:grid-cols-3">
           {summary.map((item) => (
-            <div key={item.label} className="rounded-[24px] border border-gray-200 bg-[#fcfcfb] p-5">
-              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted">{item.label}</p>
-              <p className="mt-2 text-3xl font-semibold tracking-tight text-dark">{item.value}</p>
+            <div key={item.label} className="rounded-2xl border border-gray-200 bg-[#fcfcfb] p-5">
+              <div className="flex items-start justify-between gap-3">
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted">{item.label}</p>
+                <div className={`flex-shrink-0 rounded-xl p-2 ${item.bg}`}>
+                  <item.Icon size={14} />
+                </div>
+              </div>
+              <p className="mt-3 text-3xl font-semibold tracking-tight text-dark tabular-nums">{item.value}</p>
             </div>
           ))}
         </div>
@@ -165,38 +170,36 @@ export default function TransactionsPage() {
         )}
 
         {!loading && visible.length > 0 && (
-          <div className="mt-6 divide-y divide-gray-200 border-y border-gray-200">
+          <div className="mt-6 space-y-2">
             {visible.map((txn) => (
-              <div key={txn.id} className="py-5">
+              <div key={txn.id} className={`rounded-2xl border border-gray-200 bg-[#fcfcfb] px-5 py-4 ${txn.direction === 'credit' ? 'border-l-[3px] border-l-emerald-300' : ''}`}>
                 <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                   <div className="flex items-start gap-4">
-                    <div className={`rounded-2xl p-3 ${txn.direction === 'credit' ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-700'}`}>
+                    <div className={`flex-shrink-0 rounded-2xl p-3 ${txn.direction === 'credit' ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-700'}`}>
                       {txn.direction === 'credit' ? <RotateCcw size={18} /> : <ReceiptText size={18} />}
                     </div>
                     <div>
                       <div className="flex flex-wrap items-center gap-2">
-                        <p className="text-lg font-semibold text-dark">{txn.type}</p>
+                        <p className="text-base font-semibold text-dark">{txn.type}</p>
                         <StatusPill tone={STATUS_TONE[txn.status] ?? 'slate'}>{txn.status}</StatusPill>
                       </div>
                       <p className="mt-1 text-sm text-muted">{txn.note}</p>
-                      <p className="mt-3 text-sm text-muted">{txn.date} · {txn.method}</p>
+                      <p className="mt-2 text-xs text-muted">{txn.date} · {txn.method}</p>
                     </div>
                   </div>
 
                   <div className="flex flex-col items-start gap-3 lg:items-end">
-                    <p className={`text-2xl font-semibold tracking-tight ${txn.direction === 'credit' ? 'text-emerald-700' : 'text-dark'}`}>
-                      {txn.direction === 'credit' ? '+' : '-'}{txn.amount}
+                    <p className={`text-2xl font-semibold tracking-tight tabular-nums ${txn.direction === 'credit' ? 'text-emerald-700' : 'text-dark'}`}>
+                      {txn.direction === 'credit' ? '+' : '−'}{txn.amount}
                     </p>
-                    <div className="grid w-full gap-2 sm:flex sm:w-auto sm:gap-3">
-                      <button
-                        type="button"
-                        className="inline-flex w-full items-center justify-center gap-2 rounded-full border border-gray-200 bg-white px-4 py-2.5 text-sm font-semibold text-dark transition-colors hover:bg-gray-50 sm:w-auto"
-                        onClick={() => handleReceipt(txn.id)}
-                      >
-                        <Download size={14} />
-                        {t('account:transactions.receipt')}
-                      </button>
-                    </div>
+                    <button
+                      type="button"
+                      className="inline-flex items-center gap-2 rounded-full border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-dark transition-colors hover:bg-gray-50"
+                      onClick={() => handleReceipt(txn.id)}
+                    >
+                      <Download size={13} />
+                      {t('account:transactions.receipt')}
+                    </button>
                   </div>
                 </div>
               </div>

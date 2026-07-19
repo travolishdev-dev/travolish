@@ -11,7 +11,7 @@
   "verifyNote": "Vérifiez votre pièce d'identité pour améliorer la confiance de l'hôte avant de réserver.",
   "reviewVerification": "Examiner la vérification",
   "completeness": "Complétude du profil",
-  "complete": "% complet",
+  "complete": "complet",
   "fields": {
     "nameEmail": "Nom et e-mail",
     "phone": "Numéro de téléphone",

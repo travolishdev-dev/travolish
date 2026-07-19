@@ -218,6 +218,7 @@ export default function Navbar() {
   }
 
   return (
+  <>
     <header
       className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 ${
         isTransparent
@@ -382,6 +383,14 @@ export default function Navbar() {
                           </div>
                         )}
 
+                        {/* Appearance — mobile only; desktop has the toggle in the nav bar */}
+                        <div className="md:hidden px-2 pt-1 pb-1 border-t border-gray-100 mt-1">
+                          <div className="flex items-center justify-between rounded-xl px-3 py-1.5">
+                            <span className="text-sm font-medium text-dark">Appearance</span>
+                            <ThemeToggle />
+                          </div>
+                        </div>
+
                         {/* Sign out */}
                         <div className="px-2 pb-2 pt-1 border-t border-gray-100 mt-1">
                           <button
@@ -428,15 +437,16 @@ export default function Navbar() {
           </div>
         </div>
       </div>
-      <AnimatePresence>
-        {isLocaleOpen && (
-          <LanguageRegionModal
-            country={country}
-            onCountryChange={setCountry}
-            onClose={() => setIsLocaleOpen(false)}
-          />
-        )}
-      </AnimatePresence>
     </header>
+    <AnimatePresence>
+      {isLocaleOpen && (
+        <LanguageRegionModal
+          country={country}
+          onCountryChange={setCountry}
+          onClose={() => setIsLocaleOpen(false)}
+        />
+      )}
+    </AnimatePresence>
+  </>
   )
 }

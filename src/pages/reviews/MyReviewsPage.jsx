@@ -11,6 +11,7 @@ import {
 } from '../../components/portal/PortalUI'
 import { getUserReviews } from '../../services/reviewsApi'
 import { getHotel } from '../../services/hotelsApi'
+import useAuthStore from '../../stores/useAuthStore'
 
 const PLACEHOLDER_IMAGES = [
   'https://images.unsplash.com/photo-1542314831-068cd1dbfeeb?w=800&auto=format&fit=crop',
@@ -26,8 +27,15 @@ const PLACEHOLDER_IMAGES = [
 const STATUS_TONE = {
   APPROVED: 'success',
   PENDING: 'warning',
-  REJECTED: 'warning',
+  REJECTED: 'danger',
   FLAGGED: 'warning',
+}
+
+const STATUS_LABEL = {
+  APPROVED: 'Approved',
+  PENDING: 'Pending review',
+  REJECTED: 'Not published',
+  FLAGGED: 'Under review',
 }
 
 function placeholderImage(hotelId) {
@@ -38,29 +46,28 @@ function formatDate(dateStr) {
   try { return format(parseISO(dateStr), 'MMM d, yyyy') } catch { return dateStr }
 }
 
-function getHostResponse(review, hotel) {
-  const response =
+function getHostResponse(review) {
+  return (
     review.hostResponse ??
     review.hostReply ??
     review.responseText ??
-    review.ownerResponse
-
-  if (response) return response
-  if (review.status !== 'APPROVED') return null
-
-  return `Thanks for staying with us${hotel?.city ? ` in ${hotel.city}` : ''}. We appreciate the detailed feedback and hope to host you again.`
+    review.ownerResponse ??
+    null
+  )
 }
 
 export default function MyReviewsPage() {
   const { t } = useTranslation('property')
+  const backendUserId = useAuthStore((s) => s.backendUserId)
   const [reviews, setReviews] = useState([])
   const [hotelMap, setHotelMap] = useState({})
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
+    if (!backendUserId) { setLoading(false); return }
     async function load() {
       try {
-        const data = await getUserReviews(1)
+        const data = await getUserReviews(backendUserId)
         const raw = data.content ?? data
         setReviews(raw)
 
@@ -74,7 +81,7 @@ export default function MyReviewsPage() {
       }
     }
     load()
-  }, [])
+  }, [backendUserId])
 
   const avgRating = useMemo(() => {
     if (!reviews.length) return '—'
@@ -108,7 +115,7 @@ export default function MyReviewsPage() {
             description={t('property:myReviews.shareDesc')}
           />
 
-          <div className="mt-6 grid gap-4 rounded-[28px] border border-gray-200 bg-[#fcfcfb] p-5">
+          <div className="mt-6 grid gap-4 rounded-2xl border border-gray-200 bg-[#fcfcfb] p-5">
             <p className="text-sm leading-6 text-muted">
               {t('property:myReviews.shareHintPre')}{' '}
               <span className="font-semibold text-dark">{t('property:myReviews.shareHintAction')}</span>{' '}
@@ -116,7 +123,7 @@ export default function MyReviewsPage() {
             </p>
             <Link
               to="/trips"
-              className="inline-flex w-full items-center justify-center rounded-full bg-dark px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-gray-800 sm:w-auto"
+              className="inline-flex w-full items-center justify-center rounded-full bg-brand px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-brand-dark sm:w-auto"
             >
               {t('property:myReviews.goToTrips')}
             </Link>
@@ -138,9 +145,9 @@ export default function MyReviewsPage() {
             ].map((item) => (
               <div
                 key={item}
-                className="flex items-start gap-3 rounded-[24px] border border-gray-200 bg-[#fcfcfb] px-4 py-3"
+                className="flex items-start gap-3 rounded-2xl border border-gray-200 bg-[#fcfcfb] px-4 py-3"
               >
-                <div className="rounded-full bg-rose-100 p-1.5 text-brand">
+                <div className="mt-0.5 flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-lg bg-rose-50 text-brand">
                   <Sparkles size={12} />
                 </div>
                 <p className="text-sm leading-6 text-dark">{item}</p>
@@ -174,9 +181,9 @@ export default function MyReviewsPage() {
           <div className="mt-6 grid gap-4 xl:grid-cols-2">
             {reviews.map((review) => {
               const hotel = hotelMap[review.hotelId]
-              const hostResponse = getHostResponse(review, hotel)
+              const hostResponse = getHostResponse(review)
               return (
-                <div key={review.id} className="rounded-[28px] border border-gray-200 bg-[#fcfcfb] p-5">
+                <div key={review.id} className="rounded-2xl border border-gray-200 bg-[#fcfcfb] p-5">
                   <div className="flex items-start gap-4">
                     <img
                       src={placeholderImage(review.hotelId)}
@@ -186,7 +193,7 @@ export default function MyReviewsPage() {
                     <div className="min-w-0">
                       <div className="flex flex-wrap items-center gap-2">
                         <StatusPill tone={STATUS_TONE[review.status] ?? 'slate'}>
-                          {review.status}
+                          {STATUS_LABEL[review.status] ?? review.status}
                         </StatusPill>
                         <p className="text-sm text-muted">{formatDate(review.createdAt)}</p>
                       </div>
@@ -202,7 +209,7 @@ export default function MyReviewsPage() {
                       {review.title || t('property:myReviews.untitledReview')}
                     </h2>
                     <div className="inline-flex flex-shrink-0 items-center gap-1 rounded-full bg-white px-3 py-2 text-sm font-semibold text-dark border border-gray-200">
-                      <Star size={14} className="fill-dark text-dark" />
+                      <Star size={14} className="fill-amber-400 text-amber-400" />
                       {review.rating}
                     </div>
                   </div>
@@ -222,19 +229,19 @@ export default function MyReviewsPage() {
                     </div>
                   )}
 
-                  <div className="mt-5 rounded-[24px] border border-dashed border-gray-200 bg-white p-4">
-                    <div className="flex items-start gap-3">
-                      <div className="rounded-2xl bg-emerald-50 p-3 text-emerald-700">
-                        <MessageCircleHeart size={18} />
-                      </div>
-                      <div>
-                        <p className="text-sm font-semibold text-dark">{t('property:myReviews.hostResponse')}</p>
-                        <p className="mt-1 text-sm leading-6 text-muted">
-                          {hostResponse || t('property:myReviews.noHostResponse')}
-                        </p>
+                  {hostResponse && (
+                    <div className="mt-5 rounded-2xl border border-dashed border-gray-200 bg-white p-4">
+                      <div className="flex items-start gap-3">
+                        <div className="rounded-2xl bg-emerald-50 p-3 text-emerald-700">
+                          <MessageCircleHeart size={18} />
+                        </div>
+                        <div>
+                          <p className="text-sm font-semibold text-dark">{t('property:myReviews.hostResponse')}</p>
+                          <p className="mt-1 text-sm leading-6 text-muted">{hostResponse}</p>
+                        </div>
                       </div>
                     </div>
-                  </div>
+                  )}
 
                   <Link
                     to={`/property/${review.hotelId}`}

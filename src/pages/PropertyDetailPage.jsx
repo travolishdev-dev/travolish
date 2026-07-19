@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useParams, useNavigate } from 'react-router-dom'
 import {
@@ -231,6 +231,11 @@ export default function PropertyDetailPage() {
   const isWishlisted = useWishlistStore((s) => s.isWishlisted(id))
   const { formatCurrency } = useCurrency()
 
+  const reviewsRef = useRef(null)
+  const mapRef = useRef(null)
+  const scrollToReviews = () => reviewsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  const scrollToMap = () => mapRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+
   useEffect(() => {
     let cancelled = false
     async function load() {
@@ -339,34 +344,39 @@ export default function PropertyDetailPage() {
         </h1>
         <div className="flex flex-wrap items-center justify-between mt-3 gap-2">
           <div className="flex items-center gap-1.5 text-sm flex-wrap">
-            <Star size={14} className="fill-dark text-dark" />
+            <Star size={14} className="fill-amber-400 text-amber-400" />
             <span className="font-semibold">{avgRating}</span>
             {totalReviews > 0 && (
               <>
                 <span className="text-muted">·</span>
-                <span className="text-dark underline cursor-pointer font-medium">
+                <button
+                  type="button"
+                  onClick={scrollToReviews}
+                  className="text-dark underline font-medium hover:text-brand transition-colors"
+                >
                   {t('common:review', { count: totalReviews })}
-                </span>
+                </button>
               </>
             )}
             <span className="text-muted">·</span>
-            <span className="text-dark underline cursor-pointer font-medium">
+            <button
+              type="button"
+              onClick={scrollToMap}
+              className="text-dark underline font-medium hover:text-brand transition-colors"
+            >
               {property.location}{property.country ? `, ${property.country}` : ''}
-            </span>
+            </button>
           </div>
-          <div className="flex items-center gap-2">
-            <button className="flex items-center gap-1.5 text-sm font-semibold hover:bg-gray-50 rounded-lg px-3 py-2 transition-colors">
+          <div className="flex items-center gap-1">
+            <button className="flex items-center gap-1.5 text-sm font-semibold hover:bg-gray-100 rounded-xl px-3 py-2 transition-colors">
               <Share2 size={16} />
               {t('share')}
             </button>
             <button
               onClick={() => toggleWishlist(property.id)}
-              className="flex items-center gap-1.5 text-sm font-semibold hover:bg-gray-50 rounded-lg px-3 py-2 transition-colors"
+              className="flex items-center gap-1.5 text-sm font-semibold hover:bg-gray-100 rounded-xl px-3 py-2 transition-colors"
             >
-              <Heart
-                size={16}
-                className={isWishlisted ? 'fill-brand text-brand' : ''}
-              />
+              <Heart size={16} className={isWishlisted ? 'fill-brand text-brand' : ''} />
               {t('saveToWishlist')}
             </button>
           </div>
@@ -380,7 +390,7 @@ export default function PropertyDetailPage() {
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_375px] gap-12 mt-10">
         {/* Left Column */}
         <div>
-          {/* Property / Room Info */}
+          {/* Property / Room header */}
           <div className="flex items-center justify-between pb-8 border-b border-gray-200">
             <div>
               <h2 className="text-xl md:text-[22px] font-semibold text-dark">
@@ -393,26 +403,25 @@ export default function PropertyDetailPage() {
               </p>
             </div>
             <div className="w-14 h-14 rounded-full bg-gradient-to-br from-rose-500 to-rose-700 flex items-center justify-center flex-shrink-0 ml-4">
-              <span className="text-white font-semibold text-lg">
-                {property.title[0]}
-              </span>
+              <span className="text-white font-semibold text-lg">{property.title[0]}</span>
             </div>
           </div>
 
+          {/* Host Info */}
           <div className="py-8 border-b border-gray-200">
-            <div className="grid gap-4 rounded-[24px] border border-gray-200 bg-[#fcfcfb] p-5 sm:grid-cols-[auto_minmax(0,1fr)]">
-              <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-dark text-white">
+            <div className="grid gap-5 rounded-2xl border border-gray-200 bg-[#fcfcfb] p-5 sm:grid-cols-[auto_minmax(0,1fr)]">
+              <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-dark text-white flex-shrink-0">
                 <UserRound size={24} />
               </div>
               <div>
                 <div className="flex flex-wrap items-center gap-2">
                   <h2 className="text-xl font-semibold text-dark">{t('hostedBy')} {hostProfile.name}</h2>
-                  {hostProfile.superhost ? (
+                  {hostProfile.superhost && (
                     <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">
                       <BadgeCheck size={13} />
                       {t('verifiedHost')}
                     </span>
-                  ) : null}
+                  )}
                 </div>
                 <p className="mt-2 text-sm leading-6 text-muted">{hostProfile.bio}</p>
                 <div className="mt-4 grid gap-3 sm:grid-cols-3">
@@ -435,51 +444,39 @@ export default function PropertyDetailPage() {
           </div>
 
           {/* Highlights */}
-          <div className="py-8 border-b border-gray-200 space-y-6">
-            <div className="flex gap-5">
-              <span className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-2xl bg-gray-50 text-dark">
-                <MapPin size={20} />
-              </span>
-              <div>
-                <p className="font-semibold text-dark">{t('greatLocation')}</p>
-                <p className="text-muted text-sm mt-1">
-                  95% of recent guests gave the location a 5-star rating.
-                </p>
+          <div className="py-8 border-b border-gray-200 space-y-5">
+            {[
+              { Icon: MapPin, bg: 'bg-rose-50 text-brand', title: t('greatLocation'), desc: '95% of recent guests gave the location a 5-star rating.' },
+              { Icon: Home, bg: 'bg-sky-50 text-sky-700', title: t('selfCheckIn'), desc: 'Check yourself in with the smart lock.' },
+            ].map(({ Icon, bg, title, desc }) => (
+              <div key={title} className="flex gap-5">
+                <span className={`flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-2xl ${bg}`}>
+                  <Icon size={20} />
+                </span>
+                <div>
+                  <p className="font-semibold text-dark">{title}</p>
+                  <p className="text-muted text-sm mt-1">{desc}</p>
+                </div>
               </div>
-            </div>
-            <div className="flex gap-5">
-              <span className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-2xl bg-gray-50 text-dark">
-                <Home size={20} />
-              </span>
-              <div>
-                <p className="font-semibold text-dark">{t('selfCheckIn')}</p>
-                <p className="text-muted text-sm mt-1">
-                  Check yourself in with the smart lock.
-                </p>
-              </div>
-            </div>
+            ))}
           </div>
 
           {/* Description */}
           {property.description && (
             <div className="py-8 border-b border-gray-200">
-              <p className="text-dark leading-[1.7] text-[15px]">{property.description}</p>
+              <p className="text-dark leading-[1.75] text-[15px]">{property.description}</p>
             </div>
           )}
 
+          {/* Video Walkthrough */}
           {property.videoUrl && (
             <div className="py-8 border-b border-gray-200">
-              <div className="flex items-center gap-3">
-                <PlayCircle size={24} className="text-dark" />
+              <div className="flex items-center gap-3 mb-5">
+                <PlayCircle size={22} className="text-dark" />
                 <h2 className="text-xl font-semibold text-dark">{t('videoWalkthrough')}</h2>
               </div>
-              <div className="mt-5 overflow-hidden rounded-[24px] border border-gray-200 bg-black">
-                <video
-                  controls
-                  preload="metadata"
-                  poster={property.images?.[0]}
-                  className="aspect-video w-full bg-black object-cover"
-                >
+              <div className="overflow-hidden rounded-2xl border border-gray-200 bg-black">
+                <video controls preload="metadata" poster={property.images?.[0]} className="aspect-video w-full bg-black object-cover">
                   <source src={property.videoUrl} />
                   Your browser does not support video playback.
                 </video>
@@ -487,17 +484,17 @@ export default function PropertyDetailPage() {
             </div>
           )}
 
-          {/* Amenities — only shown when the hotel has them */}
+          {/* Amenities */}
           {hasAmenities && (
             <div className="py-8 border-b border-gray-200">
-              <h2 className="text-xl font-semibold text-dark mb-6">{t('whatOffers')}</h2>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <h2 className="text-xl font-semibold text-dark mb-5">{t('whatOffers')}</h2>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-1">
                 {property.amenities.map((amenity) => {
                   const Icon = amenityIconMap[amenity] || Home
                   return (
-                    <div key={amenity} className="flex items-center gap-4 py-2.5">
-                      <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl bg-gray-50 text-dark">
-                        <Icon size={18} strokeWidth={1.5} />
+                    <div key={amenity} className="flex items-center gap-3 rounded-2xl px-3 py-2.5 hover:bg-gray-50 transition-colors">
+                      <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl bg-gray-100 text-dark">
+                        <Icon size={17} strokeWidth={1.5} />
                       </span>
                       <span className="text-dark text-[15px]">{amenity}</span>
                     </div>
@@ -507,89 +504,102 @@ export default function PropertyDetailPage() {
             </div>
           )}
 
-          {/* Rooms list */}
+          {/* Rooms — horizontal scroll on mobile, 2-col grid on desktop */}
           {rooms.length > 0 && (
             <div className="py-8 border-b border-gray-200">
-              <h2 className="text-xl font-semibold text-dark mb-6">{t('availableRooms')}</h2>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {rooms.map((room) => (
-                  <div
-                    key={room.id}
-                    className="border border-gray-200 rounded-2xl p-4 flex items-center justify-between"
-                  >
-                    <div className="flex items-center gap-3">
-                      <BedDouble size={20} className="text-gray-500 flex-shrink-0" />
-                      <div>
-                        <p className="text-sm font-semibold text-dark capitalize">
-                          {room.type ? room.type.charAt(0) + room.type.slice(1).toLowerCase() : 'Room'} · #{room.number}
-                        </p>
-                        <p className="text-xs text-muted mt-0.5">
-                          {room.available ? t('available') : t('unavailable')}
-                        </p>
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted mb-1">{t('availableRooms')}</p>
+              <h2 className="text-xl font-semibold text-dark mb-5">Choose your room</h2>
+              <div className="-mx-6 px-6 sm:mx-0 sm:px-0">
+                <div className="grid grid-flow-col auto-cols-[80%] sm:grid-flow-row sm:grid-cols-2 gap-3 overflow-x-auto sm:overflow-visible snap-x snap-mandatory sm:snap-none scroll-smooth [scrollbar-width:none] [&::-webkit-scrollbar]:hidden pb-1 sm:pb-0">
+                  {rooms.map((room) => (
+                    <div key={room.id} className="snap-start rounded-2xl border border-gray-200 bg-[#fcfcfb] p-4">
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl bg-gray-100 text-dark">
+                            <BedDouble size={18} strokeWidth={1.5} />
+                          </div>
+                          <div className="min-w-0">
+                            <p className="text-sm font-semibold text-dark capitalize truncate">
+                              {room.type ? room.type.charAt(0) + room.type.slice(1).toLowerCase() : 'Room'} · #{room.number}
+                            </p>
+                            <div className="flex items-center gap-1.5 mt-0.5">
+                              <span className={`h-1.5 w-1.5 rounded-full flex-shrink-0 ${room.available ? 'bg-emerald-500' : 'bg-gray-300'}`} />
+                              <p className="text-xs text-muted">{room.available ? t('available') : t('unavailable')}</p>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="text-right flex-shrink-0">
+                          <p className="text-sm font-bold text-dark tabular-nums">{formatCurrency(room.pricePerNight)}</p>
+                          <p className="text-xs text-muted">/{t('perNight')}</p>
+                        </div>
                       </div>
                     </div>
-                    <p className="text-sm font-bold text-dark">
-                      {formatCurrency(room.pricePerNight)}<span className="text-muted font-normal">/{t('perNight')}</span>
-                    </p>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
             </div>
           )}
 
+          {/* Price Preview */}
           <div className="py-8 border-b border-gray-200">
-            <div className="flex items-center gap-3">
-              <ReceiptText size={24} className="text-dark" />
+            <div className="flex items-center gap-3 mb-5">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gray-100 text-dark">
+                <ReceiptText size={17} strokeWidth={1.5} />
+              </div>
               <h2 className="text-xl font-semibold text-dark">{t('pricePreview')}</h2>
             </div>
-            <div className="mt-5 rounded-[24px] border border-gray-200 bg-[#fcfcfb] p-5">
+            <div className="rounded-2xl border border-gray-200 bg-[#fcfcfb] p-5">
               <div className="space-y-3 text-sm">
                 <div className="flex items-center justify-between gap-4">
-                  <span className="text-muted">{formatCurrency(pricePreview.nightly)} x {pricePreview.nights} nights</span>
-                  <span className="font-semibold text-dark">{formatCurrency(pricePreview.base)}</span>
+                  <span className="text-muted">{formatCurrency(pricePreview.nightly)} × {pricePreview.nights} nights</span>
+                  <span className="font-semibold text-dark tabular-nums">{formatCurrency(pricePreview.base)}</span>
                 </div>
                 <div className="flex items-center justify-between gap-4">
                   <span className="text-muted">{t('serviceFee')}</span>
-                  <span className="font-semibold text-dark">{formatCurrency(pricePreview.serviceFee)}</span>
+                  <span className="font-semibold text-dark tabular-nums">{formatCurrency(pricePreview.serviceFee)}</span>
                 </div>
                 <div className="flex items-center justify-between gap-4">
                   <span className="text-muted">{t('taxes')}</span>
-                  <span className="font-semibold text-dark">{formatCurrency(pricePreview.taxes)}</span>
+                  <span className="font-semibold text-dark tabular-nums">{formatCurrency(pricePreview.taxes)}</span>
                 </div>
                 <div className="flex items-center justify-between border-t border-gray-200 pt-3 text-base">
                   <span className="font-semibold text-dark">{t('estimatedTotal')}</span>
-                  <span className="font-bold text-dark">{formatCurrency(pricePreview.total)}</span>
+                  <span className="font-bold text-dark tabular-nums">{formatCurrency(pricePreview.total)}</span>
                 </div>
               </div>
-              <p className="mt-3 text-xs text-muted">
+              <p className="mt-3 text-xs leading-5 text-muted">
                 Final pricing is calculated again at checkout for exact dates, selected room, discounts, and live tax rules.
               </p>
             </div>
           </div>
 
+          {/* House Rules + Cancellation */}
           <div className="py-8 border-b border-gray-200">
-            <div className="grid gap-5 md:grid-cols-2">
+            <div className="grid gap-8 md:grid-cols-2">
               <div>
-                <div className="flex items-center gap-3">
-                  <FileText size={23} className="text-dark" />
+                <div className="flex items-center gap-3 mb-5">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gray-100 text-dark">
+                    <FileText size={17} strokeWidth={1.5} />
+                  </div>
                   <h2 className="text-xl font-semibold text-dark">{t('houseRules')}</h2>
                 </div>
-                <div className="mt-4 space-y-3">
+                <div className="space-y-2.5">
                   {HOUSE_RULES.map((rule) => (
                     <div key={rule} className="flex items-start gap-3 rounded-2xl border border-gray-200 bg-[#fcfcfb] px-4 py-3">
-                      <ShieldCheck size={16} className="mt-0.5 text-emerald-700" />
+                      <ShieldCheck size={15} className="mt-0.5 flex-shrink-0 text-emerald-600" />
                       <p className="text-sm leading-6 text-dark">{rule}</p>
                     </div>
                   ))}
                 </div>
               </div>
-
               <div>
-                <div className="flex items-center gap-3">
-                  <Clock3 size={23} className="text-dark" />
+                <div className="flex items-center gap-3 mb-5">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gray-100 text-dark">
+                    <Clock3 size={17} strokeWidth={1.5} />
+                  </div>
                   <h2 className="text-xl font-semibold text-dark">{t('cancellationPolicy')}</h2>
                 </div>
-                <div className="mt-4 rounded-[24px] border border-gray-200 bg-[#fcfcfb] p-5">
+                <div className="rounded-2xl border border-gray-200 bg-[#fcfcfb] p-5">
                   <p className="text-sm font-semibold text-dark">{t('freeCancellation')}</p>
                   <p className="mt-2 text-sm leading-6 text-muted">
                     Cancel at least 48 hours before check-in for a strong refund estimate. Later cancellations may include host and service-fee deductions.
@@ -602,33 +612,34 @@ export default function PropertyDetailPage() {
             </div>
           </div>
 
+          {/* Nearby Attractions */}
           {(() => {
             const displayAttractions = configuredAttractions.length > 0 ? configuredAttractions : autoAttractions
             const isAuto = configuredAttractions.length === 0 && autoAttractions.length > 0
             if (!attractionsLoading && displayAttractions.length === 0) return null
             return (
               <div className="py-8 border-b border-gray-200">
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between mb-5">
                   <h2 className="text-xl font-semibold text-dark">{t('nearbyAttractions')}</h2>
                   {isAuto && (
-                    <span className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted">
-                      Auto-detected
-                    </span>
+                    <span className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted">Auto-detected</span>
                   )}
                 </div>
                 {attractionsLoading ? (
-                  <div className="mt-5 grid gap-3 sm:grid-cols-3">
+                  <div className="grid gap-3 sm:grid-cols-3">
                     {Array.from({ length: 3 }).map((_, i) => (
-                      <div key={i} className="h-[88px] rounded-[22px] skeleton-shimmer" />
+                      <div key={i} className="h-[88px] rounded-2xl skeleton-shimmer" />
                     ))}
                   </div>
                 ) : (
-                  <div className="mt-5 grid gap-3 sm:grid-cols-3">
+                  <div className="grid gap-3 sm:grid-cols-3">
                     {displayAttractions.map((item) => {
                       const Icon = item.icon
                       return (
-                        <div key={item.id} className="rounded-[22px] border border-gray-200 bg-[#fcfcfb] p-4">
-                          <Icon size={22} className="text-brand" />
+                        <div key={item.id} className="rounded-2xl border border-gray-200 bg-[#fcfcfb] p-4">
+                          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-rose-50 text-brand">
+                            <Icon size={17} />
+                          </div>
                           <p className="mt-3 text-sm font-semibold text-dark">{item.title}</p>
                           <p className="mt-1 text-xs text-muted">{item.detail}</p>
                         </div>
@@ -640,10 +651,10 @@ export default function PropertyDetailPage() {
             )
           })()}
 
-          {/* Reviews */}
-          <div className="py-8 border-b border-gray-200">
-            <div className="flex items-center gap-2 mb-8">
-              <Star size={20} className="fill-dark text-dark" />
+          {/* Reviews — horizontal scroll on mobile, 2-col grid on desktop */}
+          <div ref={reviewsRef} className="py-8 border-b border-gray-200">
+            <div className="flex items-center gap-2 mb-6">
+              <Star size={20} className="fill-amber-400 text-amber-400" />
               <h2 className="text-xl font-semibold text-dark">
                 {avgRating}
                 {totalReviews > 0 && ` · ${t('common:review', { count: totalReviews })}`}
@@ -652,27 +663,24 @@ export default function PropertyDetailPage() {
 
             {/* Rating Bars */}
             {ratingStats && ratingStats.totalReviews > 0 && (
-              <div className="mb-10 space-y-2.5 max-w-sm">
+              <div className="mb-8 space-y-2 max-w-xs">
                 {[
-                  { label: '5 stars', count: ratingStats.fiveStars ?? 0 },
-                  { label: '4 stars', count: ratingStats.fourStars ?? 0 },
-                  { label: '3 stars', count: ratingStats.threeStars ?? 0 },
-                  { label: '2 stars', count: ratingStats.twoStars ?? 0 },
-                  { label: '1 star', count: ratingStats.oneStar ?? 0 },
+                  { label: '5 ★', count: ratingStats.fiveStars ?? 0 },
+                  { label: '4 ★', count: ratingStats.fourStars ?? 0 },
+                  { label: '3 ★', count: ratingStats.threeStars ?? 0 },
+                  { label: '2 ★', count: ratingStats.twoStars ?? 0 },
+                  { label: '1 ★', count: ratingStats.oneStar ?? 0 },
                 ].map((item) => {
                   const pct = ratingStats.totalReviews > 0
                     ? Math.round((item.count / ratingStats.totalReviews) * 100)
                     : 0
                   return (
                     <div key={item.label} className="flex items-center gap-3">
-                      <span className="text-sm text-dark w-14 flex-shrink-0">{item.label}</span>
-                      <div className="flex-1 h-1.5 bg-gray-200 rounded-full overflow-hidden">
-                        <div
-                          className="h-full bg-brand rounded-full transition-all"
-                          style={{ width: `${pct}%` }}
-                        />
+                      <span className="w-9 flex-shrink-0 text-sm font-medium text-dark">{item.label}</span>
+                      <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
+                        <div className="h-full bg-dark rounded-full transition-all duration-500" style={{ width: `${pct}%` }} />
                       </div>
-                      <span className="text-xs font-semibold text-muted w-8 text-right">{item.count}</span>
+                      <span className="w-6 text-right text-xs font-semibold tabular-nums text-muted">{item.count}</span>
                     </div>
                   )
                 })}
@@ -681,40 +689,40 @@ export default function PropertyDetailPage() {
 
             {/* Review Cards */}
             {reviews.length > 0 ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                {reviews.map((review) => (
-                  <div key={review.id} className="space-y-2.5">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-rose-500 to-rose-700 flex items-center justify-center flex-shrink-0">
-                        <span className="text-white text-sm font-semibold">G</span>
-                      </div>
-                      <div>
-                        <div className="flex items-center gap-1.5">
+              <div className="-mx-6 px-6 sm:mx-0 sm:px-0">
+                <div className="grid grid-flow-col auto-cols-[80%] sm:grid-flow-row sm:grid-cols-2 gap-4 overflow-x-auto sm:overflow-visible snap-x snap-mandatory sm:snap-none scroll-smooth [scrollbar-width:none] [&::-webkit-scrollbar]:hidden pb-1 sm:pb-0">
+                  {reviews.map((review) => (
+                    <div key={review.id} className="snap-start rounded-2xl border border-gray-200 bg-[#fcfcfb] p-5">
+                      <div className="flex items-center gap-3">
+                        <div className="h-10 w-10 rounded-full bg-gradient-to-br from-rose-500 to-rose-700 flex items-center justify-center flex-shrink-0">
+                          <span className="text-white text-sm font-semibold">G</span>
+                        </div>
+                        <div className="min-w-0">
                           <p className="text-sm font-semibold text-dark">{t('verifiedGuest')}</p>
-                          <div className="flex items-center gap-0.5">
+                          <div className="flex items-center gap-0.5 mt-0.5">
                             {Array.from({ length: review.rating }).map((_, i) => (
-                              <Star key={i} size={10} className="fill-dark text-dark" />
+                              <Star key={i} size={10} className="fill-amber-400 text-amber-400" />
                             ))}
                           </div>
+                          <p className="text-xs text-muted mt-0.5">{formatReviewDate(review.createdAt)}</p>
                         </div>
-                        <p className="text-xs text-muted">{formatReviewDate(review.createdAt)}</p>
                       </div>
+                      {review.title && (
+                        <p className="text-sm font-semibold text-dark mt-4">{review.title}</p>
+                      )}
+                      <p className="text-sm leading-relaxed text-dark line-clamp-4 mt-2">{review.content}</p>
                     </div>
-                    {review.title && (
-                      <p className="text-sm font-semibold text-dark">{review.title}</p>
-                    )}
-                    <p className="text-sm text-dark leading-relaxed line-clamp-3">{review.content}</p>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
             ) : (
               <p className="text-sm text-muted">{t('noReviews')}</p>
             )}
           </div>
 
-          {/* Map — only shown when real coordinates exist */}
+          {/* Location Map */}
           {hasCoordinates && (
-            <div className="py-8">
+            <div ref={mapRef} className="py-8">
               <h2 className="text-xl font-semibold text-dark mb-6">{t('location')}</h2>
               <LocationMap
                 coordinates={property.coordinates}
@@ -724,7 +732,7 @@ export default function PropertyDetailPage() {
           )}
         </div>
 
-        {/* Right Column - Booking Widget */}
+        {/* Right Column — Booking Widget */}
         <div className="hidden lg:block">
           <BookingWidget property={property} rooms={rooms} />
         </div>
@@ -732,14 +740,23 @@ export default function PropertyDetailPage() {
 
       {/* Mobile Booking Bar */}
       {property.price !== null && (
-        <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 px-6 pt-4 pb-[calc(1rem+env(safe-area-inset-bottom))] flex items-center justify-between lg:hidden z-50">
+        <div className="fixed bottom-0 left-0 right-0 z-50 flex items-center justify-between border-t border-gray-200 bg-white/95 px-6 pt-4 pb-[calc(1rem+env(safe-area-inset-bottom))] backdrop-blur lg:hidden">
           <div>
             <p className="text-[15px]">
               <span className="font-bold">{formatCurrency(property.price)}</span>
               <span className="text-muted"> {t('perNight')}</span>
             </p>
+            {avgRating > 0 && (
+              <div className="flex items-center gap-1 mt-0.5">
+                <Star size={11} className="fill-amber-400 text-amber-400" />
+                <span className="text-xs font-semibold text-dark">{avgRating}</span>
+                {totalReviews > 0 && (
+                  <span className="text-xs text-muted">· {totalReviews} {totalReviews === 1 ? 'review' : 'reviews'}</span>
+                )}
+              </div>
+            )}
           </div>
-          <button className="bg-brand hover:bg-brand-dark text-white rounded-2xl px-6 py-3 text-sm font-bold transition-colors">
+          <button className="rounded-2xl bg-brand px-6 py-3 text-sm font-bold text-white transition-colors hover:bg-brand-dark">
             {t('reserve')}
           </button>
         </div>

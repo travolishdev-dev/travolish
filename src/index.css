@@ -464,3 +464,80 @@ html.dark .travolish-calendar .rdp-day_range_middle {
   background: rgba(255, 56, 92, 0.15);
   color: rgb(var(--color-dark));
 }
+
+/* Host portal surface (uses #f8f6f2, distinct from traveller portal #fcfbf8) */
+html.dark .bg-\[\#f8f6f2\] { background-color: rgb(var(--color-card)); }
+
+/* Semi-transparent white opacity variants not yet covered */
+html.dark .bg-white\/90 { background-color: rgba(24, 24, 24, 0.92); }
+html.dark .bg-white\/92 { background-color: rgba(13, 13, 13, 0.97); }
+html.dark .bg-white\/96 { background-color: rgba(18, 18, 18, 0.98); }
+
+/* Off-white cream opacity variant — mobile portal chrome sticky header */
+html.dark .bg-\[\#fcfbf8\]\/95 { background-color: rgba(13, 13, 13, 0.97); }
+
+/* shadow-sm — barely visible at default opacity on dark backgrounds */
+html.dark .shadow-sm {
+  --tw-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.30);
+  box-shadow: var(--tw-shadow);
+}
+
+/* Pastel chip/badge/icon-container backgrounds — replace with transparent tints */
+html.dark .bg-rose-50    { background-color: rgba(255, 56, 92, 0.12); }
+html.dark .bg-emerald-50 { background-color: rgba(16, 185, 129, 0.12); }
+html.dark .bg-sky-50     { background-color: rgba(14, 165, 233, 0.12); }
+html.dark .bg-amber-50   { background-color: rgba(245, 158, 11, 0.12); }
+html.dark .bg-violet-50  { background-color: rgba(139, 92, 246, 0.12); }
+html.dark .bg-slate-100  { background-color: rgba(100, 116, 139, 0.15); }
+
+/* Matching text colors for use on dark pastel surfaces */
+html.dark .text-emerald-700 { color: #34d399; }
+html.dark .text-sky-700     { color: #38bdf8; }
+html.dark .text-amber-700   { color: #fbbf24; }
+html.dark .text-violet-700  { color: #a78bfa; }
+html.dark .text-slate-700   { color: #94a3b8; }
+html.dark .text-rose-700    { color: #fb7185; }
+
+/* Matching borders for pastel-toned chips */
+html.dark .border-rose-200   { border-color: rgba(255, 56, 92, 0.25); }
+html.dark .border-emerald-200 { border-color: rgba(16, 185, 129, 0.25); }
+html.dark .border-sky-200    { border-color: rgba(14, 165, 233, 0.25); }
+html.dark .border-amber-200  { border-color: rgba(245, 158, 11, 0.25); }
+html.dark .border-violet-200 { border-color: rgba(139, 92, 246, 0.25); }
+html.dark .border-slate-200  { border-color: rgba(100, 116, 139, 0.20); }
+
+/* Host portal mobile chrome opacity variant */
+html.dark .bg-\[\#f8f6f2\]\/96 { background-color: rgba(13, 13, 13, 0.97); }
+
+/* Gradient FROM stops — covers public page hero sections and scroll-fade indicators */
+html.dark .from-white     { --tw-gradient-from: #1c1c1c; }
+html.dark .from-rose-50   { --tw-gradient-from: rgba(255, 56, 92, 0.12); }
+html.dark .from-sky-50    { --tw-gradient-from: rgba(14, 165, 233, 0.10); }
+html.dark .from-amber-50  { --tw-gradient-from: rgba(245, 158, 11, 0.10); }
+html.dark .from-violet-50 { --tw-gradient-from: rgba(139, 92, 246, 0.10); }
+html.dark .from-emerald-50 { --tw-gradient-from: rgba(16, 185, 129, 0.10); }
+html.dark .from-slate-100 { --tw-gradient-from: rgba(100, 116, 139, 0.12); }
+
+/* Gradient VIA stops */
+html.dark .via-white { --tw-gradient-via: #1c1c1c; }
+
+/* Gradient TO stops */
+html.dark .to-white     { --tw-gradient-to: #1c1c1c; }
+html.dark .to-rose-50   { --tw-gradient-to: rgba(255, 56, 92, 0.10); }
+html.dark .to-amber-50  { --tw-gradient-to: rgba(245, 158, 11, 0.10); }
+html.dark .to-sky-50    { --tw-gradient-to: rgba(14, 165, 233, 0.10); }
+html.dark .to-orange-50 { --tw-gradient-to: rgba(245, 135, 0, 0.10); }
+html.dark .to-violet-50 { --tw-gradient-to: rgba(139, 92, 246, 0.10); }
+html.dark .to-emerald-50 { --tw-gradient-to: rgba(16, 185, 129, 0.10); }
+html.dark .to-slate-100 { --tw-gradient-to: rgba(100, 116, 139, 0.12); }
+
+/* SearchControls sticky bar — arbitrary via/to colors used only here */
+html.dark .via-\[\#fffafb\]      { --tw-gradient-via: #1c1c1c; }
+html.dark .to-\[\#fff4f6\]\/95   { --tw-gradient-to: rgba(13, 13, 13, 0.95); }
+html.dark .border-rose-100\/70   { border-color: rgba(55, 55, 55, 0.6); }
+
+/* Portal accent header gradient — neutralise in dark mode */
+html.dark .portal-header-gradient {
+  background-image: none !important;
+  background-color: #1c1c1c;
+}

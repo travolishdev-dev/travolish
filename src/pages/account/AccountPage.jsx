@@ -55,14 +55,14 @@ export default function AccountPage() {
           />
         </div>
 
-        <div className="mt-0 md:mt-6">
-          <div className="grid gap-0 divide-y divide-gray-200 border-y border-gray-200 md:grid-cols-2 md:divide-x md:divide-y-0 xl:grid-cols-4">
+        <div className="mt-6">
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
             {viewer.stats.map((stat) => (
-              <div key={stat.label} className="py-4 md:px-4">
+              <div key={stat.label} className="rounded-2xl border border-gray-200 bg-[#fcfcfb] px-4 py-5 transition-colors hover:bg-gray-50">
                 <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted">
                   {stat.label}
                 </p>
-                <p className="mt-2 text-3xl font-semibold tracking-tight text-dark">
+                <p className="mt-2 text-3xl font-semibold tracking-tight text-dark tabular-nums">
                   {stat.value}
                 </p>
               </div>
@@ -73,7 +73,7 @@ export default function AccountPage() {
 
       <SectionCard>
         <div className="grid gap-5 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
-          <div className="rounded-[28px] border border-gray-200 bg-[#fcfcfb] p-5">
+          <div className="rounded-2xl border border-gray-200 bg-[#fcfcfb] p-5">
             <div className="flex items-start gap-4">
               <div className={`rounded-2xl p-3 ${isVerified ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}`}>
                 <IdCard size={22} />
@@ -90,7 +90,7 @@ export default function AccountPage() {
                 </p>
                 <Link
                   to="/account/security"
-                  className="mt-4 inline-flex items-center justify-center rounded-2xl bg-dark px-4 py-2.5 text-sm font-semibold text-white"
+                  className="mt-4 inline-flex items-center justify-center rounded-2xl bg-brand hover:bg-brand-dark px-4 py-2.5 text-sm font-semibold text-white transition-colors"
                 >
                   {t('reviewVerification')}
                 </Link>
@@ -98,13 +98,14 @@ export default function AccountPage() {
             </div>
           </div>
 
-          <div className="rounded-[28px] border border-gray-200 bg-[#fcfcfb] p-5">
+          <div className="rounded-2xl border border-gray-200 bg-[#fcfcfb] p-5">
             <div className="flex items-start justify-between gap-4">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted">
                   {t('completeness')}
                 </p>
                 <h2 className="mt-2 text-xl font-semibold text-dark">{profileCompletion}% {t('complete')}</h2>
+                <p className="mt-0.5 text-xs text-muted">{completedItems} of {completenessItems.length} fields</p>
               </div>
               <div className="rounded-2xl bg-rose-50 p-3 text-brand">
                 <ListChecks size={22} />
@@ -112,7 +113,7 @@ export default function AccountPage() {
             </div>
             <div className="mt-5 h-2 overflow-hidden rounded-full bg-gray-200">
               <div
-                className="h-full rounded-full bg-dark transition-all"
+                className="h-full rounded-full bg-brand transition-all"
                 style={{ width: `${profileCompletion}%` }}
               />
             </div>
@@ -139,8 +140,8 @@ export default function AccountPage() {
         <SectionCard>
           <SectionHeading
             eyebrow={t('identity')}
-            title="Trust signals and account tone"
-            description="These badges, labels, and notes shape the first impression hosts see before they even open a chat thread."
+            title={t('trust')}
+            description={t('trustDesc')}
           />
 
           {viewer.badges.length > 0 && (
@@ -154,7 +155,7 @@ export default function AccountPage() {
           )}
 
           {viewer.bio ? (
-            <p className="mt-6 text-[15px] leading-7 text-dark">{viewer.bio}</p>
+            <p className="mt-6 border-l-2 border-rose-200 pl-4 text-[15px] italic leading-7 text-dark">{viewer.bio}</p>
           ) : (
             <p className="mt-6 text-sm text-muted">
               {t('noBio')}{' '}
@@ -185,7 +186,7 @@ export default function AccountPage() {
                   <MapPinned size={20} />
                 </div>
                 <div>
-                  <p className="text-sm font-semibold text-dark">Local context</p>
+                  <p className="text-sm font-semibold text-dark">{t('localContext')}</p>
                   <p className="text-sm text-muted">
                     {viewer.city ? `${viewer.city} · ` : ''}{viewer.timeZone}
                   </p>
@@ -198,8 +199,8 @@ export default function AccountPage() {
         <SectionCard>
           <SectionHeading
             eyebrow={t('preferences')}
-            title="Saved travel defaults"
-            description="These choices can prefill checkout and host preferences."
+            title={t('savedDefaults')}
+            description={t('savedDefaultsDesc')}
           />
 
           <div className="mt-6 space-y-3">
@@ -209,7 +210,7 @@ export default function AccountPage() {
                   key={preference}
                   className="flex items-start gap-3 rounded-2xl border border-gray-200 bg-[#fcfcfb] px-4 py-3"
                 >
-                  <div className="mt-0.5 rounded-full bg-dark p-1 text-white">
+                  <div className="mt-0.5 flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-lg bg-rose-50 text-brand">
                     <Sparkles size={12} />
                   </div>
                   <p className="text-sm leading-6 text-dark">{preference}</p>
@@ -234,15 +235,15 @@ export default function AccountPage() {
         <SectionCard>
           <SectionHeading
             eyebrow={t('savedAddresses')}
-            title="Frequent places"
-            description="Useful for prefilled billing, traveler details, and upcoming trip planning."
+            title={t('frequentPlaces')}
+            description={t('addressesDesc')}
           />
 
           <div className="mt-6">
             {viewer.savedAddresses.length > 0 ? (
-              <div className="divide-y divide-gray-200 border-y border-gray-200">
+              <div className="space-y-3">
                 {viewer.savedAddresses.map((address) => (
-                  <div key={address.label} className="py-4">
+                  <div key={address.label} className="rounded-2xl border border-gray-200 bg-[#fcfcfb] px-4 py-4 transition-colors hover:bg-gray-50">
                     <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted">
                       {address.label}
                     </p>
@@ -266,26 +267,26 @@ export default function AccountPage() {
 
         <SectionCard>
           <SectionHeading
-            eyebrow="Support"
+            eyebrow={t('support')}
             title={t('emergency')}
-            description="Used by booking and safety flows when an emergency contact is needed."
+            description={t('emergencyDesc')}
           />
 
           <div className="mt-6">
             {viewer.emergencyContact ? (
-              <div className="border-y border-gray-200 py-5">
+              <div className="rounded-2xl border border-gray-200 bg-[#fcfcfb] p-5">
                 <div className="flex items-start gap-4">
-                  <div className="rounded-2xl bg-emerald-50 p-3 text-emerald-700">
+                  <div className="rounded-2xl bg-emerald-50 p-3 text-emerald-700 flex-shrink-0">
                     <HeartHandshake size={20} />
                   </div>
-                  <div>
+                  <div className="min-w-0 flex-1">
                     <p className="text-lg font-semibold text-dark">
                       {viewer.emergencyContact.name}
                     </p>
                     <p className="text-sm text-muted">
                       {viewer.emergencyContact.relation}
                     </p>
-                    <p className="mt-3 text-sm font-medium text-dark">
+                    <p className="mt-3 inline-flex items-center rounded-xl bg-gray-100 px-3 py-1.5 text-sm font-medium text-dark">
                       {viewer.emergencyContact.phone}
                     </p>
                   </div>
@@ -309,7 +310,7 @@ export default function AccountPage() {
                   <ShieldCheck size={20} />
                 </div>
                 <p className="text-sm leading-6 text-muted">
-                  Government ID and traveler verification can be added from your profile settings.
+                  {t('govIdNote')}
                 </p>
               </div>
             </div>

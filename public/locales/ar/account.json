@@ -11,7 +11,7 @@
   "verifyNote": "تحقق من هويتك الحكومية لتحسين ثقة المضيف قبل الحجز.",
   "reviewVerification": "مراجعة التحقق",
   "completeness": "اكتمال الملف الشخصي",
-  "complete": "% مكتمل",
+  "complete": "مكتمل",
   "fields": {
     "nameEmail": "الاسم والبريد الإلكتروني",
     "phone": "رقم الهاتف",

@@ -1,25 +1,34 @@
 import { create } from 'zustand'
 
-const useOnboardingStore = create((set, get) => ({
-  currentStep: 1,
-  draftData: {
-    propertyType: null,
-    location: {},
-    basics: { guests: 1, bedrooms: 1, beds: 1, bathrooms: 1 },
-    amenities: [],
-    standoutAmenities: [],
-    photos: [],
-    title: '',
-    highlights: [],
-    description: '',
-    bookingSettings: {
-      instantBook: false,
-      petsAllowed: false,
-      selfCheckIn: false,
-      eventsAllowed: false,
-    },
-    pricing: { weekday: '', weekend: '' },
+const INITIAL_DRAFT = {
+  propertyType: null,
+  subTypes: [],
+  starRating: null,
+  stayType: 'entire_property',
+  targetGuests: [],
+  checkInTime: '15:00',
+  checkOutTime: '11:00',
+  numUnits: null,
+  location: {},
+  basics: { guests: 1, bedrooms: 1, beds: 1, bathrooms: 1 },
+  amenities: [],
+  standoutAmenities: [],
+  photos: [],
+  title: '',
+  highlights: [],
+  description: '',
+  bookingSettings: {
+    instantBook: false,
+    petsAllowed: false,
+    selfCheckIn: false,
+    eventsAllowed: false,
   },
+  pricing: { weekday: '', weekend: '' },
+}
+
+const useOnboardingStore = create((set) => ({
+  currentStep: 1,
+  draftData: { ...INITIAL_DRAFT },
 
   setStep: (step) => set({ currentStep: step }),
 
@@ -55,24 +64,7 @@ const useOnboardingStore = create((set, get) => ({
   resetDraft: () =>
     set({
       currentStep: 1,
-      draftData: {
-        propertyType: null,
-        location: {},
-        basics: { guests: 1, bedrooms: 1, beds: 1, bathrooms: 1 },
-        amenities: [],
-        standoutAmenities: [],
-        photos: [],
-        title: '',
-        highlights: [],
-        description: '',
-        bookingSettings: {
-          instantBook: false,
-          petsAllowed: false,
-          selfCheckIn: false,
-          eventsAllowed: false,
-        },
-        pricing: { weekday: '', weekend: '' },
-      },
+      draftData: { ...INITIAL_DRAFT },
     }),
 }))
 

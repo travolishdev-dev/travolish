@@ -11,6 +11,7 @@ import { AnimatePresence, motion as Motion } from 'framer-motion'
 import { useDropzone } from 'react-dropzone'
 import { useTranslation } from 'react-i18next'
 import useOnboardingStore from '../stores/useOnboardingStore'
+import useAuthStore from '../stores/useAuthStore'
 import { publishListing } from '../services/listingsApi'
 import useCurrency from '../hooks/useCurrency'
 import TravolishWordmark from '../components/common/TravolishWordmark'
@@ -86,6 +87,7 @@ export default function OnboardingPage() {
     currentStep, draftData, setStep,
     updateDraft, updateBasics, updateBookingSettings, updatePricing, resetDraft,
   } = useOnboardingStore()
+  const initialize = useAuthStore((s) => s.initialize)
 
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState(null)
@@ -114,7 +116,9 @@ export default function OnboardingPage() {
     setIsSubmitting(true)
     setSubmitError(null)
     try {
-      const result = await publishListing(draftData)
+      // After the hotel is persisted the backend promotes this user to ROLE_HOST.
+      // We refresh the JWT here so the subsequent POST /api/rooms call carries the new role.
+      const result = await publishListing(draftData, () => initialize())
       setPublished(result)
       resetDraft()
     } catch {

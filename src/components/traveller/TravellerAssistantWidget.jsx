@@ -1,10 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
-import { Loader2, MessageCircle, Send, X } from 'lucide-react'
+import { Loader2, Send, Sparkles, X } from 'lucide-react'
 import TravolishWordmark from '../common/TravolishWordmark'
 import { getOrCreateConversation, getMessages, sendMessage } from '../../services/chatApi'
 import useAuthStore from '../../stores/useAuthStore'
 
-// Designated Travolish support user — messages from this user show as assistant bubbles
 const SUPPORT_USER_ID = 4
 
 const QUICK_PROMPTS = [
@@ -28,7 +27,11 @@ export default function TravellerAssistantWidget() {
   const [isOpen, setIsOpen] = useState(false)
   const [input, setInput] = useState('')
   const [messages, setMessages] = useState([
-    { id: 'welcome', sender: 'assistant', text: 'Ask about stays, policies, offers, or upcoming trips.' },
+    {
+      id: 'welcome',
+      sender: 'assistant',
+      text: "Hello! I'm Travolish AI, your friendly travel assistant. How can I help you with your travel plans or a current booking today? 😊",
+    },
   ])
   const [conversationId, setConversationId] = useState(null)
   const [loadingHistory, setLoadingHistory] = useState(false)
@@ -37,7 +40,6 @@ export default function TravellerAssistantWidget() {
   const [isBubbleVisible, setIsBubbleVisible] = useState(false)
   const bottomRef = useRef(null)
 
-  // Load conversation history when authenticated user opens the widget
   useEffect(() => {
     if (!isOpen || !userId) return
     let cancelled = false
@@ -54,7 +56,7 @@ export default function TravellerAssistantWidget() {
 
         const items = (history?.content ?? (Array.isArray(history) ? history : []))
           .filter((m) => !m.isDeleted)
-          .reverse() // API returns newest first
+          .reverse()
 
         if (items.length > 0) {
           setMessages(mapBackendMessages(items, userId))
@@ -70,7 +72,6 @@ export default function TravellerAssistantWidget() {
     return () => { cancelled = true }
   }, [isOpen, userId])
 
-  // Scroll to bottom on new messages
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
@@ -83,7 +84,6 @@ export default function TravellerAssistantWidget() {
     setInput('')
 
     if (!userId || !conversationId) {
-      // Anonymous user — nudge to sign in
       setMessages((prev) => [
         ...prev,
         {
@@ -95,14 +95,13 @@ export default function TravellerAssistantWidget() {
       return
     }
 
-    // Authenticated path — send to backend, then poll for the AI reply
     setSending(true)
     let sent = false
     try {
       await sendMessage({ conversationId, receiverId: SUPPORT_USER_ID, messageText: trimmed })
       sent = true
     } catch {
-      // Message failed to persist — don't show typing indicator
+      // Message failed to persist
     } finally {
       setSending(false)
     }
@@ -111,7 +110,6 @@ export default function TravellerAssistantWidget() {
 
     setIsTyping(true)
     try {
-      // Give Gemini time to generate and save the reply
       await new Promise((resolve) => setTimeout(resolve, 2500))
       const history = await getMessages(conversationId, { pageSize: 50 })
       const items = (history?.content ?? (Array.isArray(history) ? history : []))
@@ -119,12 +117,13 @@ export default function TravellerAssistantWidget() {
         .reverse()
       if (items.length > 0) setMessages(mapBackendMessages(items, userId))
     } catch {
-      // Polling failed — messages will refresh next time the widget opens
+      // Polling failed
     } finally {
       setIsTyping(false)
     }
   }
 
+  /* ── FAB (closed state) ─────────────────────────────────── */
   if (!isOpen) {
     return (
       <>
@@ -149,62 +148,102 @@ export default function TravellerAssistantWidget() {
     )
   }
 
+  /* ── Chat panel (open state) ────────────────────────────── */
   return (
-    <div
-      className="fixed bottom-[calc(6rem+env(safe-area-inset-bottom))] end-4 z-50 w-[calc(100vw-2rem)] max-w-sm overflow-hidden rounded-[28px] border border-rose-100 bg-white shadow-[0_26px_80px_rgba(15,23,42,0.22)] md:bottom-6 md:end-6"
-      style={{
-        backgroundImage:
-          'linear-gradient(135deg, rgba(255,255,255,0.98), rgba(255,244,247,0.96) 48%, rgba(255,255,255,0.98)), linear-gradient(rgba(255,56,92,0.08) 1px, transparent 1px), linear-gradient(90deg, rgba(255,56,92,0.08) 1px, transparent 1px)',
-        backgroundSize: '100% 100%, 22px 22px, 22px 22px',
-      }}
-    >
-      {/* Header */}
-      <div className="flex items-start justify-between gap-4 border-b border-rose-100/80 bg-white/45 px-5 py-4 backdrop-blur-sm">
-        <div className="flex items-center gap-3">
-          <TravolishWordmark className="h-8" />
-          {userId && (
-            <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700">
-              Live
-            </span>
-          )}
+    <div className="fixed bottom-[calc(6rem+env(safe-area-inset-bottom))] end-4 z-50 flex w-[calc(100vw-2rem)] max-w-[360px] flex-col overflow-hidden rounded-[24px] bg-white shadow-[0_32px_80px_rgba(15,23,42,0.22),0_0_0_1px_rgba(15,23,42,0.06)] animate-in slide-in-from-bottom-4 fade-in duration-300 md:bottom-6 md:end-6">
+
+      {/* ── Header ── */}
+      <div
+        className="relative overflow-hidden px-5 py-4 flex-shrink-0"
+        style={{ background: 'linear-gradient(135deg, #FF385C 0%, #E8175D 55%, #C2185B 100%)' }}
+      >
+        {/* subtle dot grid */}
+        <div
+          className="pointer-events-none absolute inset-0 opacity-[0.07]"
+          style={{
+            backgroundImage: 'radial-gradient(circle, white 1px, transparent 1px)',
+            backgroundSize: '18px 18px',
+          }}
+        />
+        <div className="relative flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            {/* avatar */}
+            <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-white/20 ring-2 ring-white/30 backdrop-blur-sm">
+              <TravolishWordmark className="h-5" style={{ filter: 'brightness(0) invert(1)' }} />
+            </div>
+            <div className="min-w-0">
+              <div className="flex items-center gap-1.5">
+                <span className="text-[15px] font-semibold leading-none text-white">Travolish AI</span>
+                <Sparkles size={12} className="flex-shrink-0 text-yellow-300" />
+              </div>
+              <div className="mt-1 flex items-center gap-1.5">
+                <span className="h-2 w-2 flex-shrink-0 rounded-full bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.9)]" />
+                <span className="truncate text-[11px] leading-none text-white/75">
+                  {userId ? 'Live · Powered by Gemini' : 'Online · Ready to help'}
+                </span>
+              </div>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => setIsOpen(false)}
+            className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-white/20 text-white transition-colors hover:bg-white/35"
+            aria-label="Close travel assistant"
+          >
+            <X size={15} />
+          </button>
         </div>
-        <button
-          type="button"
-          onClick={() => setIsOpen(false)}
-          className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-gray-200 text-dark"
-          aria-label="Close travel assistant"
-        >
-          <X size={16} />
-        </button>
       </div>
 
-      {/* Message list */}
-      <div className="max-h-72 space-y-3 overflow-y-auto px-5 py-4">
+      {/* ── Message list ── */}
+      <div
+        className="flex max-h-[320px] flex-1 flex-col gap-3 overflow-y-auto px-4 py-4"
+        style={{
+          background: 'linear-gradient(180deg, #f8f9fb 0%, #f4f5f8 100%)',
+          scrollbarWidth: 'thin',
+          scrollbarColor: '#e2e8f0 transparent',
+        }}
+      >
         {loadingHistory ? (
-          <div className="flex items-center gap-2 text-xs text-muted">
-            <Loader2 size={12} className="animate-spin" />
+          <div className="flex items-center justify-center gap-2 py-10 text-xs text-slate-400">
+            <Loader2 size={14} className="animate-spin" />
             Loading conversation…
           </div>
         ) : (
           <>
-            {messages.map((message) => (
-              <div
-                key={message.id}
-                className={`rounded-2xl px-4 py-3 text-sm leading-6 ${
-                  message.sender === 'guest'
-                    ? 'ml-8 bg-dark text-white'
-                    : 'mr-8 border border-rose-100 bg-white/78 text-dark shadow-sm backdrop-blur-sm'
-                }`}
-              >
-                {message.text}
-              </div>
-            ))}
+            {messages.map((message) =>
+              message.sender === 'assistant' ? (
+                /* Assistant bubble */
+                <div key={message.id} className="flex items-end gap-2 pr-10">
+                  <div className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-rose-400 to-pink-600 shadow-sm shadow-rose-200">
+                    <Sparkles size={11} className="text-white" />
+                  </div>
+                  <div className="rounded-2xl rounded-bl-md bg-white px-4 py-3 text-sm leading-relaxed text-slate-700 shadow-sm ring-1 ring-slate-100/80">
+                    {message.text}
+                  </div>
+                </div>
+              ) : (
+                /* Guest bubble */
+                <div key={message.id} className="flex items-end justify-end pl-10">
+                  <div className="rounded-2xl rounded-br-md bg-gradient-to-br from-rose-500 to-rose-600 px-4 py-3 text-sm leading-relaxed text-white shadow-sm shadow-rose-200">
+                    {message.text}
+                  </div>
+                </div>
+              )
+            )}
+
+            {/* Typing indicator */}
             {isTyping && (
-              <div className="mr-8 rounded-2xl border border-rose-100 bg-white/78 px-4 py-3 shadow-sm backdrop-blur-sm">
-                <div className="flex items-center gap-1.5">
-                  <span className="h-2 w-2 animate-bounce rounded-full bg-rose-300 [animation-delay:0ms]" />
-                  <span className="h-2 w-2 animate-bounce rounded-full bg-rose-300 [animation-delay:150ms]" />
-                  <span className="h-2 w-2 animate-bounce rounded-full bg-rose-300 [animation-delay:300ms]" />
+              <div className="flex items-end gap-2 pr-10">
+                <div className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-rose-400 to-pink-600 shadow-sm shadow-rose-200">
+                  <Sparkles size={11} className="text-white" />
+                </div>
+                <div className="rounded-2xl rounded-bl-md bg-white px-4 py-3 shadow-sm ring-1 ring-slate-100/80">
+                  <div className="flex items-center gap-1.5">
+                    <span className="h-2 w-2 animate-bounce rounded-full bg-slate-300 [animation-delay:0ms]" />
+                    <span className="h-2 w-2 animate-bounce rounded-full bg-slate-300 [animation-delay:150ms]" />
+                    <span className="h-2 w-2 animate-bounce rounded-full bg-slate-300 [animation-delay:300ms]" />
+                  </div>
                 </div>
               </div>
             )}
@@ -213,52 +252,50 @@ export default function TravellerAssistantWidget() {
         <div ref={bottomRef} />
       </div>
 
-      {/* Footer */}
-      <div className="border-t border-rose-100/80 bg-white/50 px-5 py-4 backdrop-blur-sm">
-        <div className="mb-3 flex flex-wrap gap-2">
+      {/* ── Footer ── */}
+      <div className="flex-shrink-0 border-t border-slate-100 bg-white px-4 pb-4 pt-3">
+
+        {/* Quick prompts — horizontal scroll row */}
+        <div className="-mx-1 mb-3 flex gap-2 overflow-x-auto px-1 pb-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {QUICK_PROMPTS.map((prompt) => (
             <button
               key={prompt}
               type="button"
               onClick={() => sendPrompt(prompt)}
               disabled={sending || isTyping}
-              className="rounded-full border border-gray-200 bg-[#fcfbf8] px-3 py-1.5 text-xs font-semibold text-dark disabled:opacity-50"
+              className="flex-shrink-0 rounded-full border border-slate-200 bg-slate-50 px-3.5 py-2 text-xs font-medium text-slate-600 transition-colors hover:border-rose-200 hover:bg-rose-50 hover:text-rose-600 disabled:opacity-40"
             >
               {prompt}
             </button>
           ))}
         </div>
+
+        {/* Input row */}
         <form
-          onSubmit={(event) => {
-            event.preventDefault()
-            sendPrompt(input)
-          }}
+          onSubmit={(e) => { e.preventDefault(); sendPrompt(input) }}
           className="flex items-center gap-2"
         >
-          <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-gray-50 text-muted">
-            <MessageCircle size={16} />
-          </span>
           <input
             value={input}
-            onChange={(event) => setInput(event.target.value)}
-            placeholder={userId ? 'Ask a travel question (saved)' : 'Ask a travel question'}
+            onChange={(e) => setInput(e.target.value)}
+            placeholder={userId ? 'Ask a travel question (saved)' : 'Ask a travel question…'}
             enterKeyHint="send"
-            className="min-w-0 flex-1 rounded-2xl border border-gray-200 px-3 py-2.5 text-base outline-none focus:border-dark"
+            className="min-w-0 flex-1 rounded-full border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-800 outline-none placeholder:text-slate-400 transition-all focus:border-rose-300 focus:bg-white focus:ring-2 focus:ring-rose-100/70"
           />
           <button
             type="submit"
             disabled={sending || isTyping || !input.trim()}
-            className="inline-flex h-10 w-10 items-center justify-center rounded-2xl bg-dark text-white disabled:opacity-50"
+            className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-rose-500 to-rose-600 text-white shadow-md shadow-rose-200 transition-all hover:shadow-rose-300 disabled:opacity-40 disabled:shadow-none"
             aria-label="Send assistant message"
           >
-            {(sending || isTyping) ? <Loader2 size={14} className="animate-spin" /> : <Send size={15} />}
+            {(sending || isTyping) ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
           </button>
         </form>
-        {userId && (
-          <p className="mt-2 text-center text-[10px] text-muted">
-            Signed in · messages saved to your account
-          </p>
-        )}
+
+        {/* Footer note */}
+        <p className="mt-2.5 text-center text-[10px] text-slate-400">
+          {userId ? 'Signed in · messages saved to your account' : 'Sign in to save your conversation history'}
+        </p>
       </div>
     </div>
   )

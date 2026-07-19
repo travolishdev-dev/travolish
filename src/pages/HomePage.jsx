@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from 'react'
+import { useRef, useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { Link, useNavigate } from 'react-router-dom'
 import { ArrowRight, ChevronLeft, ChevronRight, Map, Sparkles } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
@@ -283,30 +284,19 @@ function RecommendationControls({ activeMode, onModeChange }) {
 export default function HomePage() {
   const { t } = useTranslation('home')
   const navigate = useNavigate()
-  const [properties, setProperties] = useState([])
-  const [isLoading, setIsLoading] = useState(true)
   const [recommendationMode, setRecommendationMode] = useState('trusted')
   const sharedLocation = useNativeAppLocationStore()
 
-  useEffect(() => {
-    let cancelled = false
-    async function load() {
-      try {
-        const [searchResult, rooms] = await Promise.all([
-          searchHotels({ pageSize: 20 }),
-          listRooms(),
-        ])
-        if (cancelled) return
-        setProperties(adaptHotels(searchResult.content ?? [], rooms))
-      } catch {
-        // API unavailable — leave properties empty
-      } finally {
-        if (!cancelled) setIsLoading(false)
-      }
-    }
-    load()
-    return () => { cancelled = true }
-  }, [])
+  const { data: properties = [], isLoading } = useQuery({
+    queryKey: ['hotels', 'home'],
+    queryFn: async () => {
+      const [searchResult, rooms] = await Promise.all([
+        searchHotels({ pageSize: 20 }),
+        listRooms(),
+      ])
+      return adaptHotels(searchResult.content ?? [], rooms)
+    },
+  })
 
   const modes = RECOMMENDATION_MODE_IDS.map((id) => ({
     id,
@@ -379,7 +369,7 @@ export default function HomePage() {
           </div>
         )}
 
-        <PopularDestinations />
+        <PopularDestinations hotels={properties} />
 
         {!isLoading &&
           sharedLocation.hasSharedLocation &&

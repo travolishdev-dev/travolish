@@ -4,6 +4,7 @@ import { ChevronLeft } from 'lucide-react'
 import { HostPillButton } from '../../components/host/HostFormFields'
 import { createHotel } from '../../services/hostListingsApi'
 import useHostContext from '../../hooks/useHostContext'
+import useAuthStore from '../../stores/useAuthStore'
 import {
   PROPERTY_CATEGORIES,
   TARGET_GUESTS,
@@ -407,6 +408,7 @@ function Step4({ draft, setDraft, onSubmit, onBack, error, loading }) {
 export default function HostCreateListingPage() {
   const navigate = useNavigate()
   const { hostId } = useHostContext()
+  const initialize = useAuthStore((s) => s.initialize)
   const [step, setStep] = useState(1)
   const [draft, setDraft] = useState(EMPTY_DRAFT)
   const [creating, setCreating] = useState(false)
@@ -440,6 +442,9 @@ export default function HostCreateListingPage() {
         status:       'DRAFT',
       }
       const created = await createHotel(payload)
+      // Backend promotes this user to ROLE_HOST during hotel creation.
+      // Refresh JWT so all subsequent host-gated API calls on the editor page succeed.
+      await initialize()
       const newId = created?.id
       if (newId) {
         navigate(`/host/listings/${newId}/edit?tab=location`)

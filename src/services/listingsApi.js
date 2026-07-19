@@ -10,7 +10,11 @@ const PROPERTY_TYPE_TO_ROOM_TYPE = {
   barn: 'DOUBLE',
 }
 
-export async function publishListing(draftData) {
+// onHotelCreated is an optional async callback invoked after the hotel is persisted.
+// The backend promotes the user to ROLE_HOST inside the create transaction, so callers
+// should pass their token-refresh function here so the subsequent POST /api/rooms request
+// carries the updated HOST role in the JWT.
+export async function publishListing(draftData, onHotelCreated) {
   const hotel = await post('/api/hotels', {
     name: draftData.title,
     city: draftData.location?.city || null,
@@ -18,6 +22,8 @@ export async function publishListing(draftData) {
     description: draftData.description || null,
     rating: 0,
   })
+
+  if (onHotelCreated) await onHotelCreated(hotel)
 
   const room = await post('/api/rooms', {
     number: '101',

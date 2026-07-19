@@ -1,1063 +1,853 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Check, ChevronDown, ChevronLeft, ChevronRight, RefreshCw } from 'lucide-react'
 import {
-  HostShell,
-  SectionCard,
-  SectionHeading,
-} from '../../components/host/HostPortalUI'
+  ChevronLeft, ChevronRight,
+  Lock, Minus, Plus, RefreshCw, Unlock, X,
+} from 'lucide-react'
+import { HostShell, SectionCard, SectionHeading } from '../../components/host/HostPortalUI'
 import { HostField, HostToggle } from '../../components/host/HostFormFields'
 import { getHotelAvailabilityRange, blockRoomDate, unblockRoomDate } from '../../services/availabilityApi'
-import { getHostRooms } from '../../services/hostListingsApi'
+import { getHostRooms, updateHotel } from '../../services/hostListingsApi'
 import useHostContext from '../../hooks/useHostContext'
 
-const statusStyles = {
-  open: 'bg-white text-dark border-gray-200',
-  occupied: 'bg-dark text-white border-dark',
-  limited: 'bg-amber-50 text-amber-700 border-amber-200',
-  blocked: 'bg-rose-50 text-rose-700 border-rose-200',
-  premium: 'bg-amber-50 text-amber-800 border-amber-200',
-  turn: 'bg-sky-50 text-sky-800 border-sky-200',
-  arrival: 'bg-teal-50 text-teal-800 border-teal-200',
+// ── Constants ────────────────────────────────────────────────────────────────
+const GRID_WINDOW = 14
+const WEEKDAY = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa']
+
+// ── Date utilities ────────────────────────────────────────────────────────────
+function todayDate() {
+  const d = new Date()
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate())
 }
 
-const DAY_MS = 24 * 60 * 60 * 1000
-const weekdayLabels = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
-
-const statusMeta = {
-  open: {
-    label: 'Free',
-    description: 'Available to book',
-    cellClass: 'border-emerald-200 bg-emerald-50 text-emerald-800',
-    dotClass: 'bg-emerald-500',
-  },
-  occupied: {
-    label: 'Booked',
-    description: 'Guest booking exists',
-    cellClass: 'border-slate-800 bg-slate-900 text-white',
-    dotClass: 'bg-slate-900',
-  },
-  blocked: {
-    label: 'Blocked',
-    description: 'Owner or maintenance hold',
-    cellClass: 'border-rose-200 bg-rose-50 text-rose-800',
-    dotClass: 'bg-rose-500',
-  },
-  premium: {
-    label: 'Premium',
-    description: 'Bookable high-rate day',
-    cellClass: 'border-amber-200 bg-amber-50 text-amber-800',
-    dotClass: 'bg-amber-500',
-  },
-  turn: {
-    label: 'Turn',
-    description: 'Cleaning or changeover',
-    cellClass: 'border-sky-200 bg-sky-50 text-sky-800',
-    dotClass: 'bg-sky-500',
-  },
-  arrival: {
-    label: 'Arrival',
-    description: 'Guest arrives that day',
-    cellClass: 'border-teal-200 bg-teal-50 text-teal-800',
-    dotClass: 'bg-teal-500',
-  },
+function addDays(date, n) {
+  const d = new Date(date)
+  d.setDate(d.getDate() + n)
+  return d
 }
 
-function startOfDay(date) {
-  return new Date(date.getFullYear(), date.getMonth(), date.getDate())
+function toIso(date) {
+  const y = date.getFullYear()
+  const m = String(date.getMonth() + 1).padStart(2, '0')
+  const d = String(date.getDate()).padStart(2, '0')
+  return `${y}-${m}-${d}`
+}
+
+function parseIso(iso) {
+  const [y, m, d] = iso.split('-').map(Number)
+  return new Date(y, m - 1, d)
+}
+
+function isWeekend(date) {
+  const w = date.getDay()
+  return w === 0 || w === 6
+}
+
+function formatRangeLabel(start, end) {
+  const opts = { month: 'short', day: 'numeric' }
+  return `${start.toLocaleDateString('en-US', opts)} – ${end.toLocaleDateString('en-US', { ...opts, year: 'numeric' })}`
 }
 
 function startOfMonth(date) {
   return new Date(date.getFullYear(), date.getMonth(), 1)
 }
 
-function addMonths(date, amount) {
-  const next = new Date(date)
-  next.setMonth(next.getMonth() + amount, 1)
-  return startOfMonth(next)
-}
-
-function addDays(date, amount) {
-  const next = new Date(date)
-  next.setDate(next.getDate() + amount)
-  return startOfDay(next)
-}
-
-function buildDates() {
-  const dates = []
-  const base = new Date()
-  for (let i = 0; i < 14; i++) {
-    const d = new Date(base)
-    d.setDate(d.getDate() + i)
-    dates.push({
-      label: d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-      iso: d.toISOString().split('T')[0],
-    })
-  }
-  return dates
-}
-
-function isSameMonth(date, monthDate) {
-  return (
-    date.getFullYear() === monthDate.getFullYear() &&
-    date.getMonth() === monthDate.getMonth()
-  )
-}
-
-function toDateKey(date) {
-  const year = date.getFullYear()
-  const month = String(date.getMonth() + 1).padStart(2, '0')
-  const day = String(date.getDate()).padStart(2, '0')
-  return `${year}-${month}-${day}`
+function addMonths(date, n) {
+  const d = new Date(date)
+  d.setMonth(d.getMonth() + n, 1)
+  return startOfMonth(d)
 }
 
 function monthInputValue(date) {
-  const year = date.getFullYear()
-  const month = String(date.getMonth() + 1).padStart(2, '0')
-  return `${year}-${month}`
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
 }
 
 function formatMonthLabel(date) {
   return date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
 }
 
-function buildMonthDays(monthDate) {
-  const firstDay = startOfMonth(monthDate)
-  const days = []
-  const cursor = new Date(firstDay)
-
-  while (cursor.getMonth() === firstDay.getMonth()) {
-    days.push(startOfDay(cursor))
-    cursor.setDate(cursor.getDate() + 1)
-  }
-
-  return days
-}
-
 function buildCalendarGrid(monthDate) {
-  const firstDay = startOfMonth(monthDate)
-  const gridStart = addDays(firstDay, -firstDay.getDay())
-
-  return Array.from({ length: 42 }, (_, index) => addDays(gridStart, index))
+  const first = new Date(monthDate.getFullYear(), monthDate.getMonth(), 1)
+  const gridStart = addDays(first, -first.getDay())
+  return Array.from({ length: 42 }, (_, i) => addDays(gridStart, i))
 }
 
-function getPropertyTitle(listing) {
-  return listing.property?.title ?? `Listing ${listing.id}`
+function isSameMonth(date, monthDate) {
+  return date.getFullYear() === monthDate.getFullYear() &&
+    date.getMonth() === monthDate.getMonth()
 }
 
-function getPropertyLocation(listing) {
-  return listing.market ?? listing.property?.location ?? 'Location not set'
+// ── Status helpers ────────────────────────────────────────────────────────────
+function resolveCell(item) {
+  if (!item) return null
+  return {
+    available: Number(item.availableRooms ?? item.available ?? 0),
+    total:     Number(item.totalRooms ?? 1),
+    blocked:   Number(item.blockedRooms ?? 0),
+    booked:    Number(item.bookedRooms ?? 0),
+  }
 }
 
-function normalizeStatus(value) {
-  const normalized = String(value ?? '').trim().toLowerCase()
-
-  if (['open', 'free', 'available'].includes(normalized)) return 'open'
-  if (['occupied', 'booked', 'reserved', 'sold'].includes(normalized)) return 'occupied'
-  if (['blocked', 'hold', 'maintenance'].includes(normalized)) return 'blocked'
-  if (['premium', 'surge', 'high-demand'].includes(normalized)) return 'premium'
-  if (['turn', 'turnover', 'changeover'].includes(normalized)) return 'turn'
-  if (['arrival', 'check-in', 'checkin'].includes(normalized)) return 'arrival'
-
-  return null
-}
-
-function mapStatus(availability) {
-  if (!availability) return 'open'
-
-  // Check blocked first — API returns blockedRooms (not blockedCount) and status:"FULL"
-  // Checking before explicitStatus so a blocked day doesn't fallback to 'occupied'
-  if (Number(availability.blockedRooms ?? availability.blockedCount ?? 0) > 0 || availability.isBlocked) return 'blocked'
-
-  const explicitStatus = normalizeStatus(
-    availability.status ??
-      availability.availabilityStatus ??
-      availability.state ??
-      availability.type,
-  )
-
-  if (explicitStatus) return explicitStatus
-  if (Number(availability.availableRooms) === 0 || availability.available === false) return 'occupied'
-  if (availability.isPremiumDate) return 'premium'
-  if (availability.isTurnoverDay) return 'turn'
-  if (availability.hasArrival) return 'arrival'
+function cellStatus(cell) {
+  if (!cell) return 'empty'
+  if (cell.blocked > 0 && cell.available === 0) return 'blocked'
+  if (cell.available === 0) return 'full'
+  if (cell.total > 1 && cell.available / cell.total <= 0.25) return 'limited'
   return 'open'
 }
 
-function statusLabel(s) {
-  if (s === 'occupied') return 'Full'
-  if (s === 'blocked') return 'Blk'
-  if (s === 'limited') return 'Low'
-  return ''
+const CELL_STYLE = {
+  open:    'bg-emerald-50 border-emerald-200 text-emerald-900 hover:bg-emerald-100',
+  limited: 'bg-amber-50 border-amber-200 text-amber-900 hover:bg-amber-100',
+  full:    'bg-slate-800 border-slate-800 text-white hover:bg-slate-700',
+  blocked: 'bg-rose-100 border-rose-200 text-rose-900 hover:bg-rose-200',
+  empty:   'bg-white border-gray-200 text-gray-400 hover:bg-gray-50',
+}
+
+const LEGEND = [
+  { status: 'open',    label: 'Available' },
+  { status: 'limited', label: 'Limited (≤25%)' },
+  { status: 'full',    label: 'Sold out' },
+  { status: 'blocked', label: 'Blocked' },
+  { status: 'empty',   label: 'No record' },
+]
+
+function cellLabel(cell, status) {
+  if (!cell)               return '—'
+  if (status === 'full')   return '0'
+  if (status === 'blocked') return 'Blk'
+  return String(cell.available)
 }
 
 function roomLabel(room) {
-  return room.number ?? room.roomNumber ?? room.name ?? `Room ${room.id}`
+  return room.number ?? room.name ?? `Room ${room.id}`
 }
 
 function roomSub(room) {
-  return room.type ?? room.roomType ?? ''
+  return [room.type, room.bedType].filter(Boolean).join(' · ')
 }
 
-function getAvailabilityItems(data) {
-  if (Array.isArray(data)) return data
-  return data?.availabilityList ?? data?.items ?? data?.data ?? []
-}
+// ── CellEditor popover ────────────────────────────────────────────────────────
+function CellEditor({ room, dateIso, cell, anchor, onClose, onBlockOne, onUnblockOne, onBlockAll, onOpenAll }) {
+  const ref = useRef(null)
+  const [saving, setSaving] = useState(false)
 
-function getAvailabilityDateKey(item) {
-  const value =
-    item.date ??
-    item.availabilityDate ??
-    item.stayDate ??
-    item.calendarDate ??
-    item.day
+  const available = cell?.available ?? 0
+  const total     = cell?.total     ?? 1
+  const blocked   = cell?.blocked   ?? 0
+  const booked    = cell?.booked    ?? 0
+  const status    = cellStatus(cell)
 
-  if (!value) return null
-  return String(value).split('T')[0]
-}
-
-function positiveModulo(value, divisor) {
-  return ((value % divisor) + divisor) % divisor
-}
-
-function getFallbackStatus() {
-  return 'open'
-}
-
-function getStatusForListingDate(availabilityByListingDate, listingId, date) {
-  const dateKey = toDateKey(date)
-  return availabilityByListingDate[String(listingId)]?.[dateKey] ?? getFallbackStatus(listingId, date)
-}
-
-function countStatuses(dates, availabilityByListingDate, listings = []) {
-  const counts = Object.keys(statusMeta).reduce((acc, status) => {
-    acc[status] = 0
-    return acc
-  }, {})
-
-  listings.forEach((listing) => {
-    dates.forEach((date) => {
-      const status = getStatusForListingDate(availabilityByListingDate, listing.id, date)
-      counts[status] += 1
-    })
+  const formattedDate = parseIso(dateIso).toLocaleDateString('en-US', {
+    weekday: 'long', month: 'long', day: 'numeric',
   })
 
-  return counts
-}
+  const popStyle = useMemo(() => {
+    const PW = 272; const PH = 300
+    if (!anchor) return { position: 'fixed', top: 80, left: 16, width: PW }
+    let left = anchor.left + anchor.width / 2 - PW / 2
+    let top  = anchor.bottom + 8
+    if (left + PW > window.innerWidth - 12) left = window.innerWidth - PW - 12
+    if (left < 12) left = 12
+    if (top + PH > window.innerHeight - 12) top = anchor.top - PH - 8
+    return { position: 'fixed', top, left, width: PW }
+  }, [anchor])
 
-function buildEventsForDate(date, availabilityByListingDate, listings = []) {
-  return listings.map((listing) => {
-    const status = getStatusForListingDate(
-      availabilityByListingDate,
-      listing.id,
-      date,
-    )
-
-    return {
-      listing,
-      status,
-      meta: statusMeta[status] ?? statusMeta.open,
+  useEffect(() => {
+    function onKey(e) { if (e.key === 'Escape') onClose() }
+    function onMouse(e) { if (ref.current && !ref.current.contains(e.target)) onClose() }
+    document.addEventListener('keydown', onKey)
+    document.addEventListener('mousedown', onMouse)
+    return () => {
+      document.removeEventListener('keydown', onKey)
+      document.removeEventListener('mousedown', onMouse)
     }
-  })
+  }, [onClose])
+
+  async function run(fn) {
+    setSaving(true)
+    try { await fn() } finally { setSaving(false) }
+  }
+
+  const headerBg = {
+    open:    'bg-emerald-50 text-emerald-900',
+    limited: 'bg-amber-50 text-amber-900',
+    full:    'bg-slate-800 text-white',
+    blocked: 'bg-rose-100 text-rose-900',
+    empty:   'bg-gray-50 text-gray-700',
+  }[status] ?? 'bg-gray-50 text-gray-700'
+
+  return (
+    <>
+      <div className="fixed inset-0 z-[190]" />
+      <div
+        ref={ref}
+        style={popStyle}
+        className="z-[200] overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-[0_16px_48px_rgba(15,23,42,0.18)]"
+      >
+        {/* Header */}
+        <div className={`flex items-start justify-between gap-2 px-4 py-3.5 ${headerBg}`}>
+          <div className="min-w-0">
+            <p className="truncate text-[11px] font-semibold uppercase tracking-[0.12em] opacity-60">
+              {roomLabel(room)}{room.type ? ` · ${room.type}` : ''}
+            </p>
+            <p className="mt-0.5 text-sm font-semibold">{formattedDate}</p>
+          </div>
+          <button type="button" onClick={onClose}
+            className="mt-0.5 flex-shrink-0 rounded-full p-1 opacity-60 hover:opacity-100"
+            aria-label="Close">
+            <X size={14} />
+          </button>
+        </div>
+
+        {/* Count strip */}
+        <div className="grid grid-cols-3 divide-x divide-gray-100 border-b border-gray-100 bg-white">
+          {[['Available', available, 'text-slate-900'], ['Booked', booked, 'text-slate-900'], ['Blocked', blocked, 'text-rose-600']].map(([label, val, cls]) => (
+            <div key={label} className="py-3 text-center">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.1em] text-slate-400">{label}</p>
+              <p className={`mt-0.5 text-xl font-bold tabular-nums ${cls}`}>{val}</p>
+            </div>
+          ))}
+        </div>
+
+        {/* Controls */}
+        <div className="space-y-3 p-4">
+          {/* Stepper */}
+          <div className="flex items-center justify-between gap-3">
+            <span className="text-sm font-semibold text-slate-700">Available rooms</span>
+            <div className="flex items-center gap-2">
+              <button type="button" aria-label="Block one"
+                disabled={saving || available <= 0}
+                onClick={() => run(() => onBlockOne(room.id, dateIso))}
+                className="flex h-8 w-8 items-center justify-center rounded-full border border-gray-200 text-slate-700 transition hover:border-slate-400 disabled:opacity-30">
+                <Minus size={13} />
+              </button>
+              <span className="w-6 text-center text-[15px] font-bold tabular-nums text-slate-900">
+                {available}
+              </span>
+              <button type="button" aria-label="Open one"
+                disabled={saving || blocked <= 0}
+                onClick={() => run(() => onUnblockOne(room.id, dateIso))}
+                className="flex h-8 w-8 items-center justify-center rounded-full border border-gray-200 text-slate-700 transition hover:border-slate-400 disabled:opacity-30">
+                <Plus size={13} />
+              </button>
+            </div>
+          </div>
+
+          <div className="border-t border-gray-100" />
+
+          {/* Quick actions */}
+          <div className="grid grid-cols-2 gap-2">
+            <button type="button"
+              disabled={saving || available <= 0}
+              onClick={() => run(() => onBlockAll(room.id, dateIso, available))}
+              className="flex items-center justify-center gap-1.5 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-700 transition hover:bg-rose-100 disabled:opacity-40">
+              <Lock size={12} /> Stop sell
+            </button>
+            <button type="button"
+              disabled={saving || blocked <= 0}
+              onClick={() => run(() => onOpenAll(room.id, dateIso, blocked))}
+              className="flex items-center justify-center gap-1.5 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-700 transition hover:bg-emerald-100 disabled:opacity-40">
+              <Unlock size={12} /> Open all
+            </button>
+          </div>
+
+          {saving && <p className="text-center text-[11px] text-slate-400">Saving…</p>}
+
+          <p className="text-[10px] text-slate-400">
+            Total capacity: {total} room{total !== 1 ? 's' : ''}.
+            For per-date min-stay, use <span className="font-semibold">Booking Rules</span> below.
+          </p>
+        </div>
+      </div>
+    </>
+  )
 }
 
-function hotelsToListings(hotels) {
-  return hotels.map((h) => ({
-    id: h.id,
-    property: { title: h.name ?? `Property ${h.id}`, location: h.city ?? '' },
-    market: h.city ?? h.country ?? '',
-  }))
+// ── AllotmentGrid ─────────────────────────────────────────────────────────────
+function AllotmentGrid({ rooms, byRoomDate, dates, onCellClick }) {
+  const todayIso = toIso(todayDate())
+  const colTemplate = `160px repeat(${dates.length}, minmax(54px, 1fr))`
+
+  return (
+    <div className="overflow-x-auto rounded-2xl border border-gray-200 bg-white">
+      <div style={{ minWidth: `${160 + dates.length * 54}px` }}>
+
+        {/* Date header */}
+        <div className="grid border-b border-gray-200 bg-[#fafafa]"
+          style={{ gridTemplateColumns: colTemplate }}>
+          <div className="border-r border-gray-200 px-4 py-2.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-400">
+            Room
+          </div>
+          {dates.map((date) => {
+            const iso = toIso(date)
+            const isToday = iso === todayIso
+            const weekend = isWeekend(date)
+            return (
+              <div key={iso}
+                className={`px-0.5 py-2 text-center ${weekend ? 'bg-amber-50/60' : ''}`}>
+                <p className={`text-[10px] font-semibold ${isToday ? 'text-rose-500' : 'text-slate-400'}`}>
+                  {WEEKDAY[date.getDay()]}
+                </p>
+                <p className={`mt-0.5 text-[11px] font-bold ${isToday ? 'text-rose-600' : 'text-slate-700'}`}>
+                  {date.getDate()}
+                </p>
+              </div>
+            )
+          })}
+        </div>
+
+        {/* Rows */}
+        {rooms.length === 0 && (
+          <p className="py-14 text-center text-sm text-slate-400">
+            No rooms yet — add rooms to start managing inventory.
+          </p>
+        )}
+        {rooms.map((room, ri) => (
+          <div key={room.id}
+            className={`grid ${ri < rooms.length - 1 ? 'border-b border-gray-100' : ''}`}
+            style={{ gridTemplateColumns: colTemplate }}>
+
+            {/* Sticky room name */}
+            <div className="sticky left-0 z-10 flex items-center border-r border-gray-100 bg-white px-4 py-2.5">
+              <div className="min-w-0">
+                <p className="truncate text-sm font-semibold text-slate-900">{roomLabel(room)}</p>
+                {roomSub(room) && (
+                  <p className="mt-0.5 truncate text-[11px] text-slate-400">{roomSub(room)}</p>
+                )}
+              </div>
+            </div>
+
+            {/* Date cells */}
+            {dates.map((date) => {
+              const iso = toIso(date)
+              const cell = resolveCell(byRoomDate[String(room.id)]?.[iso])
+              const status = cellStatus(cell)
+              const weekend = isWeekend(date)
+              return (
+                <div key={iso} className={`p-1 ${weekend ? 'bg-amber-50/20' : ''}`}>
+                  <button
+                    type="button"
+                    onClick={(e) => onCellClick(e, room, iso, cell)}
+                    className={`flex h-11 w-full cursor-pointer items-center justify-center rounded-xl border text-sm font-semibold transition-colors ${CELL_STYLE[status] ?? CELL_STYLE.empty}`}
+                    title={`${roomLabel(room)} · ${iso}`}
+                  >
+                    {cellLabel(cell, status)}
+                  </button>
+                </div>
+              )
+            })}
+          </div>
+        ))}
+
+        {/* Legend */}
+        <div className="flex flex-wrap gap-4 border-t border-gray-100 bg-[#fafafa] px-4 py-3">
+          {LEGEND.map(({ status, label }) => (
+            <div key={status} className="flex items-center gap-1.5">
+              <div className={`h-3.5 w-3.5 rounded border ${CELL_STYLE[status].split(' ').slice(0, 2).join(' ')}`} />
+              <span className="text-xs text-slate-500">{label}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  )
 }
 
+// ── Main page ─────────────────────────────────────────────────────────────────
 export default function HostAvailabilityPage() {
   const { primaryHotelId, hotels, loading: hostLoading } = useHostContext()
-  const [dates] = useState(buildDates)
-  const [rows, setRows] = useState([])
-  const [hotelRooms, setHotelRooms] = useState([])
-  const [dataLoading, setDataLoading] = useState(false)
+
+  // Grid
+  const [rooms, setRooms] = useState([])
+  const [byRoomDate, setByRoomDate] = useState({})
+  const [gridStart, setGridStart] = useState(() => todayDate())
+  const [gridLoading, setGridLoading] = useState(false)
+
+  // Cell editor
+  const [editor, setEditor] = useState(null)
+
+  // Bulk
+  const [bulkStart, setBulkStart] = useState(() => toIso(todayDate()))
+  const [bulkEnd, setBulkEnd] = useState(() => toIso(addDays(todayDate(), 6)))
+  const [bulkAction, setBulkAction] = useState('block')
   const [applying, setApplying] = useState(false)
-  const today = useMemo(() => startOfDay(new Date()), [])
-  const [availabilityAction, setAvailabilityAction] = useState(() => ({
-    start: toDateKey(today),
-    end: toDateKey(addDays(today, 2)),
-    action: 'Block dates',
-    minimumStay: '2',
-    rateOverride: '',
-  }))
-  const [bookingSettings, setBookingSettings] = useState({
-    minimumStay: '1',
-    maximumStay: '',
-    bookingWindow: '365',
-    lastMinuteBooking: false,
-    lastMinuteCutoffHours: '24',
-    sameDayBooking: false,
+  const [bulkNotice, setBulkNotice] = useState('')
+
+  // Booking rules
+  const [rules, setRules] = useState({
+    minimumStay: '1', maximumStay: '',
+    bookingWindow: '365', lastMinuteBooking: false,
+    lastMinuteCutoffHours: '24', sameDayBooking: false,
   })
-  const [savingSettings, setSavingSettings] = useState(false)
-  const [settingsNotice, setSettingsNotice] = useState('')
-  const [actionOpen, setActionOpen] = useState(false)
-  const actionRef = useRef(null)
+  const [savingRules, setSavingRules] = useState(false)
+  const [rulesNotice, setRulesNotice] = useState('')
 
-  useEffect(() => {
-    const handleClick = (e) => {
-      if (actionRef.current && !actionRef.current.contains(e.target)) setActionOpen(false)
-    }
-    document.addEventListener('mousedown', handleClick)
-    return () => document.removeEventListener('mousedown', handleClick)
-  }, [])
-
-  function setBookingSetting(key, val) {
-    setBookingSettings((prev) => ({ ...prev, [key]: val }))
-  }
-
-  async function handleSaveBookingSettings() {
-    if (!primaryHotelId) return
-    setSavingSettings(true)
-    setSettingsNotice('')
-    try {
-      // Booking settings are sent as part of the listing update payload
-      const { updateHotel } = await import('../../services/hostListingsApi')
-      if (updateHotel) {
-        await updateHotel(primaryHotelId, {
-          minimumStay:          Number(bookingSettings.minimumStay) || 1,
-          maximumStay:          bookingSettings.maximumStay ? Number(bookingSettings.maximumStay) : null,
-          bookingWindow:        Number(bookingSettings.bookingWindow) || 365,
-          lastMinuteBooking:    bookingSettings.lastMinuteBooking,
-          lastMinuteCutoffHours: Number(bookingSettings.lastMinuteCutoffHours) || 24,
-          sameDayBooking:       bookingSettings.sameDayBooking,
-        })
-      }
-      setSettingsNotice('Booking settings saved.')
-    } catch {
-      setSettingsNotice('Could not save settings. Please try again.')
-    } finally {
-      setSavingSettings(false)
-    }
-  }
-
-  const [availabilityNotice, setAvailabilityNotice] = useState('')
+  // Monthly calendar
   const [currentMonth, setCurrentMonth] = useState(() => startOfMonth(new Date()))
-  const [selectedListingId, setSelectedListingId] = useState('all')
-  const [availabilityByListingDate, setAvailabilityByListingDate] = useState({})
-  const [isLoadingAvailability, setIsLoadingAvailability] = useState(false)
-  const [hasLiveAvailability, setHasLiveAvailability] = useState(false)
 
-  const listings = useMemo(() => hotelsToListings(hotels), [hotels])
-  const monthDays = useMemo(() => buildMonthDays(currentMonth), [currentMonth])
-  const calendarDays = useMemo(() => buildCalendarGrid(currentMonth), [currentMonth])
-  const selectedListings = useMemo(() => {
-    if (selectedListingId === 'all') return listings
-    return listings.filter((listing) => String(listing.id) === String(selectedListingId))
-  }, [selectedListingId, listings])
-  const monthStartKey = toDateKey(monthDays[0])
-  const monthEndKey = toDateKey(monthDays[monthDays.length - 1])
-  const selectedMonthLabel = formatMonthLabel(currentMonth)
-  const selectedScopeLabel =
-    selectedListingId === 'all'
-      ? 'All host properties'
-      : getPropertyTitle(selectedListings[0] ?? listings[0])
-  const monthlyCounts = useMemo(
-    () => countStatuses(monthDays, availabilityByListingDate, selectedListings),
-    [availabilityByListingDate, monthDays, selectedListings],
+  const dates = useMemo(
+    () => Array.from({ length: GRID_WINDOW }, (_, i) => addDays(gridStart, i)),
+    [gridStart],
   )
 
-  // Load 14-day room grid data
+  const gridRange = useMemo(() => ({
+    start: toIso(gridStart),
+    end:   toIso(addDays(gridStart, GRID_WINDOW - 1)),
+  }), [gridStart])
+
+  const gridLabel = useMemo(
+    () => formatRangeLabel(gridStart, addDays(gridStart, GRID_WINDOW - 1)),
+    [gridStart],
+  )
+
+  // ── Load grid data ──
+  async function loadGrid(hotelId, range) {
+    const [roomsData, availData] = await Promise.all([
+      getHostRooms(hotelId).catch(() => []),
+      getHotelAvailabilityRange(hotelId, range.start, range.end).catch(() => []),
+    ])
+    const roomList = Array.isArray(roomsData)
+      ? roomsData : roomsData?.content ?? roomsData?.rooms ?? []
+    const items = Array.isArray(availData)
+      ? availData : availData?.availabilityList ?? availData?.content ?? []
+
+    const map = {}
+    items.forEach((item) => {
+      const rid = String(item.roomId)
+      const iso = String(item.availabilityDate ?? '').split('T')[0]
+      if (!rid || !iso) return
+      if (!map[rid]) map[rid] = {}
+      map[rid][iso] = item
+    })
+    return { roomList, map }
+  }
+
   useEffect(() => {
     if (hostLoading || !primaryHotelId) return
+    setGridLoading(true)
+    loadGrid(primaryHotelId, gridRange)
+      .then(({ roomList, map }) => { setRooms(roomList); setByRoomDate(map) })
+      .finally(() => setGridLoading(false))
+  }, [primaryHotelId, hostLoading, gridRange])
 
-    const startDate = dates[0].iso
-    const endDate = dates[dates.length - 1].iso
-
-    Promise.all([
-      getHostRooms(primaryHotelId).catch(() => []),
-      getHotelAvailabilityRange(primaryHotelId, startDate, endDate).catch(() => []),
-    ]).then(([roomsData, availData]) => {
-      const rooms = Array.isArray(roomsData)
-        ? roomsData
-        : roomsData?.content ?? roomsData?.rooms ?? []
-      const items = Array.isArray(availData)
-        ? availData
-        : availData?.availabilityList ?? availData?.content ?? []
-
-      const byRoomDate = {}
-      items.forEach((item) => {
-        const rid = item.roomId
-        if (!rid) return
-        if (!byRoomDate[rid]) byRoomDate[rid] = {}
-        const iso = String(item.availabilityDate)
-        byRoomDate[rid][iso] = item
-      })
-
-      if (rooms.length) setHotelRooms(rooms)
-      // Always show all rooms; mapStatus(undefined) returns 'open' for dates with no record
-      const sourceRooms = rooms
-
-      const newRows = sourceRooms.map((room) => ({
-        roomId: room.id,
-        label: roomLabel(room),
-        sub: roomSub(room),
-        pattern: dates.map((d) => mapStatus(byRoomDate[room.id]?.[d.iso])),
-      }))
-
-      if (newRows.length) setRows(newRows)
-    }).finally(() => setDataLoading(false))
-  }, [primaryHotelId, hostLoading, dates])
-
-  // Load monthly calendar availability per listing
-  useEffect(() => {
-    if (!primaryHotelId) return
-
-    let isCurrent = true
-
-    async function loadAvailability() {
-      setIsLoadingAvailability(true)
-
-      const results = await Promise.allSettled(
-        listings.map(async (listing) => {
-          const data = await getHotelAvailabilityRange(
-            listing.id,
-            monthStartKey,
-            monthEndKey,
-          )
-          return {
-            listingId: listing.id,
-            items: getAvailabilityItems(data),
-          }
-        }),
-      )
-
-      if (!isCurrent) return
-
-      const nextAvailability = {}
-      let foundLiveItems = false
-
-      results.forEach((result) => {
-        if (result.status !== 'fulfilled') return
-
-        const { listingId, items } = result.value
-        if (!items?.length) return
-
-        foundLiveItems = true
-
-        items.forEach((item) => {
-          const dateKey = getAvailabilityDateKey(item)
-          const itemListingId = String(item.hotelId ?? item.listingId ?? listingId)
-
-          if (!dateKey) return
-          if (!nextAvailability[itemListingId]) nextAvailability[itemListingId] = {}
-
-          nextAvailability[itemListingId][dateKey] = mapStatus(item)
-        })
-      })
-
-      setAvailabilityByListingDate(foundLiveItems ? nextAvailability : {})
-      setHasLiveAvailability(foundLiveItems)
-      setIsLoadingAvailability(false)
-    }
-
-    loadAvailability().catch(() => {
-      if (isCurrent) {
-        setAvailabilityByListingDate({})
-        setHasLiveAvailability(false)
-        setIsLoadingAvailability(false)
+  // ── Optimistic cell patch ──
+  function patchCell(roomId, dateIso, fn) {
+    const rid = String(roomId)
+    setByRoomDate((prev) => {
+      const roomMap = { ...(prev[rid] ?? {}) }
+      const existing = roomMap[dateIso] ?? {
+        roomId, availabilityDate: dateIso,
+        availableRooms: 1, totalRooms: 1, blockedRooms: 0, bookedRooms: 0,
       }
+      roomMap[dateIso] = { ...existing, ...fn(existing) }
+      return { ...prev, [rid]: roomMap }
     })
-
-    return () => {
-      isCurrent = false
-    }
-  }, [monthEndKey, monthStartKey, primaryHotelId, listings])
-
-  function handleMonthInputChange(event) {
-    const [year, month] = event.target.value.split('-').map(Number)
-    if (!year || !month) return
-
-    setCurrentMonth(startOfMonth(new Date(year, month - 1, 1)))
   }
 
-  function goToToday() {
-    setCurrentMonth(startOfMonth(today))
+  async function handleBlockOne(roomId, dateIso) {
+    await blockRoomDate(roomId, dateIso, 1, 'owner hold', primaryHotelId)
+    patchCell(roomId, dateIso, (c) => ({
+      availableRooms: Math.max(0, Number(c.availableRooms) - 1),
+      blockedRooms:   Number(c.blockedRooms ?? 0) + 1,
+    }))
   }
 
-  function updateAvailabilityAction(field) {
-    return (event) => {
-      setAvailabilityAction((current) => ({
-        ...current,
-        [field]: event.target.value,
-      }))
-    }
+  async function handleUnblockOne(roomId, dateIso) {
+    await unblockRoomDate(roomId, dateIso, 1, primaryHotelId)
+    patchCell(roomId, dateIso, (c) => ({
+      availableRooms: Number(c.availableRooms) + 1,
+      blockedRooms:   Math.max(0, Number(c.blockedRooms ?? 0) - 1),
+    }))
   }
 
-  async function handleApplyAvailabilityAction() {
-    const action = availabilityAction.action
-    const isBlock = action === 'Block dates'
-    const isOpen = action === 'Open dates'
+  async function handleBlockAll(roomId, dateIso, count) {
+    await blockRoomDate(roomId, dateIso, count, 'owner hold', primaryHotelId)
+    patchCell(roomId, dateIso, (c) => ({
+      blockedRooms:   Number(c.blockedRooms ?? 0) + count,
+      availableRooms: 0,
+    }))
+  }
 
-    if (!isBlock && !isOpen) {
-      // Set minimum stay and rate override don't have a direct availability API endpoint
-      setAvailabilityNotice(`"${action}" saved locally. Minimum stay and rate override require a pricing rule — use Pricing rules to persist.`)
-      return
-    }
+  async function handleOpenAll(roomId, dateIso, count) {
+    await unblockRoomDate(roomId, dateIso, count, primaryHotelId)
+    patchCell(roomId, dateIso, (c) => ({
+      blockedRooms:   0,
+      availableRooms: Number(c.availableRooms) + count,
+    }))
+  }
 
-    if (!hotelRooms.length) {
-      // Proactive banner handles this — no need to duplicate via notice
-      return
-    }
+  function handleCellClick(event, room, dateIso, cell) {
+    const rect = event.currentTarget.getBoundingClientRect()
+    setEditor({ room, dateIso, anchor: rect })
+  }
 
+  // ── Bulk apply ──
+  async function handleBulkApply() {
+    if (!rooms.length) return
     setApplying(true)
-    setAvailabilityNotice('')
-
-    const start = new Date(availabilityAction.start)
-    const end = new Date(availabilityAction.end)
+    setBulkNotice('')
     const dateList = []
-    for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-      dateList.push(toDateKey(new Date(d)))
+    for (let d = parseIso(bulkStart); d <= parseIso(bulkEnd); d = addDays(d, 1)) {
+      dateList.push(toIso(d))
     }
-
     try {
-      const calls = hotelRooms.flatMap((room) =>
-        dateList.map((date) =>
-          isBlock
-            ? blockRoomDate(room.id, date, 1, 'owner hold', primaryHotelId).catch(() => null)
-            : unblockRoomDate(room.id, date, 1, primaryHotelId).catch(() => null),
+      await Promise.all(
+        rooms.flatMap((room) =>
+          dateList.map((iso) =>
+            bulkAction === 'block'
+              ? blockRoomDate(room.id, iso, 1, 'owner hold', primaryHotelId).catch(() => null)
+              : unblockRoomDate(room.id, iso, 1, primaryHotelId).catch(() => null),
+          ),
         ),
       )
-      await Promise.all(calls)
-      const verb = isBlock ? 'Blocked' : 'Opened'
-      setAvailabilityNotice(`${verb} ${dateList.length} date${dateList.length !== 1 ? 's' : ''} across ${hotelRooms.length} room${hotelRooms.length !== 1 ? 's' : ''}.`)
+      setBulkNotice(`${bulkAction === 'block' ? 'Blocked' : 'Opened'} ${dateList.length} day${dateList.length !== 1 ? 's' : ''} across ${rooms.length} room${rooms.length !== 1 ? 's' : ''}.`)
+      // Refresh grid
+      const { map } = await loadGrid(primaryHotelId, gridRange)
+      setByRoomDate(map)
     } catch {
-      setAvailabilityNotice('Some dates could not be updated. Please try again.')
+      setBulkNotice('Some dates could not be updated. Please try again.')
     } finally {
       setApplying(false)
     }
   }
 
+  // ── Save booking rules ──
+  async function handleSaveRules() {
+    if (!primaryHotelId) return
+    setSavingRules(true)
+    setRulesNotice('')
+    try {
+      await updateHotel(primaryHotelId, {
+        minimumStay:           Number(rules.minimumStay) || 1,
+        maximumStay:           rules.maximumStay ? Number(rules.maximumStay) : null,
+        bookingWindow:         Number(rules.bookingWindow) || 365,
+        lastMinuteBooking:     rules.lastMinuteBooking,
+        lastMinuteCutoffHours: Number(rules.lastMinuteCutoffHours) || 24,
+        sameDayBooking:        rules.sameDayBooking,
+      })
+      setRulesNotice('Saved.')
+    } catch {
+      setRulesNotice('Could not save. Please try again.')
+    } finally {
+      setSavingRules(false)
+    }
+  }
+
+  // ── Stats ──
+  const todayIso = toIso(todayDate())
+  const todayCells = rooms.map((r) => resolveCell(byRoomDate[String(r.id)]?.[todayIso]))
+  const availToday  = todayCells.reduce((s, c) => s + (c?.available ?? 0), 0)
+  const blockedToday = todayCells.reduce((s, c) => s + (c?.blocked ?? 0), 0)
+  const bookedToday  = todayCells.reduce((s, c) => s + (c?.booked ?? 0), 0)
+  const occupancy    = rooms.length > 0 ? Math.round((bookedToday / rooms.length) * 100) : 0
+
   const stats = [
-    {
-      label: 'Booked nights',
-      value: String(monthlyCounts.occupied + monthlyCounts.arrival),
-      note: `${selectedScopeLabel} in ${selectedMonthLabel}`,
-    },
-    {
-      label: 'Free nights',
-      value: String(monthlyCounts.open + monthlyCounts.premium),
-      note: 'Bookable dates',
-    },
-    {
-      label: 'Blocked',
-      value: String(monthlyCounts.blocked),
-      note: 'Not bookable',
-    },
-    {
-      label: 'Turns',
-      value: String(monthlyCounts.turn),
-      note: 'Cleaning or changeover',
-    },
+    { label: 'Available today', value: String(availToday),   note: `of ${rooms.length} room${rooms.length !== 1 ? 's' : ''}` },
+    { label: 'Occupancy today', value: `${occupancy}%`,      note: 'Booked / total capacity' },
+    { label: 'Blocked today',   value: String(blockedToday), note: 'Owner or maintenance hold' },
+    { label: 'Rooms tracked',   value: String(rooms.length), note: primaryHotelId ? 'Live data' : 'No property yet' },
   ]
+
+  // ── Monthly calendar ──
+  const calendarDays = useMemo(() => buildCalendarGrid(currentMonth), [currentMonth])
+  const weekdayLabels = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+  const todayLocal = todayDate()
+
+  // Derive calendar cell status from first room's byRoomDate
+  const primaryRoomId = rooms[0] ? String(rooms[0].id) : null
+  function calendarCellStatus(date) {
+    if (!primaryRoomId) return 'empty'
+    const cell = resolveCell(byRoomDate[primaryRoomId]?.[toIso(date)])
+    return cellStatus(cell)
+  }
 
   return (
     <HostShell
-      eyebrow="Availability"
-      title="Property booking calendar"
-      mobileTitle="Calendar"
-      description="Event-style host calendar showing booked, blocked, and free property days."
-      actions={[
-        { label: 'Inventory', href: '/host/inventory', secondary: true },
-        { label: 'Pricing rules', href: '/host/pricing' },
-      ]}
+      eyebrow="Inventory"
+      title="Allotment & availability"
+      mobileTitle="Inventory"
+      description="Manage room counts per date. Click any cell to block, open, or stop-sell individual days."
+      actions={[{ label: 'Pricing', href: '/host/pricing' }]}
       stats={stats}
     >
-      {/* ── Booking rules ── */}
+      {/* ── Allotment Grid ── */}
       <SectionCard>
-        <SectionHeading
-          eyebrow="Booking Rules"
-          title="Stay &amp; window settings"
-          description="Control how far in advance guests can book, and what lengths of stay are accepted."
-        />
-        <div className="mt-6 grid gap-5 md:grid-cols-2 lg:grid-cols-3">
-          <HostField
-            label="Minimum stay (nights)"
-            value={bookingSettings.minimumStay}
-            onChange={(e) => setBookingSetting('minimumStay', e.target.value)}
-            placeholder="1"
-            type="number"
-          />
-          <HostField
-            label="Maximum stay (nights)"
-            value={bookingSettings.maximumStay}
-            onChange={(e) => setBookingSetting('maximumStay', e.target.value)}
-            placeholder="No limit"
-            type="number"
-          />
-          <HostField
-            label="Booking window (days in advance)"
-            value={bookingSettings.bookingWindow}
-            onChange={(e) => setBookingSetting('bookingWindow', e.target.value)}
-            placeholder="365"
-            type="number"
-          />
-        </div>
-
-        <div className="mt-5 grid gap-3 md:grid-cols-2">
-          <HostToggle
-            label="Allow last-minute bookings"
-            description="Accept bookings made very close to the check-in date."
-            checked={bookingSettings.lastMinuteBooking}
-            onChange={(e) => setBookingSetting('lastMinuteBooking', e.target.checked)}
-          />
-          <HostToggle
-            label="Allow same-day bookings"
-            description="Accept bookings made on the same day as check-in."
-            checked={bookingSettings.sameDayBooking}
-            onChange={(e) => setBookingSetting('sameDayBooking', e.target.checked)}
-          />
-        </div>
-
-        {bookingSettings.lastMinuteBooking && (
-          <div className="mt-4 max-w-xs">
-            <HostField
-              label="Last-minute cutoff (hours before check-in)"
-              value={bookingSettings.lastMinuteCutoffHours}
-              onChange={(e) => setBookingSetting('lastMinuteCutoffHours', e.target.value)}
-              placeholder="24"
-              type="number"
-            />
-          </div>
-        )}
-
-        {settingsNotice && (
-          <p className={`mt-4 text-sm ${settingsNotice.includes('saved') ? 'text-green-700' : 'text-red-600'}`}>
-            {settingsNotice}
-          </p>
-        )}
-
-        <div className="mt-5">
-          <button
-            type="button"
-            onClick={handleSaveBookingSettings}
-            disabled={savingSettings}
-            className="inline-flex items-center rounded-2xl bg-dark px-6 py-2.5 text-sm font-semibold text-white hover:bg-gray-800 disabled:opacity-50"
-          >
-            {savingSettings ? 'Saving…' : 'Save booking rules'}
-          </button>
-        </div>
-      </SectionCard>
-
-      <SectionCard>
-        <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+        <div className="flex flex-wrap items-start justify-between gap-3">
           <SectionHeading
-            eyebrow="Calendar"
-            title="Event calendar"
-            description="Move to any month and scan each day for booked properties and free count."
+            eyebrow="Allotment Grid"
+            title="Room availability by date"
+            description="Rows are rooms · Columns are dates. Click any cell to adjust the available count."
           />
-
-          <div className="flex flex-wrap items-center gap-2 lg:justify-end">
-            <button
-              type="button"
-              onClick={() => setCurrentMonth((month) => addMonths(month, -1))}
-              className="inline-flex h-10 items-center gap-2 rounded-xl border border-gray-200 bg-white px-3 text-sm font-semibold text-dark transition-colors hover:bg-gray-50"
-              aria-label="Previous month"
-              title="Previous month"
-            >
+          <div className="flex flex-shrink-0 items-center gap-1.5">
+            <button type="button" aria-label="Previous period"
+              onClick={() => setGridStart((s) => addDays(s, -GRID_WINDOW))}
+              className="flex h-9 w-9 items-center justify-center rounded-xl border border-gray-200 bg-white text-slate-600 hover:bg-gray-50">
               <ChevronLeft size={16} />
-              Prev
             </button>
-            <input
-              type="month"
-              value={monthInputValue(currentMonth)}
-              onChange={handleMonthInputChange}
-              className="h-10 rounded-xl border border-gray-200 bg-white px-3 text-base md:text-sm font-semibold text-dark outline-none focus:border-dark"
-              aria-label="Choose month"
-            />
-            <button
-              type="button"
-              onClick={() => setCurrentMonth((month) => addMonths(month, 1))}
-              className="inline-flex h-10 items-center gap-2 rounded-xl border border-gray-200 bg-white px-3 text-sm font-semibold text-dark transition-colors hover:bg-gray-50"
-              aria-label="Next month"
-              title="Next month"
-            >
-              Next
+            <span className="min-w-[190px] text-center text-sm font-semibold text-slate-700">
+              {gridLabel}
+            </span>
+            <button type="button" aria-label="Next period"
+              onClick={() => setGridStart((s) => addDays(s, GRID_WINDOW))}
+              className="flex h-9 w-9 items-center justify-center rounded-xl border border-gray-200 bg-white text-slate-600 hover:bg-gray-50">
               <ChevronRight size={16} />
             </button>
-            <button
-              type="button"
-              onClick={goToToday}
-              className="inline-flex h-10 items-center gap-2 rounded-xl bg-dark px-3 text-sm font-semibold text-white transition-colors hover:bg-gray-800"
-              title="Return to current month"
-            >
-              <RefreshCw size={15} />
-              Today
+            <button type="button"
+              onClick={() => setGridStart(todayDate())}
+              className="flex h-9 items-center gap-1.5 rounded-xl border border-gray-200 bg-white px-3 text-sm font-semibold text-slate-600 hover:bg-gray-50">
+              <RefreshCw size={13} /> Today
             </button>
           </div>
         </div>
 
-        <div className="mt-5 flex flex-wrap items-center gap-2">
-          {Object.entries(statusMeta).map(([status, meta]) => (
-            <div
-              key={status}
-              className="inline-flex items-center gap-2 rounded-full border border-gray-200 bg-white px-3 py-2 text-xs font-semibold text-dark"
-              title={meta.description}
-            >
-              <span className={`h-2.5 w-2.5 rounded-full ${meta.dotClass}`} />
-              {meta.label}
-            </div>
-          ))}
-          <span className="text-xs leading-5 text-muted">
-            {isLoadingAvailability
-              ? 'Checking inventory...'
-              : hasLiveAvailability
-                ? 'Live inventory loaded where available.'
-                : 'Sign in to load your live availability data.'}
-          </span>
-        </div>
-      </SectionCard>
-
-      <SectionCard>
-        <SectionHeading
-          eyebrow="Bulk controls"
-          title="Date range actions"
-          description="Block or open dates across a selected range. Set minimum stay and rate override via Pricing rules."
-        />
-
-        <div className="mt-6 grid gap-4 xl:grid-cols-[1fr_1fr_1fr_1fr_auto]">
-          <label>
-            <span className="mb-2 block text-sm font-semibold text-dark">Start date</span>
-            <input
-              type="date"
-              value={availabilityAction.start}
-              onChange={updateAvailabilityAction('start')}
-              className="h-12 w-full rounded-xl border border-gray-300 bg-white px-3 text-base md:text-sm font-semibold text-dark outline-none focus:border-dark"
-            />
-          </label>
-          <label>
-            <span className="mb-2 block text-sm font-semibold text-dark">End date</span>
-            <input
-              type="date"
-              value={availabilityAction.end}
-              onChange={updateAvailabilityAction('end')}
-              className="h-12 w-full rounded-xl border border-gray-300 bg-white px-3 text-base md:text-sm font-semibold text-dark outline-none focus:border-dark"
-            />
-          </label>
-          <div>
-            <span className="mb-2 block text-sm font-semibold text-dark">Action</span>
-            <div ref={actionRef} className="relative">
-              <button
-                type="button"
-                onClick={() => setActionOpen((prev) => !prev)}
-                className="flex h-12 w-full items-center justify-between rounded-xl border border-gray-300 bg-white px-3 text-base md:text-sm font-semibold text-dark outline-none"
-              >
-                <span>{availabilityAction.action}</span>
-                <ChevronDown size={14} className="shrink-0 text-muted" />
-              </button>
-              {actionOpen && (
-                <div className="absolute left-0 right-0 top-[calc(100%+4px)] z-[80] overflow-hidden rounded-xl border border-gray-200 bg-white shadow-[0_12px_32px_rgba(15,23,42,0.12)]">
-                  {['Block dates', 'Open dates', 'Set minimum stay', 'Set rate override'].map((opt) => (
-                    <button
-                      key={opt}
-                      type="button"
-                      onClick={() => { updateAvailabilityAction('action')({ target: { value: opt } }); setActionOpen(false) }}
-                      className={`flex w-full items-center justify-between px-4 py-3 text-sm font-semibold transition-colors hover:bg-gray-50 ${availabilityAction.action === opt ? 'text-dark' : 'text-muted'}`}
-                    >
-                      {opt}
-                      {availabilityAction.action === opt && <Check size={14} className="shrink-0" />}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <label>
-              <span className="mb-2 block text-sm font-semibold text-dark">Min nights</span>
-              <input
-                type="text"
-                inputMode="numeric"
-                pattern="[0-9]*"
-                value={availabilityAction.minimumStay}
-                onChange={(e) => { e.target.value = e.target.value.replace(/\D/g, ''); updateAvailabilityAction('minimumStay')(e) }}
-                className="h-12 w-full rounded-xl border border-gray-300 bg-white px-3 text-base md:text-sm font-semibold text-dark outline-none focus:border-dark"
-              />
-            </label>
-            <label>
-              <span className="mb-2 block text-sm font-semibold text-dark">Rate</span>
-              <input
-                type="text"
-                inputMode="numeric"
-                pattern="[0-9]*"
-                value={availabilityAction.rateOverride}
-                onChange={(e) => { e.target.value = e.target.value.replace(/\D/g, ''); updateAvailabilityAction('rateOverride')(e) }}
-                placeholder="Optional"
-                className="h-12 w-full rounded-xl border border-gray-300 bg-white px-3 text-base md:text-sm font-semibold text-dark outline-none focus:border-dark"
-              />
-            </label>
-          </div>
-          <button
-            type="button"
-            onClick={handleApplyAvailabilityAction}
-            disabled={applying || !hotelRooms.length}
-            className="h-12 self-end rounded-xl bg-dark px-5 text-sm font-semibold text-white transition-colors hover:bg-gray-800 disabled:opacity-50"
-          >
-            {applying ? 'Applying…' : 'Apply'}
-          </button>
-        </div>
-
-        {/* No-listing banner — host hasn't created a property yet */}
+        {/* Banners */}
         {!hostLoading && !primaryHotelId && (
           <div className="mt-5 flex flex-col gap-2 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 sm:flex-row sm:items-center sm:justify-between">
-            <span className="font-semibold">
-              You haven&apos;t created a listing yet. Create your first property to manage availability.
-            </span>
-            <Link
-              to="/host/listings/new"
-              className="shrink-0 rounded-lg bg-amber-800 px-4 py-2 text-xs font-bold text-white transition-colors hover:bg-amber-900"
-            >
+            <span className="font-semibold">You haven't created a listing yet.</span>
+            <Link to="/host/listings/new"
+              className="shrink-0 rounded-lg bg-amber-800 px-4 py-2 text-xs font-bold text-white hover:bg-amber-900">
               Create listing →
             </Link>
           </div>
         )}
-
-        {/* No-rooms proactive banner — shown immediately on load, not just on Apply */}
-        {!hostLoading && !dataLoading && primaryHotelId && hotelRooms.length === 0 && (
+        {!hostLoading && !gridLoading && primaryHotelId && rooms.length === 0 && (
           <div className="mt-5 flex flex-col gap-2 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 sm:flex-row sm:items-center sm:justify-between">
-            <span className="font-semibold">
-              This property has no rooms yet. Add at least one room to manage availability.
-            </span>
-            <Link
-              to={`/host/listings/${primaryHotelId}/rooms`}
-              className="shrink-0 rounded-lg bg-amber-800 px-4 py-2 text-xs font-bold text-white transition-colors hover:bg-amber-900"
-            >
-              Add a room →
+            <span className="font-semibold">No rooms found. Add rooms to manage inventory.</span>
+            <Link to={`/host/listings/${primaryHotelId}/rooms`}
+              className="shrink-0 rounded-lg bg-amber-800 px-4 py-2 text-xs font-bold text-white hover:bg-amber-900">
+              Add rooms →
             </Link>
           </div>
         )}
 
-        {/* Success / error notice from Apply action */}
-        {availabilityNotice && hotelRooms.length > 0 ? (
-          <div className="mt-5 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-800">
-            {availabilityNotice}
+        {gridLoading ? (
+          <div className="mt-5 py-14 text-center text-sm text-slate-400">Loading inventory…</div>
+        ) : rooms.length > 0 ? (
+          <div className="relative mt-5">
+            <AllotmentGrid
+              rooms={rooms}
+              byRoomDate={byRoomDate}
+              dates={dates}
+              onCellClick={handleCellClick}
+            />
+            {editor && (
+              <CellEditor
+                room={editor.room}
+                dateIso={editor.dateIso}
+                cell={resolveCell(byRoomDate[String(editor.room.id)]?.[editor.dateIso])}
+                anchor={editor.anchor}
+                onClose={() => setEditor(null)}
+                onBlockOne={handleBlockOne}
+                onUnblockOne={handleUnblockOne}
+                onBlockAll={handleBlockAll}
+                onOpenAll={handleOpenAll}
+              />
+            )}
           </div>
         ) : null}
       </SectionCard>
 
+      {/* ── Bulk actions ── */}
       <SectionCard>
-        <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
+        <SectionHeading
+          eyebrow="Bulk Actions"
+          title="Apply to date range"
+          description="Block or open all rooms across a selected date range."
+        />
+        <div className="mt-5 grid gap-4 sm:grid-cols-[1fr_1fr_auto_auto] sm:items-end">
+          <label>
+            <span className="mb-1.5 block text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
+              Start date
+            </span>
+            <input type="date" value={bulkStart}
+              onChange={(e) => setBulkStart(e.target.value)}
+              className="h-11 w-full rounded-xl border border-gray-200 px-3 text-sm font-medium text-slate-800 outline-none focus:border-slate-500" />
+          </label>
+          <label>
+            <span className="mb-1.5 block text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
+              End date
+            </span>
+            <input type="date" value={bulkEnd}
+              onChange={(e) => setBulkEnd(e.target.value)}
+              className="h-11 w-full rounded-xl border border-gray-200 px-3 text-sm font-medium text-slate-800 outline-none focus:border-slate-500" />
+          </label>
           <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted">
-              {selectedListingId === 'all' ? 'All host properties' : 'Filtered property'}
-            </p>
-            <h2 className="mt-1 text-[24px] font-semibold tracking-tight text-dark">
-              {selectedMonthLabel}
-            </h2>
-          </div>
-          <p className="text-sm leading-6 text-muted">
-            {selectedScopeLabel}
-          </p>
-        </div>
-
-        <div className="mt-6 grid gap-4 xl:grid-cols-[270px_minmax(0,1fr)]">
-          <aside className="rounded-2xl border border-gray-200 bg-[#fcfbf8] p-3 xl:sticky xl:top-28 xl:self-start">
-            <p className="px-2 text-xs font-semibold uppercase tracking-[0.18em] text-muted">
-              Properties
-            </p>
-            <div className="mt-3 space-y-2">
-              <button
-                type="button"
-                onClick={() => setSelectedListingId('all')}
-                className={`w-full rounded-xl border px-3 py-3 text-left transition-colors ${
-                  selectedListingId === 'all'
-                    ? 'border-dark bg-dark text-white'
-                    : 'border-gray-200 bg-white text-dark hover:bg-gray-50'
-                }`}
-              >
-                <span className="block text-sm font-semibold">All properties</span>
-                <span className={`mt-1 block text-xs ${selectedListingId === 'all' ? 'text-white/70' : 'text-muted'}`}>
-                  Show every property event
-                </span>
-              </button>
-
-              {listings.map((listing) => {
-                const isSelected = String(selectedListingId) === String(listing.id)
-                const listingCounts = countStatuses(
-                  monthDays,
-                  availabilityByListingDate,
-                  [listing],
-                )
-                const bookedCount = listingCounts.occupied + listingCounts.arrival
-
-                return (
-                  <button
-                    key={listing.id}
-                    type="button"
-                    onClick={() => setSelectedListingId(String(listing.id))}
-                    className={`w-full rounded-xl border px-3 py-3 text-left transition-colors ${
-                      isSelected
-                        ? 'border-dark bg-dark text-white'
-                        : 'border-gray-200 bg-white text-dark hover:bg-gray-50'
-                    }`}
-                  >
-                    <span className="block truncate text-sm font-semibold">
-                      {getPropertyTitle(listing)}
-                    </span>
-                    <span className={`mt-1 block truncate text-xs ${isSelected ? 'text-white/70' : 'text-muted'}`}>
-                      {getPropertyLocation(listing)}
-                    </span>
-                    <span className={`mt-2 inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.1em] ${
-                      isSelected ? 'bg-white/15 text-white' : 'bg-[#f8f6f2] text-muted'
-                    }`}
-                    >
-                      {bookedCount} booked
-                    </span>
-                  </button>
-                )
-              })}
-            </div>
-          </aside>
-
-          <div className="min-w-0">
-            <div className="grid grid-cols-7 overflow-hidden rounded-2xl border border-gray-200 bg-white">
-              {weekdayLabels.map((day) => (
-                <div
-                  key={day}
-                  className="border-b border-gray-200 bg-[#fcfbf8] px-2 py-3 text-center text-xs font-semibold uppercase tracking-[0.18em] text-muted"
-                >
-                  {day}
-                </div>
-              ))}
-              {calendarDays.map((date) => {
-                const dateKey = toDateKey(date)
-                const isToday = dateKey === toDateKey(today)
-                const isOutsideMonth = !isSameMonth(date, currentMonth)
-                const dayEvents = buildEventsForDate(
-                  date,
-                  availabilityByListingDate,
-                  selectedListings,
-                )
-                const visibleEvents = dayEvents.filter(({ status }) => status !== 'open')
-                const freeCount = dayEvents.filter(({ status }) => status === 'open').length
-
-                return (
-                  <div
-                    key={dateKey}
-                    className={`min-h-[170px] border-b border-r border-gray-200 p-2 ${
-                      isOutsideMonth ? 'bg-[#f8f6f2] text-muted' : 'bg-white text-dark'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between gap-2">
-                      <span
-                        className={`inline-flex h-7 w-7 items-center justify-center rounded-full text-sm font-semibold ${
-                          isToday ? 'bg-dark text-white' : ''
-                        }`}
-                      >
-                        {date.getDate()}
-                      </span>
-                      <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted">
-                        {freeCount === selectedListings.length ? 'Free' : `${freeCount} free`}
-                      </span>
-                    </div>
-
-                    <div className="mt-2 space-y-1.5">
-                      {visibleEvents.length ? (
-                        visibleEvents.map(({ listing, meta }) => (
-                          <div
-                            key={`${dateKey}-${listing.id}`}
-                            className={`rounded-lg border px-2 py-1.5 ${meta.cellClass}`}
-                            title={`${getPropertyTitle(listing)} on ${dateKey}: ${meta.description}`}
-                          >
-                            <div className="flex items-center justify-between gap-2">
-                              <span className="truncate text-[11px] font-semibold">
-                                {getPropertyTitle(listing)}
-                              </span>
-                              <span className="shrink-0 text-[9px] font-semibold uppercase tracking-[0.1em] opacity-80">
-                                {meta.label}
-                              </span>
-                            </div>
-                            <p className="mt-0.5 truncate text-[10px] opacity-75">
-                              {getPropertyLocation(listing)}
-                            </p>
-                          </div>
-                        ))
-                      ) : (
-                        <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-2 py-2 text-[11px] font-semibold text-emerald-800">
-                          {selectedListingId === 'all' ? 'No bookings' : 'Free'}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-          </div>
-        </div>
-
-        <div className="mt-6 overflow-x-auto">
-          <div className="min-w-[880px]">
-            <div className="grid grid-cols-[200px_repeat(14,minmax(0,1fr))] gap-2">
-              <div />
-              {dates.map((d) => (
-                <div
-                  key={d.iso}
-                  className="text-center text-xs font-semibold uppercase tracking-[0.14em] text-muted"
-                >
-                  {d.label}
-                </div>
-              ))}
-            </div>
-
-            <div className="mt-4 space-y-3">
-              {dataLoading && (
-                <div className="py-12 text-center text-sm text-muted">Loading calendar…</div>
-              )}
-              {!dataLoading && rows.length === 0 && (
-                <div className="py-12 text-center text-sm text-muted">
-                  No availability data for this period.
-                </div>
-              )}
-              {rows.map((row) => (
-                <div
-                  key={row.roomId}
-                  className="grid grid-cols-[200px_repeat(14,minmax(0,1fr))] gap-2"
-                >
-                  <div className="border-r border-gray-200 pr-4">
-                    <p className="text-sm font-semibold text-dark">{row.label}</p>
-                    {row.sub && <p className="mt-0.5 text-xs text-muted">{row.sub}</p>}
-                  </div>
-                  {row.pattern.map((status, idx) => (
-                    <div
-                      key={`${row.roomId}-${dates[idx].iso}`}
-                      className={`flex min-h-[52px] items-center justify-center rounded-xl border text-[11px] font-semibold uppercase tracking-[0.08em] ${statusStyles[status] ?? statusStyles.open}`}
-                    >
-                      {statusLabel(status)}
-                    </div>
-                  ))}
-                </div>
+            <span className="mb-1.5 block text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
+              Action
+            </span>
+            <div className="flex h-11 overflow-hidden rounded-xl border border-gray-200">
+              {['block', 'open'].map((a) => (
+                <button key={a} type="button" onClick={() => setBulkAction(a)}
+                  className={`flex-1 px-5 text-sm font-semibold capitalize transition-colors ${
+                    bulkAction === a
+                      ? a === 'block' ? 'bg-rose-600 text-white' : 'bg-emerald-600 text-white'
+                      : 'bg-white text-slate-600 hover:bg-gray-50'
+                  }`}>
+                  {a}
+                </button>
               ))}
             </div>
           </div>
+          <button type="button"
+            disabled={applying || !rooms.length}
+            onClick={handleBulkApply}
+            className="h-11 rounded-xl bg-slate-900 px-6 text-sm font-semibold text-white transition hover:bg-slate-700 disabled:opacity-40">
+            {applying ? 'Applying…' : 'Apply'}
+          </button>
         </div>
-
-        <div className="mt-6 flex flex-wrap gap-3">
-          <div className="flex items-center gap-1.5">
-            <div className="h-3 w-3 rounded-sm border border-gray-200 bg-white" />
-            <span className="text-xs text-muted">Open</span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <div className="h-3 w-3 rounded-sm border border-dark bg-dark" />
-            <span className="text-xs text-muted">Occupied</span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <div className="h-3 w-3 rounded-sm border border-amber-200 bg-amber-50" />
-            <span className="text-xs text-muted">Limited</span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <div className="h-3 w-3 rounded-sm border border-rose-200 bg-rose-50" />
-            <span className="text-xs text-muted">Blocked</span>
-          </div>
-        </div>
-
-        {rows.length > 0 && (
-          <p className="mt-3 text-xs text-muted">
-            Showing {rows.length} room{rows.length !== 1 ? 's' : ''} · {dates[0].label} – {dates[dates.length - 1].label}
+        {bulkNotice && (
+          <p className={`mt-4 rounded-xl px-4 py-2.5 text-sm font-semibold ${
+            bulkNotice.includes('ould not') ? 'bg-red-50 text-red-700' : 'bg-emerald-50 text-emerald-700'
+          }`}>
+            {bulkNotice}
           </p>
         )}
+      </SectionCard>
+
+      {/* ── Monthly overview ── */}
+      <SectionCard>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <SectionHeading
+            eyebrow="Monthly Overview"
+            title={formatMonthLabel(currentMonth)}
+            description="Calendar view of availability status for your primary room type."
+          />
+          <div className="flex items-center gap-1.5">
+            <button type="button" aria-label="Previous month"
+              onClick={() => setCurrentMonth((m) => addMonths(m, -1))}
+              className="flex h-9 w-9 items-center justify-center rounded-xl border border-gray-200 bg-white text-slate-600 hover:bg-gray-50">
+              <ChevronLeft size={16} />
+            </button>
+            <input type="month" value={monthInputValue(currentMonth)}
+              onChange={(e) => {
+                const [y, m] = e.target.value.split('-').map(Number)
+                if (y && m) setCurrentMonth(new Date(y, m - 1, 1))
+              }}
+              className="h-9 rounded-xl border border-gray-200 bg-white px-3 text-sm font-semibold text-slate-700 outline-none focus:border-slate-500" />
+            <button type="button" aria-label="Next month"
+              onClick={() => setCurrentMonth((m) => addMonths(m, 1))}
+              className="flex h-9 w-9 items-center justify-center rounded-xl border border-gray-200 bg-white text-slate-600 hover:bg-gray-50">
+              <ChevronRight size={16} />
+            </button>
+            <button type="button" onClick={() => setCurrentMonth(startOfMonth(new Date()))}
+              className="flex h-9 items-center gap-1.5 rounded-xl border border-gray-200 bg-white px-3 text-sm font-semibold text-slate-600 hover:bg-gray-50">
+              <RefreshCw size={13} /> Today
+            </button>
+          </div>
+        </div>
+
+        <div className="mt-5 overflow-hidden rounded-2xl border border-gray-200">
+          <div className="grid grid-cols-7 border-b border-gray-200 bg-[#fafafa]">
+            {weekdayLabels.map((d) => (
+              <div key={d}
+                className="py-2.5 text-center text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-400">
+                {d}
+              </div>
+            ))}
+          </div>
+          <div className="grid grid-cols-7">
+            {calendarDays.map((date) => {
+              const iso = toIso(date)
+              const outside = !isSameMonth(date, currentMonth)
+              const isToday = isSameDay(date, todayLocal)
+              const status = calendarCellStatus(date)
+              const dotColor = {
+                open:    'bg-emerald-400',
+                limited: 'bg-amber-400',
+                full:    'bg-slate-700',
+                blocked: 'bg-rose-400',
+                empty:   'bg-transparent',
+              }[status] ?? 'bg-transparent'
+
+              function isSameDay(a, b) { return toIso(a) === toIso(b) }
+
+              return (
+                <div key={iso}
+                  className={`min-h-[64px] border-b border-r border-gray-100 p-2 ${
+                    outside ? 'bg-gray-50/60' : 'bg-white'
+                  }`}>
+                  <div className="flex items-center justify-between">
+                    <span className={`inline-flex h-6 w-6 items-center justify-center rounded-full text-xs font-semibold ${
+                      isToday ? 'bg-slate-900 text-white' : outside ? 'text-slate-300' : 'text-slate-700'
+                    }`}>
+                      {date.getDate()}
+                    </span>
+                    {!outside && <span className={`h-2 w-2 rounded-full ${dotColor}`} />}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+
+        {/* Calendar legend */}
+        <div className="mt-4 flex flex-wrap gap-4">
+          {LEGEND.filter(l => l.status !== 'empty').map(({ status, label }) => (
+            <div key={status} className="flex items-center gap-1.5">
+              <span className={`h-2.5 w-2.5 rounded-full ${{
+                open: 'bg-emerald-400', limited: 'bg-amber-400',
+                full: 'bg-slate-700',   blocked: 'bg-rose-400',
+              }[status]}`} />
+              <span className="text-xs text-slate-500">{label}</span>
+            </div>
+          ))}
+          {primaryRoomId && (
+            <span className="text-xs text-slate-400">
+              Showing: {roomLabel(rooms[0])}
+            </span>
+          )}
+        </div>
+      </SectionCard>
+
+      {/* ── Booking rules ── */}
+      <SectionCard>
+        <SectionHeading
+          eyebrow="Booking Rules"
+          title="Stay & window settings"
+          description="Control advance booking window and minimum / maximum stay lengths across all dates."
+        />
+        <div className="mt-5 grid gap-4 md:grid-cols-3">
+          <HostField label="Minimum stay (nights)" type="number" placeholder="1"
+            value={rules.minimumStay}
+            onChange={(e) => setRules((r) => ({ ...r, minimumStay: e.target.value }))} />
+          <HostField label="Maximum stay (nights)" type="number" placeholder="No limit"
+            value={rules.maximumStay}
+            onChange={(e) => setRules((r) => ({ ...r, maximumStay: e.target.value }))} />
+          <HostField label="Booking window (days ahead)" type="number" placeholder="365"
+            value={rules.bookingWindow}
+            onChange={(e) => setRules((r) => ({ ...r, bookingWindow: e.target.value }))} />
+        </div>
+        <div className="mt-4 grid gap-3 md:grid-cols-2">
+          <HostToggle
+            label="Allow last-minute bookings"
+            description="Accept bookings made close to the check-in date."
+            checked={rules.lastMinuteBooking}
+            onChange={(e) => setRules((r) => ({ ...r, lastMinuteBooking: e.target.checked }))} />
+          <HostToggle
+            label="Allow same-day bookings"
+            description="Accept bookings on the same day as check-in."
+            checked={rules.sameDayBooking}
+            onChange={(e) => setRules((r) => ({ ...r, sameDayBooking: e.target.checked }))} />
+        </div>
+        {rules.lastMinuteBooking && (
+          <div className="mt-4 max-w-xs">
+            <HostField label="Last-minute cutoff (hours before check-in)" type="number" placeholder="24"
+              value={rules.lastMinuteCutoffHours}
+              onChange={(e) => setRules((r) => ({ ...r, lastMinuteCutoffHours: e.target.value }))} />
+          </div>
+        )}
+        {rulesNotice && (
+          <p className={`mt-4 text-sm font-semibold ${rulesNotice === 'Saved.' ? 'text-emerald-700' : 'text-red-600'}`}>
+            {rulesNotice}
+          </p>
+        )}
+        <div className="mt-5">
+          <button type="button" disabled={savingRules} onClick={handleSaveRules}
+            className="inline-flex items-center rounded-2xl bg-dark px-6 py-2.5 text-sm font-semibold text-white hover:bg-gray-800 disabled:opacity-50">
+            {savingRules ? 'Saving…' : 'Save booking rules'}
+          </button>
+        </div>
       </SectionCard>
     </HostShell>
   )

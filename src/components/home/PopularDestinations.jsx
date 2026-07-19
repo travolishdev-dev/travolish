@@ -1,10 +1,9 @@
-import { useEffect, useRef, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { ArrowRight, ChevronLeft, ChevronRight } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useSearchContext } from '../../hooks/useSearchContext'
 import useCurrency from '../../hooks/useCurrency'
-import { searchHotels } from '../../services/hotelsApi'
 
 const DESTINATION_CARD_ITEM_CLASS =
   'shrink-0 snap-start basis-[82%] sm:basis-[calc((100%-1.25rem)/2)] lg:basis-[calc((100%-2.5rem)/3)] 2xl:basis-[calc((100%-5rem)/5)]'
@@ -85,26 +84,32 @@ const REGIONAL_DESTINATIONS = [
   { name: 'Ladakh',    query: 'Ladakh',    image: 'https://images.unsplash.com/photo-1581793745862-99fde7fa73d2?w=900&auto=format&fit=crop' },
 ]
 
-export default function PopularDestinations() {
+export default function PopularDestinations({ hotels = [] }) {
   const { t } = useTranslation('home')
   const [activeTab, setActiveTab] = useState('cities')
-  const [liveCounts, setLiveCounts] = useState({})
   const trackRef = useRef(null)
   const navigate = useNavigate()
   const { updateSearchDraft } = useSearchContext()
   const { formatCurrency } = useCurrency()
 
-  const allDestinations = [...CITY_DESTINATIONS, ...REGIONAL_DESTINATIONS]
-
-  useEffect(() => {
-    Promise.all(
-      allDestinations.map(({ name, query }) =>
-        searchHotels({ query, pageSize: 1 })
-          .then((r) => [name, r.totalElements ?? 0])
-          .catch(() => [name, null]),
-      ),
-    ).then((entries) => setLiveCounts(Object.fromEntries(entries)))
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  // Derive per-destination counts from the already-loaded hotels array.
+  // This replaces 10 individual API calls with a single client-side pass.
+  const liveCounts = useMemo(() => {
+    const allDests = [...CITY_DESTINATIONS, ...REGIONAL_DESTINATIONS]
+    return Object.fromEntries(
+      allDests.map(({ name, query }) => {
+        const q = query.toLowerCase()
+        const count = hotels.filter(
+          (h) =>
+            h.location?.toLowerCase().includes(q) ||
+            h.city?.toLowerCase().includes(q) ||
+            h.title?.toLowerCase().includes(q) ||
+            h.name?.toLowerCase().includes(q),
+        ).length
+        return [name, count]
+      }),
+    )
+  }, [hotels])
 
   const destinations = activeTab === 'cities' ? CITY_DESTINATIONS : REGIONAL_DESTINATIONS
 

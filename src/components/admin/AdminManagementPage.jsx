@@ -29,10 +29,10 @@ function computeLiveStats(pageKey, rows) {
       ]
     case 'listingApprovals':
       return [
-        { label: 'Pending', value: String(rows.filter(r => r[6] === 'PENDING').length), note: 'Awaiting review', tone: 'warning' },
-        { label: 'Approved', value: String(rows.filter(r => r[6] === 'APPROVED').length), note: 'Hotels created or updated', tone: 'success' },
-        { label: 'Rejected', value: String(rows.filter(r => r[6] === 'REJECTED').length), note: 'Request denied', tone: 'danger' },
-        { label: 'Total', value: String(rows.length), note: 'All hotel requests', tone: 'brand' },
+        { label: 'Pending review', value: String(rows.filter(r => r[6] === 'PENDING_REVIEW').length), note: 'Awaiting admin decision', tone: 'warning' },
+        { label: 'Approved', value: String(rows.filter(r => r[6] === 'LIVE').length), note: 'Now live for bookings', tone: 'success' },
+        { label: 'Returned', value: String(rows.filter(r => r[6] === 'DRAFT').length), note: 'Sent back to host', tone: 'danger' },
+        { label: 'Total', value: String(rows.length), note: 'All hotels pending review', tone: 'brand' },
       ]
     case 'moderation':
       return [

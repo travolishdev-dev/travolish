@@ -14,8 +14,11 @@ function applyTheme(theme) {
   localStorage.setItem(STORAGE_KEY, theme)
 }
 
+const initialTheme = getInitialTheme()
+applyTheme(initialTheme)
+
 const useThemeStore = create((set) => ({
-  theme: getInitialTheme(),
+  theme: initialTheme,
 
   setTheme: (theme) => {
     applyTheme(theme)
@@ -30,8 +33,5 @@ const useThemeStore = create((set) => ({
     })
   },
 }))
-
-// Sync on startup in case the store initialises after index.html's inline script
-applyTheme(getInitialTheme())
 
 export default useThemeStore

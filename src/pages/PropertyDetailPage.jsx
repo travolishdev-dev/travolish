@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useParams, useNavigate } from 'react-router-dom'
 import {
@@ -94,6 +94,12 @@ function osmTagToIcon(tags) {
 }
 
 async function fetchAutoAttractions(lat, lng) {
+  const cacheKey = `overpass:${lat.toFixed(3)},${lng.toFixed(3)}`
+  try {
+    const cached = sessionStorage.getItem(cacheKey)
+    if (cached) return JSON.parse(cached)
+  } catch {}
+
   const query = `[out:json][timeout:10];(node["amenity"~"^(restaurant|cafe|bar|fast_food|shopping_mall|hospital)$"]["name"](around:1000,${lat},${lng});node["railway"~"^(station|halt)$"]["name"](around:1500,${lat},${lng});node["highway"="bus_stop"]["name"](around:600,${lat},${lng});node["leisure"~"^(park|garden)$"]["name"](around:1000,${lat},${lng});node["natural"="beach"]["name"](around:2500,${lat},${lng});node["tourism"~"^(attraction|museum|gallery)$"]["name"](around:1500,${lat},${lng});node["aeroway"="aerodrome"]["name"](around:8000,${lat},${lng}););out 16;`
   const res = await fetch('https://overpass-api.de/api/interpreter', {
     method: 'POST',
@@ -103,7 +109,7 @@ async function fetchAutoAttractions(lat, lng) {
   if (!res.ok) return []
   const data = await res.json()
   const seen = new Set()
-  return (data.elements ?? [])
+  const results = (data.elements ?? [])
     .map((el) => {
       const name = el.tags?.name || el.tags?.['name:en']
       if (!name || el.lat == null || el.lon == null) return null
@@ -119,6 +125,8 @@ async function fetchAutoAttractions(lat, lng) {
     })
     .sort((a, b) => a.km - b.km)
     .slice(0, 6)
+  try { sessionStorage.setItem(cacheKey, JSON.stringify(results)) } catch {}
+  return results
 }
 
 function formatReviewDate(iso) {
@@ -293,6 +301,11 @@ export default function PropertyDetailPage() {
     return () => { cancelled = true }
   }, [id])
 
+  // Must be before early returns to satisfy React hooks rules
+  const roomSummary = useMemo(() => buildRoomSummary(rooms), [rooms])
+  const hostProfile = useMemo(() => property ? buildHostProfile(property) : null, [property])
+  const pricePreview = useMemo(() => property ? buildPricePreview(property, rooms) : null, [property, rooms])
+
   if (isLoading) return <DetailSkeleton />
 
   if (notFound || !property) {
@@ -313,9 +326,6 @@ export default function PropertyDetailPage() {
     )
   }
 
-  const roomSummary = buildRoomSummary(rooms)
-  const hostProfile = buildHostProfile(property)
-  const pricePreview = buildPricePreview(property, rooms)
   const hasAmenities = property.amenities?.length > 0
   const hasCoordinates =
     property.coordinates &&

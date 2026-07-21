@@ -6,6 +6,7 @@ import {
   Bell,
   Building2,
   CalendarCheck,
+  CalendarDays,
   Check,
   CheckCircle2,
   ChevronDown,
@@ -14,6 +15,7 @@ import {
   CreditCard,
   FileSearch,
   Filter,
+  Flag,
   Gauge,
   Home,
   Layers3,
@@ -25,8 +27,10 @@ import {
   ShieldCheck,
   SlidersHorizontal,
   Sparkles,
+  UserCheck,
   Users,
   X,
+  XCircle,
 } from 'lucide-react'
 import { adminNavItems } from '../../data/adminPanelData'
 import TravolishWordmark from '../common/TravolishWordmark'
@@ -48,6 +52,31 @@ const toneClasses = {
   success: 'border-emerald-200 bg-emerald-50 text-emerald-800',
   warning: 'border-amber-200 bg-amber-50 text-amber-800',
   danger: 'border-rose-200 bg-rose-50 text-rose-800',
+}
+
+const statAccentClasses = {
+  neutral: 'border-l-[3px] border-l-gray-300',
+  brand:   'border-l-[3px] border-l-brand',
+  success: 'border-l-[3px] border-l-emerald-500',
+  warning: 'border-l-[3px] border-l-amber-400',
+  danger:  'border-l-[3px] border-l-rose-500',
+}
+
+const GRID_ICONS = {
+  '/admin/listing-approvals': Building2,
+  '/admin/verification': ShieldCheck,
+  '/admin/moderation': Flag,
+  '/admin/users': Users,
+  '/admin/bookings': CalendarDays,
+}
+
+function resolveActivityIcon(item) {
+  const t = `${item.title ?? ''} ${item.meta ?? ''}`.toLowerCase()
+  if (t.includes('approv') || t.includes('verif') || t.includes('kyc')) return CheckCircle2
+  if (t.includes('reject') || t.includes('flag') || t.includes('report')) return XCircle
+  if (t.includes('book') || t.includes('reserv')) return CalendarDays
+  if (t.includes('user') || t.includes('regist')) return UserCheck
+  return Sparkles
 }
 
 function isActiveRoute(pathname, href) {
@@ -82,12 +111,15 @@ function AdminNav({ onNavigate }) {
             key={item.href}
             to={item.href}
             onClick={onNavigate}
-            className={`flex items-center gap-3 rounded-card px-3 py-3 transition-colors ${
+            className={`relative flex items-center gap-3 rounded-card px-3 py-3 transition-colors ${
               active
                 ? 'bg-dark text-white shadow-[0_12px_28px_rgba(15,23,42,0.18)]'
                 : 'text-dark hover:bg-[#fff1f3] hover:text-brand-dark'
             }`}
           >
+            {active && (
+              <span className="absolute left-0 top-1/2 h-5 w-[3px] -translate-y-1/2 rounded-r-full bg-brand" />
+            )}
             <Icon size={18} />
             <span className="min-w-0">
               <span className="block truncate text-sm font-semibold">{item.label}</span>
@@ -153,9 +185,12 @@ function AdminTopHeader() {
         <button
           type="button"
           onClick={() => setNotice('Alerts panel opened. No critical production alerts in this mock view.')}
-          className="flex h-12 items-center gap-2 rounded-card border border-gray-200 bg-white px-4 text-sm font-semibold text-dark shadow-sm transition-colors hover:border-brand hover:text-brand"
+          className="relative flex h-12 items-center gap-2 rounded-card border border-gray-200 bg-white px-4 text-sm font-semibold text-dark shadow-sm transition-colors hover:border-brand hover:text-brand"
         >
-          <Bell size={17} />
+          <span className="relative">
+            <Bell size={17} />
+            <span className="absolute -right-1.5 -top-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-brand text-[9px] font-bold text-white">3</span>
+          </span>
           Alerts
         </button>
         <button
@@ -215,7 +250,7 @@ export function AdminShell({ children }) {
 
       <div className="mx-auto grid max-w-[1760px] gap-6 px-4 py-5 md:px-8 lg:grid-cols-[292px_minmax(0,1fr)] lg:py-8 xl:px-12">
         <aside className="hidden lg:block">
-          <div className="sticky top-8 rounded-card border border-gray-200 bg-white p-4 shadow-[0_18px_42px_rgba(15,23,42,0.06)]">
+          <div className="sticky top-[90px] rounded-card border border-gray-200 bg-white p-4 shadow-[0_18px_42px_rgba(15,23,42,0.06)]">
             <div className="mb-6 rounded-card bg-[#fff1f3] px-3 py-4">
               <AdminLogo />
             </div>
@@ -322,13 +357,14 @@ export function AdminSectionHeading({ eyebrow, title, description, action }) {
 
 export function AdminStatCard({ stat }) {
   const tone = toneClasses[stat.tone] ?? toneClasses.neutral
+  const accent = statAccentClasses[stat.tone] ?? statAccentClasses.neutral
 
   return (
-    <div className={`rounded-card border px-4 py-4 ${tone}`}>
+    <div className={`rounded-card border px-4 py-4 ${tone} ${accent}`}>
       <p className="text-xs font-semibold uppercase tracking-[0.18em] opacity-70">
         {stat.label}
       </p>
-      <p className="mt-2 text-2xl font-semibold tracking-tight">{stat.value}</p>
+      <p className="mt-2 text-2xl font-semibold tracking-tight tabular-nums">{stat.value}</p>
       <p className="mt-1 text-xs leading-5 opacity-75">{stat.note}</p>
     </div>
   )
@@ -663,8 +699,9 @@ export function AdminStatesPanel({ states, validations }) {
 }
 
 export function AdminMiniBars({ data }) {
-  const maxBookings = Math.max(...data.map((item) => item.bookings))
-  const maxRevenue = Math.max(...data.map((item) => item.revenue))
+  if (!data?.length) return null
+  const maxBookings = Math.max(...data.map((item) => item.bookings), 1)
+  const maxRevenue = Math.max(...data.map((item) => item.revenue), 1)
 
   return (
     <AdminCard>
@@ -676,6 +713,7 @@ export function AdminMiniBars({ data }) {
       <div className="mt-6 grid grid-cols-7 gap-3">
         {data.map((item) => (
           <div key={item.label} className="flex min-h-[180px] flex-col justify-end gap-2">
+            <p className="text-center text-[10px] font-bold tabular-nums text-dark">{item.bookings}</p>
             <div className="flex flex-1 items-end gap-1.5">
               <div
                 className="w-full rounded-card bg-brand"
@@ -711,23 +749,26 @@ export function AdminMiniBars({ data }) {
 export function AdminActionGrid({ items }) {
   return (
     <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-      {items.map((item) => (
-        <Link
-          key={item.title}
-          to={item.href}
-          className="group rounded-card border border-gray-200 bg-white p-5 shadow-[0_14px_34px_rgba(15,23,42,0.05)] transition-all hover:-translate-y-0.5 hover:border-brand hover:shadow-[0_18px_42px_rgba(15,23,42,0.1)]"
-        >
-          <div className="flex items-start justify-between gap-3">
-            <span className="flex h-10 w-10 items-center justify-center rounded-card bg-[#fff1f3] text-brand transition-colors group-hover:bg-brand group-hover:text-white">
-              <Gauge size={18} />
-            </span>
-            <ChevronRight className="text-muted group-hover:text-brand" size={18} />
-          </div>
-          <p className="mt-4 text-2xl font-semibold tracking-tight text-dark">{item.value}</p>
-          <p className="mt-1 text-sm font-semibold text-dark">{item.title}</p>
-          <p className="mt-2 text-sm leading-6 text-muted">{item.meta}</p>
-        </Link>
-      ))}
+      {items.map((item) => {
+        const Icon = GRID_ICONS[item.href] ?? Gauge
+        return (
+          <Link
+            key={item.title}
+            to={item.href}
+            className="group rounded-card border border-gray-200 bg-white p-5 shadow-[0_14px_34px_rgba(15,23,42,0.05)] transition-all hover:-translate-y-0.5 hover:border-brand hover:shadow-[0_18px_42px_rgba(15,23,42,0.1)]"
+          >
+            <div className="flex items-start justify-between gap-3">
+              <span className="flex h-10 w-10 items-center justify-center rounded-card bg-[#fff1f3] text-brand transition-colors group-hover:bg-brand group-hover:text-white">
+                <Icon size={18} />
+              </span>
+              <ChevronRight className="text-muted transition-transform group-hover:translate-x-0.5 group-hover:text-brand" size={18} />
+            </div>
+            <p className="mt-4 text-2xl font-semibold tracking-tight tabular-nums text-dark">{item.value}</p>
+            <p className="mt-1 text-sm font-semibold text-dark">{item.title}</p>
+            <p className="mt-2 text-sm leading-6 text-muted">{item.meta}</p>
+          </Link>
+        )
+      })}
     </div>
   )
 }
@@ -741,10 +782,12 @@ export function AdminActivityFeed({ items }) {
         description="Approval, rejection, and system event history."
       />
       <div className="mt-5 divide-y divide-gray-200">
-        {items.map((item) => (
+        {items.map((item) => {
+          const ActivityIcon = resolveActivityIcon(item)
+          return (
           <div key={`${item.title}-${item.time}`} className="flex gap-3 py-4 first:pt-0 last:pb-0">
             <span className="mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-card bg-[#fff1f3] text-brand">
-              <Sparkles size={15} />
+              <ActivityIcon size={15} />
             </span>
             <div className="min-w-0">
               <p className="text-sm font-semibold text-dark">{item.title}</p>
@@ -754,7 +797,8 @@ export function AdminActivityFeed({ items }) {
               </p>
             </div>
           </div>
-        ))}
+          )
+        })}
       </div>
     </AdminCard>
   )

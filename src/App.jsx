@@ -1,78 +1,89 @@
-import { useEffect } from 'react'
+import { lazy, Suspense, useEffect } from 'react'
 import { Routes, Route, useLocation } from 'react-router-dom'
 import { Toaster } from 'react-hot-toast'
 import Navbar from './components/layout/Navbar'
 import Footer from './components/layout/Footer'
 import AuthModal from './components/auth/AuthModal'
 import TravellerAssistantWidget from './components/traveller/TravellerAssistantWidget'
-import HomePage from './pages/HomePage'
-import PropertyDetailPage from './pages/PropertyDetailPage'
-import WishlistPage from './pages/WishlistPage'
-import SearchPage from './pages/SearchPage'
-import OffersPage from './pages/OffersPage'
-import TravellerEmergencyPage from './pages/TravellerEmergencyPage'
-import MapViewPage from './pages/MapViewPage'
-import AuthCallbackPage from './pages/AuthCallbackPage'
-import OnboardingPage from './pages/OnboardingPage'
-import AccountPage from './pages/account/AccountPage'
-import EditProfilePage from './pages/account/EditProfilePage'
-import SecurityPage from './pages/account/SecurityPage'
-import PaymentMethodsPage from './pages/account/PaymentMethodsPage'
-import TransactionsPage from './pages/account/TransactionsPage'
-import NotificationSettingsPage from './pages/account/NotificationSettingsPage'
-import NotificationsPage from './pages/NotificationsPage'
-import TripsPage from './pages/trips/TripsPage'
-import TripDetailPage from './pages/trips/TripDetailPage'
-import CheckoutPage from './pages/trips/CheckoutPage'
-import MessagesPage from './pages/messages/MessagesPage'
-import ConversationPage from './pages/messages/ConversationPage'
-import MyReviewsPage from './pages/reviews/MyReviewsPage'
-import ReviewEditorPage from './pages/reviews/ReviewEditorPage'
-import HostDashboardPage from './pages/host/HostDashboardPage'
-import HostBookingsPage from './pages/host/HostBookingsPage'
-import HostListingsPage from './pages/host/HostListingsPage'
-import HostListingEditorPage from './pages/host/HostListingEditorPage'
-import HostRoomsPage from './pages/host/HostRoomsPage'
-import HostRoomEditorPage from './pages/host/HostRoomEditorPage'
-import HostAvailabilityPage from './pages/host/HostAvailabilityPage'
-import HostInventoryPage from './pages/host/HostInventoryPage'
-import HostReportsPage from './pages/host/HostReportsPage'
-import HostPricingRulesPage from './pages/host/HostPricingRulesPage'
-import HostPromotionsPage from './pages/host/HostPromotionsPage'
-import HostPricingAIPage from './pages/host/HostPricingAIPage'
-import HostPayoutsPage from './pages/host/HostPayoutsPage'
-import HostKycPage from './pages/host/HostKycPage'
-import HostCreateListingPage from './pages/host/HostCreateListingPage'
-import HostBankAccountsPage from './pages/host/HostBankAccountsPage'
-import HostGuestReviewPage from './pages/host/HostGuestReviewPage'
-import HostAutoRepliesPage from './pages/host/HostAutoRepliesPage'
-import HostEmergencyPage from './pages/host/HostEmergencyPage'
-import AboutPage from './pages/AboutPage'
-import CareersPage from './pages/CareersPage'
-import NewsroomPage from './pages/NewsroomPage'
-import PrivacyPage from './pages/PrivacyPage'
-import TermsPage from './pages/TermsPage'
-import HelpPage from './pages/HelpPage'
-import ContactPage from './pages/ContactPage'
-import TrustSafetyPage from './pages/TrustSafetyPage'
-import CancellationPolicyPage from './pages/CancellationPolicyPage'
-import DestinationsPage from './pages/DestinationsPage'
-import WeekendGetawaysPage from './pages/WeekendGetawaysPage'
-import GiftCardsPage from './pages/GiftCardsPage'
-import ResponsibleHostingPage from './pages/ResponsibleHostingPage'
-import HostResourcesPage from './pages/HostResourcesPage'
-import AdminDashboardPage from './pages/admin/AdminDashboardPage'
-import AdminUsersPage from './pages/admin/AdminUsersPage'
-import AdminVerificationPage from './pages/admin/AdminVerificationPage'
-import AdminListingApprovalsPage from './pages/admin/AdminListingApprovalsPage'
-import AdminModerationPage from './pages/admin/AdminModerationPage'
-import AdminCategoriesAmenitiesPage from './pages/admin/AdminCategoriesAmenitiesPage'
-import AdminPricingRulesPage from './pages/admin/AdminPricingRulesPage'
-import AdminBookingsPage from './pages/admin/AdminBookingsPage'
-import AdminEmailLogsPage from './pages/admin/AdminEmailLogsPage'
+
+// ── Lazy-loaded page bundles ─────────────────────────────────────────────────
+// Each page gets its own chunk; the router only loads what the user navigates to.
+const HomePage                    = lazy(() => import('./pages/HomePage'))
+const PropertyDetailPage          = lazy(() => import('./pages/PropertyDetailPage'))
+const WishlistPage                = lazy(() => import('./pages/WishlistPage'))
+const SearchPage                  = lazy(() => import('./pages/SearchPage'))
+const OffersPage                  = lazy(() => import('./pages/OffersPage'))
+const TravellerEmergencyPage      = lazy(() => import('./pages/TravellerEmergencyPage'))
+const MapViewPage                 = lazy(() => import('./pages/MapViewPage'))
+const AuthCallbackPage            = lazy(() => import('./pages/AuthCallbackPage'))
+const OnboardingPage              = lazy(() => import('./pages/OnboardingPage'))
+const AccountPage                 = lazy(() => import('./pages/account/AccountPage'))
+const EditProfilePage             = lazy(() => import('./pages/account/EditProfilePage'))
+const SecurityPage                = lazy(() => import('./pages/account/SecurityPage'))
+const PaymentMethodsPage          = lazy(() => import('./pages/account/PaymentMethodsPage'))
+const TransactionsPage            = lazy(() => import('./pages/account/TransactionsPage'))
+const NotificationSettingsPage    = lazy(() => import('./pages/account/NotificationSettingsPage'))
+const NotificationsPage           = lazy(() => import('./pages/NotificationsPage'))
+const TripsPage                   = lazy(() => import('./pages/trips/TripsPage'))
+const TripDetailPage              = lazy(() => import('./pages/trips/TripDetailPage'))
+const CheckoutPage                = lazy(() => import('./pages/trips/CheckoutPage'))
+const MessagesPage                = lazy(() => import('./pages/messages/MessagesPage'))
+const ConversationPage            = lazy(() => import('./pages/messages/ConversationPage'))
+const MyReviewsPage               = lazy(() => import('./pages/reviews/MyReviewsPage'))
+const ReviewEditorPage            = lazy(() => import('./pages/reviews/ReviewEditorPage'))
+const HostDashboardPage           = lazy(() => import('./pages/host/HostDashboardPage'))
+const HostBookingsPage            = lazy(() => import('./pages/host/HostBookingsPage'))
+const HostListingsPage            = lazy(() => import('./pages/host/HostListingsPage'))
+const HostListingEditorPage       = lazy(() => import('./pages/host/HostListingEditorPage'))
+const HostRoomsPage               = lazy(() => import('./pages/host/HostRoomsPage'))
+const HostRoomEditorPage          = lazy(() => import('./pages/host/HostRoomEditorPage'))
+const HostAvailabilityPage        = lazy(() => import('./pages/host/HostAvailabilityPage'))
+const HostInventoryPage           = lazy(() => import('./pages/host/HostInventoryPage'))
+const HostReportsPage             = lazy(() => import('./pages/host/HostReportsPage'))
+const HostPricingRulesPage        = lazy(() => import('./pages/host/HostPricingRulesPage'))
+const HostPromotionsPage          = lazy(() => import('./pages/host/HostPromotionsPage'))
+const HostPricingAIPage           = lazy(() => import('./pages/host/HostPricingAIPage'))
+const HostPayoutsPage             = lazy(() => import('./pages/host/HostPayoutsPage'))
+const HostKycPage                 = lazy(() => import('./pages/host/HostKycPage'))
+const HostCreateListingPage       = lazy(() => import('./pages/host/HostCreateListingPage'))
+const HostBankAccountsPage        = lazy(() => import('./pages/host/HostBankAccountsPage'))
+const HostGuestReviewPage         = lazy(() => import('./pages/host/HostGuestReviewPage'))
+const HostAutoRepliesPage         = lazy(() => import('./pages/host/HostAutoRepliesPage'))
+const HostEmergencyPage           = lazy(() => import('./pages/host/HostEmergencyPage'))
+const AboutPage                   = lazy(() => import('./pages/AboutPage'))
+const CareersPage                 = lazy(() => import('./pages/CareersPage'))
+const NewsroomPage                = lazy(() => import('./pages/NewsroomPage'))
+const PrivacyPage                 = lazy(() => import('./pages/PrivacyPage'))
+const TermsPage                   = lazy(() => import('./pages/TermsPage'))
+const HelpPage                    = lazy(() => import('./pages/HelpPage'))
+const ContactPage                 = lazy(() => import('./pages/ContactPage'))
+const TrustSafetyPage             = lazy(() => import('./pages/TrustSafetyPage'))
+const CancellationPolicyPage      = lazy(() => import('./pages/CancellationPolicyPage'))
+const DestinationsPage            = lazy(() => import('./pages/DestinationsPage'))
+const WeekendGetawaysPage         = lazy(() => import('./pages/WeekendGetawaysPage'))
+const GiftCardsPage               = lazy(() => import('./pages/GiftCardsPage'))
+const ResponsibleHostingPage      = lazy(() => import('./pages/ResponsibleHostingPage'))
+const HostResourcesPage           = lazy(() => import('./pages/HostResourcesPage'))
+const AdminDashboardPage          = lazy(() => import('./pages/admin/AdminDashboardPage'))
+const AdminUsersPage              = lazy(() => import('./pages/admin/AdminUsersPage'))
+const AdminVerificationPage       = lazy(() => import('./pages/admin/AdminVerificationPage'))
+const AdminListingApprovalsPage   = lazy(() => import('./pages/admin/AdminListingApprovalsPage'))
+const AdminModerationPage         = lazy(() => import('./pages/admin/AdminModerationPage'))
+const AdminCategoriesAmenitiesPage = lazy(() => import('./pages/admin/AdminCategoriesAmenitiesPage'))
+const AdminPricingRulesPage       = lazy(() => import('./pages/admin/AdminPricingRulesPage'))
+const AdminBookingsPage           = lazy(() => import('./pages/admin/AdminBookingsPage'))
+const AdminEmailLogsPage          = lazy(() => import('./pages/admin/AdminEmailLogsPage'))
 import useAuthStore from './stores/useAuthStore'
 import useNativeAppLocationStore from './stores/useNativeAppLocationStore'
 import ProtectedRoute from './components/auth/ProtectedRoute'
+
+function PageFallback() {
+  return (
+    <div className="flex min-h-[60vh] items-center justify-center">
+      <div className="h-8 w-8 animate-spin rounded-full border-[3px] border-gray-200 border-t-brand" />
+    </div>
+  )
+}
 
 function ScrollToTop() {
   const { pathname } = useLocation()
@@ -106,11 +117,9 @@ function AppLayout({ children }) {
 
   return (
     <div className="min-h-screen flex flex-col">
-      {!adminRoute ? (
-        <div className={portalRoute ? 'hidden md:block' : ''}>
-          <Navbar />
-        </div>
-      ) : null}
+      <div className={portalRoute ? 'hidden md:block' : ''}>
+        <Navbar />
+      </div>
       <div className="flex-1">{children}</div>
       {showTravellerAssistant ? <TravellerAssistantWidget /> : null}
       {!adminRoute ? (
@@ -139,6 +148,7 @@ export default function App() {
   }, [hydrateNativeAppLocation])
 
   useEffect(() => {
+    if (!location.search.includes('native=')) return
     initializeNativeAppLocation(location.search)
   }, [initializeNativeAppLocation, location.search])
 
@@ -161,6 +171,7 @@ export default function App() {
       />
       <AuthModal />
 
+      <Suspense fallback={<PageFallback />}>
       <Routes>
         {/* Pages with Navbar + Footer */}
         <Route
@@ -679,6 +690,7 @@ export default function App() {
         <Route path="/auth/callback" element={<AuthCallbackPage />} />
         <Route path="/host/onboarding" element={<OnboardingPage />} />
       </Routes>
+      </Suspense>
     </>
   )
 }

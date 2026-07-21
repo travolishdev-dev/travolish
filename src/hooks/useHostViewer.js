@@ -1,3 +1,4 @@
+import { useShallow } from 'zustand/react/shallow'
 import useAuthStore from '../stores/useAuthStore'
 
 const FALLBACK = {
@@ -7,7 +8,7 @@ const FALLBACK = {
 }
 
 export default function useHostViewer() {
-  const { user, profile } = useAuthStore()
+  const { user, profile } = useAuthStore(useShallow((s) => ({ user: s.user, profile: s.profile })))
 
   const viewer = {
     fullName:

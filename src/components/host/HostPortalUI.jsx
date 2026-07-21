@@ -38,7 +38,7 @@ const hostNavGroups = [
     title: 'Revenue',
     items: [
       { label: 'Pricing rules', href: '/host/pricing', icon: Banknote },
-      { label: 'Promotions', href: '/host/promotions', icon: Megaphone },
+      { label: 'Boost your Listing', href: '/host/promotions', icon: Megaphone },
       { label: 'Pricing AI', href: '/host/pricing-ai', icon: Bot },
       { label: 'Payouts', href: '/host/payouts', icon: WalletCards },
     ],

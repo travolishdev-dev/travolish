@@ -7,6 +7,8 @@ import {
   StatusPill,
 } from '../../components/host/HostPortalUI'
 import { HostField } from '../../components/host/HostFormFields'
+import CountrySelect from '../../components/common/CountrySelect'
+import StateSelect from '../../components/common/StateSelect'
 import {
   getKycProfile,
   getKycDocuments,
@@ -95,7 +97,7 @@ export default function HostKycPage() {
   const [uploadError, setUploadError] = useState(null)
   const [uploadSuccess, setUploadSuccess] = useState(false)
 
-  const [submitForm, setSubmitForm] = useState({ fullName: '', taxNumber: '', vatGstNumber: '', businessName: '' })
+  const [submitForm, setSubmitForm] = useState({ fullName: '', taxNumber: '', vatGstNumber: '', businessName: '', nationality: '', country: '', stateProvince: '' })
   const [submitting, setSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState(null)
   const [submitSuccess, setSubmitSuccess] = useState(false)
@@ -138,6 +140,9 @@ export default function HostKycPage() {
             taxNumber: profile.taxId ?? profile.taxNumber ?? '',
             vatGstNumber: profile.vatGstNumber ?? profile.vatNumber ?? '',
             businessName: profile.businessName ?? '',
+            nationality: profile.nationality ?? '',
+            country: profile.country ?? '',
+            stateProvince: profile.stateProvince ?? '',
           })
         }
 
@@ -236,6 +241,9 @@ export default function HostKycPage() {
         taxNumber: submitForm.taxNumber,
         vatGstNumber: submitForm.vatGstNumber,
         businessName: submitForm.businessName,
+        nationality: submitForm.nationality || null,
+        country: submitForm.country || null,
+        stateProvince: submitForm.stateProvince || null,
       })
       setSubmitSuccess(true)
       const fresh = await getVerificationStatus(hostId).catch(() => null)
@@ -440,6 +448,26 @@ export default function HostKycPage() {
             />
             <div className="mt-6 space-y-4">
               <HostField label="Full legal name" value={submitForm.fullName} onChange={updateSubmitField('fullName')} placeholder="As it appears on your government ID" />
+              <CountrySelect
+                label="Nationality"
+                value={submitForm.nationality}
+                onChange={(v) => setSubmitForm((prev) => ({ ...prev, nationality: v }))}
+                placeholder="Select nationality"
+              />
+              <div className="grid gap-4 sm:grid-cols-2">
+                <CountrySelect
+                  label="Country of residence"
+                  value={submitForm.country}
+                  onChange={(v) => setSubmitForm((prev) => ({ ...prev, country: v, stateProvince: '' }))}
+                  placeholder="Select country"
+                />
+                <StateSelect
+                  label="State / Province"
+                  country={submitForm.country}
+                  value={submitForm.stateProvince}
+                  onChange={(v) => setSubmitForm((prev) => ({ ...prev, stateProvince: v }))}
+                />
+              </div>
               <HostField label="Tax number" value={submitForm.taxNumber} onChange={updateSubmitField('taxNumber')} placeholder="Tax registration / PAN / TIN (optional)" />
               <HostField label="VAT / GST number" value={submitForm.vatGstNumber} onChange={updateSubmitField('vatGstNumber')} placeholder="VAT or GST number (optional)" />
               <HostField label="Business name (if applicable)" value={submitForm.businessName} onChange={updateSubmitField('businessName')} placeholder="Registered company name" />

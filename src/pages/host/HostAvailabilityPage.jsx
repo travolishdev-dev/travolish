@@ -2,12 +2,14 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
   ChevronLeft, ChevronRight,
+  DollarSign, GripHorizontal,
   Lock, Minus, Plus, RefreshCw, Unlock, X,
 } from 'lucide-react'
 import { HostShell, SectionCard, SectionHeading } from '../../components/host/HostPortalUI'
 import { HostField, HostToggle } from '../../components/host/HostFormFields'
 import { getHotelAvailabilityRange, blockRoomDate, unblockRoomDate } from '../../services/availabilityApi'
 import { getHostRooms, updateHotel } from '../../services/hostListingsApi'
+import { getPricingRulesForHotel, createPricingRule } from '../../services/pricingApi'
 import useHostContext from '../../hooks/useHostContext'
 
 // ── Constants ────────────────────────────────────────────────────────────────
@@ -125,6 +127,211 @@ function roomLabel(room) {
 
 function roomSub(room) {
   return [room.type, room.bedType].filter(Boolean).join(' · ')
+}
+
+// ── PriceEditor popover ───────────────────────────────────────────────────────
+function PriceEditor({ dateIso, anchor, currentPrice, onSave, onClose }) {
+  const ref = useRef(null)
+  const [value, setValue] = useState(currentPrice != null ? String(currentPrice) : '')
+  const [saving, setSaving] = useState(false)
+
+  const popStyle = useMemo(() => {
+    const PW = 256; const PH = 220
+    if (!anchor) return { position: 'fixed', top: 80, left: 16, width: PW }
+    let left = anchor.left + anchor.width / 2 - PW / 2
+    let top  = anchor.bottom + 8
+    if (left + PW > window.innerWidth - 12) left = window.innerWidth - PW - 12
+    if (left < 12) left = 12
+    if (top + PH > window.innerHeight - 12) top = anchor.top - PH - 8
+    return { position: 'fixed', top, left, width: PW }
+  }, [anchor])
+
+  useEffect(() => {
+    function onKey(e) { if (e.key === 'Escape') onClose() }
+    function onMouse(e) { if (ref.current && !ref.current.contains(e.target)) onClose() }
+    document.addEventListener('keydown', onKey)
+    document.addEventListener('mousedown', onMouse)
+    return () => {
+      document.removeEventListener('keydown', onKey)
+      document.removeEventListener('mousedown', onMouse)
+    }
+  }, [onClose])
+
+  const formattedDate = parseIso(dateIso).toLocaleDateString('en-US', {
+    weekday: 'short', month: 'long', day: 'numeric',
+  })
+
+  async function handleSave() {
+    const num = parseFloat(value)
+    if (isNaN(num) || num < 0) return
+    setSaving(true)
+    await onSave(dateIso, num)
+    setSaving(false)
+  }
+
+  return (
+    <>
+      <div className="fixed inset-0 z-[190]" />
+      <div
+        ref={ref}
+        style={popStyle}
+        className="z-[200] overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-[0_16px_48px_rgba(15,23,42,0.18)]"
+      >
+        <div className="flex items-start justify-between gap-2 bg-violet-50 px-4 py-3.5 text-violet-900">
+          <div className="min-w-0">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.12em] opacity-60">Price override</p>
+            <p className="mt-0.5 truncate text-sm font-semibold">{formattedDate}</p>
+          </div>
+          <button type="button" onClick={onClose}
+            className="mt-0.5 flex-shrink-0 rounded-full p-1 opacity-60 hover:opacity-100"
+            aria-label="Close">
+            <X size={14} />
+          </button>
+        </div>
+
+        <div className="space-y-3 p-4">
+          <div>
+            <label className="mb-1.5 block text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
+              Price per night
+            </label>
+            <div className="relative">
+              <DollarSign size={14} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+              <input
+                type="number"
+                min="0"
+                step="any"
+                value={value}
+                onChange={(e) => setValue(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') handleSave() }}
+                autoFocus
+                className="h-10 w-full rounded-xl border border-gray-200 pl-8 pr-3 text-sm font-semibold text-slate-900 outline-none focus:border-violet-400"
+              />
+            </div>
+          </div>
+          <button
+            type="button"
+            disabled={saving || value === ''}
+            onClick={handleSave}
+            className="flex h-10 w-full items-center justify-center rounded-xl bg-slate-900 text-sm font-semibold text-white transition hover:bg-slate-700 disabled:opacity-40"
+          >
+            {saving ? 'Saving…' : 'Set price'}
+          </button>
+          <p className="text-[10px] text-slate-400">
+            Drag any price cell onto others to bulk-copy this rate.
+          </p>
+        </div>
+      </div>
+    </>
+  )
+}
+
+// ── PricingGrid ───────────────────────────────────────────────────────────────
+function PricingGrid({
+  dates, priceOverrides, basePrice, weekendPrice,
+  draggedDate, dragOverDate,
+  onCellClick, onDragStart, onDragOver, onDrop, onDragEnd,
+}) {
+  const todayIso = toIso(todayDate())
+  const colTemplate = `160px repeat(${dates.length}, minmax(54px, 1fr))`
+
+  return (
+    <div className="overflow-x-auto rounded-2xl border border-gray-200 bg-white">
+      <div style={{ minWidth: `${160 + dates.length * 54}px` }}>
+
+        {/* Date header */}
+        <div className="grid border-b border-gray-200 bg-[#fafafa]"
+          style={{ gridTemplateColumns: colTemplate }}>
+          <div className="border-r border-gray-200 px-4 py-2.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-400">
+            Price / night
+          </div>
+          {dates.map((date) => {
+            const iso = toIso(date)
+            const weekend = isWeekend(date)
+            return (
+              <div key={iso} className={`px-0.5 py-2 text-center ${weekend ? 'bg-amber-50/60' : ''}`}>
+                <p className={`text-[10px] font-semibold ${iso === todayIso ? 'text-rose-500' : 'text-slate-400'}`}>
+                  {WEEKDAY[date.getDay()]}
+                </p>
+                <p className={`mt-0.5 text-[11px] font-bold ${iso === todayIso ? 'text-rose-600' : 'text-slate-700'}`}>
+                  {date.getDate()}
+                </p>
+              </div>
+            )
+          })}
+        </div>
+
+        {/* Price row */}
+        <div className="grid" style={{ gridTemplateColumns: colTemplate }}>
+          <div className="sticky left-0 z-10 flex items-center gap-2 border-r border-gray-100 bg-white px-4 py-2.5">
+            <GripHorizontal size={14} className="shrink-0 text-slate-300" />
+            <div className="min-w-0">
+              <p className="truncate text-sm font-semibold text-slate-900">Nightly rate</p>
+              <p className="mt-0.5 truncate text-[11px] text-slate-400">Click to edit · Drag to copy</p>
+            </div>
+          </div>
+
+          {dates.map((date) => {
+            const iso = toIso(date)
+            const weekend = isWeekend(date)
+            const hasOverride = iso in priceOverrides
+            const price = hasOverride
+              ? priceOverrides[iso]
+              : (weekend && weekendPrice != null ? weekendPrice : basePrice)
+            const isDragOver = dragOverDate === iso
+            const isSource   = draggedDate === iso
+
+            return (
+              <div key={iso} className={`p-1 ${weekend ? 'bg-amber-50/20' : ''}`}>
+                <button
+                  type="button"
+                  draggable
+                  onClick={(e) => onCellClick(e, iso, price)}
+                  onDragStart={() => onDragStart(iso, price)}
+                  onDragOver={(e) => onDragOver(e, iso)}
+                  onDrop={(e) => onDrop(e, iso)}
+                  onDragEnd={onDragEnd}
+                  className={[
+                    'flex h-11 w-full cursor-grab select-none flex-col items-center justify-center rounded-xl border text-xs font-semibold transition-all active:cursor-grabbing',
+                    isDragOver
+                      ? 'scale-105 border-violet-400 bg-violet-100 text-violet-900 shadow-sm'
+                      : isSource
+                        ? 'border-violet-300 bg-violet-50 opacity-60 text-violet-900'
+                        : hasOverride
+                          ? 'border-violet-200 bg-violet-50 text-violet-900 hover:bg-violet-100'
+                          : 'border-gray-200 bg-white text-slate-700 hover:bg-gray-50',
+                  ].join(' ')}
+                  title={hasOverride ? 'Custom price — click to edit' : 'Base rate — click to override'}
+                >
+                  <span className="text-[9px] font-bold uppercase tracking-[0.1em] opacity-50 leading-none">
+                    {hasOverride ? 'custom' : weekend ? 'wknd' : 'base'}
+                  </span>
+                  <span className="mt-0.5 tabular-nums leading-none">
+                    {price != null ? `$${Number(price).toLocaleString()}` : '—'}
+                  </span>
+                </button>
+              </div>
+            )
+          })}
+        </div>
+
+        {/* Legend */}
+        <div className="flex flex-wrap gap-4 border-t border-gray-100 bg-[#fafafa] px-4 py-3">
+          <div className="flex items-center gap-1.5">
+            <div className="h-3.5 w-3.5 rounded border border-violet-200 bg-violet-50" />
+            <span className="text-xs text-slate-500">Custom price</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <div className="h-3.5 w-3.5 rounded border border-amber-200 bg-amber-50" />
+            <span className="text-xs text-slate-500">Weekend rate</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <div className="h-3.5 w-3.5 rounded border border-gray-200 bg-white" />
+            <span className="text-xs text-slate-500">Base rate</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
 }
 
 // ── CellEditor popover ────────────────────────────────────────────────────────
@@ -367,6 +574,13 @@ export default function HostAvailabilityPage() {
   // Cell editor
   const [editor, setEditor] = useState(null)
 
+  // Per-date pricing
+  const [priceOverrides, setPriceOverrides] = useState({})   // {dateIso: number}
+  const [priceEditor, setPriceEditor] = useState(null)       // {dateIso, anchor, currentPrice}
+  const [draggedDate, setDraggedDate] = useState(null)       // dateIso being dragged
+  const [draggedPrice, setDraggedPrice] = useState(null)     // price being dragged
+  const [dragOverDate, setDragOverDate] = useState(null)     // dateIso being hovered during drag
+
   // Bulk
   const [bulkStart, setBulkStart] = useState(() => toIso(todayDate()))
   const [bulkEnd, setBulkEnd] = useState(() => toIso(addDays(todayDate(), 6)))
@@ -431,6 +645,28 @@ export default function HostAvailabilityPage() {
       .finally(() => setGridLoading(false))
   }, [primaryHotelId, hostLoading, gridRange])
 
+  // Load per-date price overrides from existing FLAT rules
+  useEffect(() => {
+    if (!primaryHotelId) return
+    getPricingRulesForHotel(primaryHotelId)
+      .then((rules) => {
+        const overrides = {}
+        ;(Array.isArray(rules) ? rules : []).forEach((r) => {
+          if (
+            r.pricingType === 'FLAT' &&
+            r.startDate && r.endDate &&
+            r.startDate === r.endDate &&
+            r.adjustedPrice != null &&
+            r.isActive !== false
+          ) {
+            overrides[r.startDate] = r.adjustedPrice
+          }
+        })
+        setPriceOverrides(overrides)
+      })
+      .catch(() => {})
+  }, [primaryHotelId])
+
   // ── Optimistic cell patch ──
   function patchCell(roomId, dateIso, fn) {
     const rid = String(roomId)
@@ -480,6 +716,66 @@ export default function HostAvailabilityPage() {
   function handleCellClick(event, room, dateIso, cell) {
     const rect = event.currentTarget.getBoundingClientRect()
     setEditor({ room, dateIso, anchor: rect })
+  }
+
+  // ── Per-date pricing ──
+  const primaryHotel = hotels?.find((h) => h.id === primaryHotelId)
+  const basePrice    = primaryHotel?.weekdayPrice ?? primaryHotel?.pricing?.weekday ?? null
+  const weekendPrice = primaryHotel?.weekendPrice ?? primaryHotel?.pricing?.weekend ?? null
+
+  async function savePrice(dateIso, price) {
+    if (!primaryHotelId) return
+    try {
+      await createPricingRule({
+        hotelId:      primaryHotelId,
+        ruleType:     'SEASONAL',
+        pricingType:  'FLAT',
+        description:  `Custom rate — ${dateIso}`,
+        startDate:    dateIso,
+        endDate:      dateIso,
+        adjustedPrice: price,
+        isActive:     true,
+      })
+    } catch {
+      // optimistic update already applied; fail silently
+    }
+  }
+
+  function handlePriceCellClick(event, dateIso, currentPrice) {
+    setPriceEditor({ dateIso, anchor: event.currentTarget.getBoundingClientRect(), currentPrice })
+  }
+
+  async function handlePriceSave(dateIso, price) {
+    setPriceOverrides((prev) => ({ ...prev, [dateIso]: price }))
+    setPriceEditor(null)
+    await savePrice(dateIso, price)
+  }
+
+  function handleDragStart(dateIso, price) {
+    setDraggedDate(dateIso)
+    setDraggedPrice(price)
+  }
+
+  function handleDragOver(event, dateIso) {
+    event.preventDefault()
+    setDragOverDate(dateIso)
+  }
+
+  function handleDrop(event, targetDateIso) {
+    event.preventDefault()
+    if (draggedPrice != null && targetDateIso !== draggedDate) {
+      setPriceOverrides((prev) => ({ ...prev, [targetDateIso]: draggedPrice }))
+      savePrice(targetDateIso, draggedPrice)
+    }
+    setDragOverDate(null)
+    setDraggedDate(null)
+    setDraggedPrice(null)
+  }
+
+  function handleDragEnd() {
+    setDragOverDate(null)
+    setDraggedDate(null)
+    setDraggedPrice(null)
   }
 
   // ── Bulk apply ──
@@ -646,6 +942,47 @@ export default function HostAvailabilityPage() {
             )}
           </div>
         ) : null}
+      </SectionCard>
+
+      {/* ── Per-date pricing ── */}
+      <SectionCard>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <SectionHeading
+            eyebrow="Pricing Calendar"
+            title="Nightly rates by date"
+            description="Click any date to override the price. Drag a price cell onto other dates to copy it in bulk."
+          />
+          {draggedPrice != null && (
+            <div className="flex items-center gap-2 rounded-xl border border-violet-200 bg-violet-50 px-3 py-2 text-sm font-semibold text-violet-800">
+              <GripHorizontal size={14} />
+              Dragging ${Number(draggedPrice).toLocaleString()} — drop on target dates
+            </div>
+          )}
+        </div>
+        <div className="relative mt-5">
+          <PricingGrid
+            dates={dates}
+            priceOverrides={priceOverrides}
+            basePrice={basePrice}
+            weekendPrice={weekendPrice}
+            draggedDate={draggedDate}
+            dragOverDate={dragOverDate}
+            onCellClick={handlePriceCellClick}
+            onDragStart={handleDragStart}
+            onDragOver={handleDragOver}
+            onDrop={handleDrop}
+            onDragEnd={handleDragEnd}
+          />
+          {priceEditor && (
+            <PriceEditor
+              dateIso={priceEditor.dateIso}
+              anchor={priceEditor.anchor}
+              currentPrice={priceEditor.currentPrice}
+              onSave={handlePriceSave}
+              onClose={() => setPriceEditor(null)}
+            />
+          )}
+        </div>
       </SectionCard>
 
       {/* ── Bulk actions ── */}

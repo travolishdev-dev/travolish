@@ -22,5 +22,24 @@ export default defineConfig(({ mode }) => {
         '@': '/src',
       },
     },
+    build: {
+      target: 'esnext',
+      rollupOptions: {
+        output: {
+          manualChunks: {
+            // Heavy animation library
+            'vendor-framer': ['framer-motion'],
+            // Map library (leaflet + react-leaflet)
+            'vendor-leaflet': ['leaflet', 'react-leaflet'],
+            // React Query
+            'vendor-query': ['@tanstack/react-query'],
+            // Date utilities
+            'vendor-datefns': ['date-fns'],
+            // React core
+            'vendor-react': ['react', 'react-dom', 'react-router-dom'],
+          },
+        },
+      },
+    },
   }
 })

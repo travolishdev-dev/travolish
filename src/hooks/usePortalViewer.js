@@ -1,4 +1,5 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useMemo } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { format, parseISO } from 'date-fns'
 import useAuthStore from '../stores/useAuthStore'
 import { listBookings } from '../services/bookingsApi'
@@ -8,35 +9,37 @@ export default function usePortalViewer() {
   const user = useAuthStore((state) => state.user)
   const profile = useAuthStore((state) => state.profile)
   const backendUserId = useAuthStore((state) => state.backendUserId)
-  const [tripCount, setTripCount] = useState(null)
-  const [reviewCount, setReviewCount] = useState(null)
 
-  useEffect(() => {
-    if (!backendUserId) return
-    let cancelled = false
-
-    const queries = []
-    if (backendUserId) queries.push(listBookings({ userId: backendUserId }))
-    if (user?.email)   queries.push(listBookings({ guestEmail: user.email }))
-    Promise.all(queries)
-      .then((results) => {
-        const seen = new Set()
-        const all = results.flat().filter((b) => { if (seen.has(b.id)) return false; seen.add(b.id); return true })
-        if (!cancelled) setTripCount(all.length)
+  const { data: bookings, isPending: bookingsPending } = useQuery({
+    queryKey: ['bookings', backendUserId, user?.email],
+    queryFn: async () => {
+      const queries = []
+      if (backendUserId) queries.push(listBookings({ userId: backendUserId }))
+      if (user?.email)   queries.push(listBookings({ guestEmail: user.email }))
+      const results = await Promise.all(queries)
+      const seen = new Set()
+      return results.flat().filter((b) => {
+        if (seen.has(b.id)) return false
+        seen.add(b.id)
+        return true
       })
-      .catch(() => { if (!cancelled) setTripCount(0) })
+    },
+    enabled: !!backendUserId || !!user?.email,
+    staleTime: 30_000,
+  })
 
-    getUserReviews(backendUserId)
-      .then((data) => {
-        if (!cancelled) {
-          const list = Array.isArray(data) ? data : (data?.content ?? [])
-          setReviewCount(list.length)
-        }
-      })
-      .catch(() => { if (!cancelled) setReviewCount(0) })
+  const { data: reviews, isPending: reviewsPending } = useQuery({
+    queryKey: ['reviews', 'user', backendUserId],
+    queryFn: () =>
+      getUserReviews(backendUserId).then((data) =>
+        Array.isArray(data) ? data : (data?.content ?? []),
+      ),
+    enabled: !!backendUserId,
+    staleTime: 30_000,
+  })
 
-    return () => { cancelled = true }
-  }, [backendUserId, user?.email])
+  const tripCount = bookingsPending ? null : (bookings?.length ?? 0)
+  const reviewCount = reviewsPending ? null : (reviews?.length ?? 0)
 
   const fullName =
     profile?.full_name?.trim() ||

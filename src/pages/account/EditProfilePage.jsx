@@ -12,6 +12,7 @@ import { findUserByEmail, getUser, updateUser } from '../../services/usersApi'
 import { getAvatarUploadUrl, uploadToGcs } from '../../services/storageApi'
 import useAuthStore from '../../stores/useAuthStore'
 import { normalizePhoneForStorage, parsePhoneValue } from '../../lib/phone'
+import { PhoneField } from '../../components/common/PhoneField'
 
 function Field({ label, value, onChange, placeholder, textarea = false }) {
   const Component = textarea ? 'textarea' : 'input'
@@ -136,13 +137,13 @@ export default function EditProfilePage() {
     setFormState((current) => ({ ...current, [field]: event.target.value }))
   }
 
-  const updatePhoneField = (event) => {
-    const value = event.target.value
+  const updatePhoneField = (combined) => {
     setSaved(false)
+    const { countryCode } = parsePhoneValue(combined, '+91')
     setFormState((current) => ({
       ...current,
-      phone: value,
-      phoneCountryCode: current.phoneCountryCode || '+91',
+      phone: combined,
+      phoneCountryCode: countryCode,
     }))
   }
 
@@ -226,7 +227,7 @@ export default function EditProfilePage() {
       ]}
       accent="from-sky-50 via-white to-rose-50"
     >
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_280px]">
         <SectionCard>
           <SectionHeading
             eyebrow={t('account:edit.sectionEyebrow')}
@@ -245,7 +246,7 @@ export default function EditProfilePage() {
                 <Field label={t('account:edit.fieldPreferredName')} value={formState.preferredName} onChange={updateField('preferredName')} placeholder={t('account:edit.fieldPreferredNameHint')} />
                 <Field label={t('account:edit.fieldFullName')} value={formState.fullName} onChange={updateField('fullName')} placeholder={t('account:edit.fieldFullNameHint')} />
                 <Field label={t('account:edit.fieldEmail')} value={formState.email} onChange={updateField('email')} placeholder={t('account:edit.fieldEmailHint')} />
-                <Field label={t('account:edit.fieldPhone')} value={formState.phone} onChange={updatePhoneField} placeholder={t('account:edit.fieldPhoneHint')} />
+                <PhoneField label={t('account:edit.fieldPhone')} value={formState.phone} onChange={updatePhoneField} placeholder={t('account:edit.fieldPhoneHint')} />
                 <Field label={t('account:edit.fieldCity')} value={formState.city} onChange={updateField('city')} placeholder={t('account:edit.fieldCityHint')} />
                 <Field label={t('account:edit.fieldTimeZone')} value={formState.timeZone} onChange={updateField('timeZone')} placeholder={t('account:edit.fieldTimeZoneHint')} />
               </div>

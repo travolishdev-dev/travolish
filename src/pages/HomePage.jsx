@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useRef, useState, useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Link, useNavigate } from 'react-router-dom'
 import { ArrowRight, ChevronLeft, ChevronRight, Map, Sparkles } from 'lucide-react'
@@ -310,20 +310,29 @@ export default function HomePage() {
     sharedLocation.longitude,
   )
 
-  const nearbySource = sharedLocation.hasSharedLocation
-    ? sortPropertiesBySharedLocation(properties, sharedLocation)
-    : [...properties].sort((a, b) => {
-        if (b.reviewCount !== a.reviewCount) return b.reviewCount - a.reviewCount
-        return b.rating - a.rating
-      })
+  const nearbySource = useMemo(
+    () => sharedLocation.hasSharedLocation
+      ? sortPropertiesBySharedLocation(properties, sharedLocation)
+      : [...properties].sort((a, b) => {
+          if (b.reviewCount !== a.reviewCount) return b.reviewCount - a.reviewCount
+          return b.rating - a.rating
+        }),
+    [properties, sharedLocation],
+  )
 
   const nearbyProperties = nearbySource.slice(0, SECTION_SIZE)
-  const nearbyIds = new Set(nearbyProperties.map((p) => p.id))
+  const nearbyIds = useMemo(
+    () => new Set(nearbyProperties.map((p) => p.id)),
+    [nearbyProperties],
+  )
   const selectedMode = modes.find((mode) => mode.id === recommendationMode) ?? modes[0]
-  const recommendedProperties = [...properties]
-    .filter((p) => !nearbyIds.has(p.id))
-    .sort((a, b) => scoreRecommendation(b, recommendationMode) - scoreRecommendation(a, recommendationMode))
-    .slice(0, SECTION_SIZE)
+  const recommendedProperties = useMemo(
+    () => [...properties]
+      .filter((p) => !nearbyIds.has(p.id))
+      .sort((a, b) => scoreRecommendation(b, recommendationMode) - scoreRecommendation(a, recommendationMode))
+      .slice(0, SECTION_SIZE),
+    [properties, nearbyIds, recommendationMode],
+  )
 
   const nearbyTitle = sharedLocation.hasSharedLocation
     ? t('nearHandoff')

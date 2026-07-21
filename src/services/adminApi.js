@@ -10,7 +10,7 @@ export const updateUserStatus = (id, status) => patch(`/api/users/${id}/status`,
 
 export const updateUserRole = (id, role) => patch(`/api/users/${id}/role`, { role })
 
-// ─── Hotel Change Requests (Listing Approvals) ────────────────────────────────
+// ─── Hotel Change Requests (legacy — kept for backward compat) ────────────────
 export const getHotelRequests = (status) =>
   get('/api/hotel-requests', status ? { status } : {})
 
@@ -19,6 +19,16 @@ export const approveHotelRequest = (id, comment) =>
 
 export const rejectHotelRequest = (id, comment) =>
   post(`/api/hotel-requests/${id}/reject${comment ? `?comment=${encodeURIComponent(comment)}` : ''}`)
+
+// ─── Listing Approvals (hotel PENDING_REVIEW queue) ───────────────────────────
+export const getHotelsPendingReview = () =>
+  get('/api/hotels', { status: 'PENDING_REVIEW' })
+
+export const approveHotel = (id) =>
+  patch(`/api/hotels/${id}/status?status=LIVE`)
+
+export const rejectHotel = (id) =>
+  patch(`/api/hotels/${id}/status?status=DRAFT`)
 
 // ─── Moderation (Reviews) ─────────────────────────────────────────────────────
 export const getFlaggedReviews = (page = 0, size = 50) =>

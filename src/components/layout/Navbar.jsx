@@ -204,6 +204,9 @@ export default function Navbar() {
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
 
+  // Close the dropdown on every route change (SPA navigation doesn't unmount Navbar)
+  useEffect(() => { setIsMenuOpen(false) }, [pathname])
+
   const { data: unreadData } = useQuery({
     queryKey: ['notifications', 'unread-count', backendUserId],
     queryFn: () => getUnreadCount(backendUserId),

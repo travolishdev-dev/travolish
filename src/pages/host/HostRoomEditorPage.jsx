@@ -88,7 +88,7 @@ export default function HostRoomEditorPage() {
   const { id } = useParams()
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
-  const isHostel = searchParams.get('category') === 'hostel'
+  const isHostel = searchParams.get('category') === 'HOSTEL'
   const effectiveRoomTypes = isHostel ? HOSTEL_ROOM_TYPES : ROOM_TYPES
   const [formState, setFormState] = useState({
     ...EMPTY_ROOM_DRAFT,

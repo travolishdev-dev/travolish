@@ -15,8 +15,8 @@ import {
 
 // ── Quick features offered in step 4 ─────────────────────────────────────────
 const QUICK_FEATURES = [
-  { id: 'family_friendly',      label: 'Family Friendly' },
-  { id: 'pet_friendly',         label: 'Pet Friendly' },
+  { id: 'FAMILY_FRIENDLY',      label: 'Family Friendly' },
+  { id: 'PET_FRIENDLY',         label: 'Pet Friendly' },
   { id: 'spa',                  label: 'Spa' },
   { id: 'pool',                 label: 'Pool' },
   { id: 'breakfast_included',   label: 'Breakfast Included' },
@@ -35,7 +35,7 @@ const EMPTY_DRAFT = {
   category:     '',
   subTypes:     [],
   targetGuests: [],
-  stayType:     'entire_property',
+  stayType:     'ENTIRE_PROPERTY',
   title:        '',
   starRating:   '',
   numBedrooms:  '',

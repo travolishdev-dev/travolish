@@ -4,7 +4,7 @@ const INITIAL_DRAFT = {
   propertyType: null,
   subTypes: [],
   starRating: null,
-  stayType: 'entire_property',
+  stayType: 'ENTIRE_PROPERTY',
   targetGuests: [],
   checkInTime: '15:00',
   checkOutTime: '11:00',

@@ -151,7 +151,7 @@ const USP_OPTIONS = [
   { id: 'ocean_view', label: 'Ocean View' },
   { id: 'city_center', label: 'City Center Location' },
   { id: 'free_breakfast', label: 'Free Breakfast' },
-  { id: 'pet_friendly', label: 'Pet Friendly' },
+  { id: 'PET_FRIENDLY', label: 'Pet Friendly' },
   { id: 'spa', label: 'Spa & Wellness' },
 ]
 
@@ -170,7 +170,7 @@ const EMPTY_DRAFT = {
   category: '',
   subTypes: [],
   targetGuests: [],
-  stayType: 'entire_property',
+  stayType: 'ENTIRE_PROPERTY',
   starRating: '',
   brandChain: '',
   languagesSpoken: [],

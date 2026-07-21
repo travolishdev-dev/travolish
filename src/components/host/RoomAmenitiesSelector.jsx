@@ -162,7 +162,7 @@ const CATEGORIES = [
       { id: 'self_checkin', label: 'Self Check-in (Digital Lock / App)' },
       { id: 'contactless_payment', label: 'Contactless Payment' },
       { id: 'flexible_cancellation', label: 'Flexible Cancellation' },
-      { id: 'pet_friendly', label: 'Pet-Friendly Option' },
+      { id: 'PET_FRIENDLY', label: 'Pet-Friendly Option' },
     ],
   },
 ]

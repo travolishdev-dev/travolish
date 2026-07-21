@@ -2,53 +2,51 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import toast from 'react-hot-toast'
 import AdminManagementPage from '../../components/admin/AdminManagementPage'
 import { AdminCard, AdminSectionHeading, AdminStatusPill } from '../../components/admin/AdminPortalUI'
-import { approveHotelRequest, getHotelRequests, rejectHotelRequest } from '../../services/adminApi'
+import { approveHotel, getHotelsPendingReview, rejectHotel } from '../../services/adminApi'
 
-function mapRequestToRow(r) {
-  const actionLabel = r.status === 'PENDING' ? 'Review' : 'View'
+function mapHotelToRow(hotel) {
   return [
-    r.name || `Hotel ${r.hotelId}`,
-    r.email || '—',
-    r.requestType || '—',
-    r.city || '—',
-    r.rating ? `${r.rating}★` : '—',
-    '—',
-    r.status || 'PENDING',
-    actionLabel,
+    hotel.name || `Hotel ${hotel.id}`,
+    hotel.hostId ? `Host #${hotel.hostId}` : '—',
+    hotel.category || '—',
+    [hotel.city, hotel.country].filter(Boolean).join(', ') || '—',
+    hotel.weekdayPrice ? `${hotel.currency ?? ''} ${hotel.weekdayPrice}`.trim() : '—',
+    hotel.totalRooms != null ? String(hotel.totalRooms) : '—',
+    hotel.status || 'PENDING_REVIEW',
+    'Review',
   ]
 }
 
 function statusTone(status) {
-  if (status === 'APPROVED') return 'success'
-  if (status === 'REJECTED') return 'danger'
+  if (status === 'LIVE') return 'success'
+  if (status === 'DRAFT') return 'danger'
   return 'warning'
 }
 
-function RequestDetailPanel({ record, rawMap, onSave, setNotice }) {
-  const request = record ? rawMap.current[record[0]] : null
+function HotelDetailPanel({ record, rawMap, onSave, setNotice }) {
+  const hotel = record ? rawMap.current[record[0]] : null
   const [saving, setSaving] = useState(false)
 
-  if (!request) {
+  if (!hotel) {
     return (
       <AdminCard>
         <AdminSectionHeading
-          eyebrow="Request detail"
-          title="Select a request"
-          description="Click any row to review the hotel submission and approve or reject it."
+          eyebrow="Listing detail"
+          title="Select a listing"
+          description="Click any row to review the hotel submission and approve or return it to the host."
         />
       </AdminCard>
     )
   }
 
-  const isPending = request.status === 'PENDING'
-  const isCreate = request.requestType === 'CREATE'
+  const isPending = hotel.status === 'PENDING_REVIEW'
 
   async function handleApprove() {
     setSaving(true)
     try {
-      await approveHotelRequest(request.id)
-      toast.success(`${request.name} approved — ${isCreate ? 'hotel created' : 'hotel updated'}`)
-      setNotice(`Approved: ${request.name}.${isCreate ? ' New hotel record created.' : ''}`)
+      await approveHotel(hotel.id)
+      toast.success(`${hotel.name} approved — now live`)
+      setNotice(`Approved: ${hotel.name}. Status set to LIVE.`)
       onSave()
     } catch {
       toast.error('Approval failed')
@@ -60,12 +58,12 @@ function RequestDetailPanel({ record, rawMap, onSave, setNotice }) {
   async function handleReject() {
     setSaving(true)
     try {
-      await rejectHotelRequest(request.id, 'Admin decision')
-      toast.success(`${request.name} rejected`)
-      setNotice(`Rejected: ${request.name}.`)
+      await rejectHotel(hotel.id)
+      toast.success(`${hotel.name} returned to host as DRAFT`)
+      setNotice(`Returned: ${hotel.name}. Host must revise before re-submitting.`)
       onSave()
     } catch {
-      toast.error('Rejection failed')
+      toast.error('Action failed')
     } finally {
       setSaving(false)
     }
@@ -74,46 +72,64 @@ function RequestDetailPanel({ record, rawMap, onSave, setNotice }) {
   return (
     <AdminCard className="space-y-5">
       <AdminSectionHeading
-        eyebrow={isCreate ? 'New registration' : 'Change request'}
-        title={request.name || `Hotel ${request.hotelId}`}
-        description={request.email || '—'}
+        eyebrow="New listing"
+        title={hotel.name || `Hotel ${hotel.id}`}
+        description={hotel.email || (hotel.hostId ? `Host ID: ${hotel.hostId}` : '—')}
       />
 
-      {/* Type + Status */}
+      {/* Category + Status */}
       <div className="flex flex-wrap items-center gap-2">
-        <AdminStatusPill tone={isCreate ? 'brand' : 'neutral'}>
-          {request.requestType}
-        </AdminStatusPill>
-        <AdminStatusPill tone={statusTone(request.status)}>
-          {request.status}
+        {hotel.category && (
+          <AdminStatusPill tone="neutral">{hotel.category}</AdminStatusPill>
+        )}
+        <AdminStatusPill tone={statusTone(hotel.status)}>
+          {hotel.status === 'PENDING_REVIEW' ? 'Pending review' : hotel.status}
         </AdminStatusPill>
       </div>
 
       {/* Details */}
       <div className="space-y-2 rounded-card border border-gray-200 bg-[#fcfbf8] p-4 text-sm">
-        {request.city && (
+        {(hotel.city || hotel.country) && (
           <div className="flex justify-between gap-3">
-            <span className="text-muted">City</span>
-            <span className="font-semibold text-dark">{request.city}</span>
+            <span className="text-muted">Location</span>
+            <span className="font-semibold text-dark">
+              {[hotel.city, hotel.state, hotel.country].filter(Boolean).join(', ')}
+            </span>
           </div>
         )}
-        {request.rating != null && (
+        {hotel.starRating != null && (
           <div className="flex justify-between gap-3">
-            <span className="text-muted">Proposed rating</span>
-            <span className="font-semibold text-dark">{request.rating}★</span>
+            <span className="text-muted">Star rating</span>
+            <span className="font-semibold text-dark">{'★'.repeat(hotel.starRating)}</span>
           </div>
         )}
-        {request.hotelId && (
+        {hotel.weekdayPrice != null && (
           <div className="flex justify-between gap-3">
-            <span className="text-muted">Hotel ID</span>
-            <span className="font-semibold text-dark">#{request.hotelId}</span>
+            <span className="text-muted">Base price</span>
+            <span className="font-semibold text-dark">{hotel.currency ?? ''} {hotel.weekdayPrice}/night</span>
           </div>
         )}
-        {request.requestedAt && (
+        {hotel.totalRooms != null && (
+          <div className="flex justify-between gap-3">
+            <span className="text-muted">Total rooms</span>
+            <span className="font-semibold text-dark">{hotel.totalRooms}</span>
+          </div>
+        )}
+        {hotel.stayType && (
+          <div className="flex justify-between gap-3">
+            <span className="text-muted">Stay type</span>
+            <span className="font-semibold text-dark">{hotel.stayType}</span>
+          </div>
+        )}
+        <div className="flex justify-between gap-3">
+          <span className="text-muted">Hotel ID</span>
+          <span className="font-semibold text-dark">#{hotel.id}</span>
+        </div>
+        {hotel.createdAt && (
           <div className="flex justify-between gap-3">
             <span className="text-muted">Submitted</span>
             <span className="font-semibold text-dark">
-              {new Date(request.requestedAt).toLocaleDateString('en-US', {
+              {new Date(hotel.createdAt).toLocaleDateString('en-US', {
                 month: 'short', day: 'numeric', year: 'numeric',
               })}
             </span>
@@ -121,22 +137,14 @@ function RequestDetailPanel({ record, rawMap, onSave, setNotice }) {
         )}
       </div>
 
-      {request.description && (
+      {hotel.description && (
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted">Description</p>
-          <p className="mt-2 text-sm leading-6 text-dark line-clamp-4">{request.description}</p>
+          <p className="mt-2 text-sm leading-6 text-dark line-clamp-4">{hotel.description}</p>
         </div>
       )}
 
-      {/* Admin comment (for processed requests) */}
-      {request.adminComment && (
-        <div className="rounded-card border border-gray-200 bg-[#fcfbf8] p-3">
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted">Admin note</p>
-          <p className="mt-1 text-sm text-dark">{request.adminComment}</p>
-        </div>
-      )}
-
-      {/* Action buttons — only for PENDING */}
+      {/* Action buttons — only for PENDING_REVIEW */}
       {isPending && (
         <div className="flex gap-3 border-t border-gray-200 pt-4">
           <button
@@ -145,7 +153,7 @@ function RequestDetailPanel({ record, rawMap, onSave, setNotice }) {
             onClick={handleApprove}
             className="flex-1 inline-flex h-10 items-center justify-center rounded-card bg-dark px-4 text-sm font-semibold text-white transition-colors hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-40"
           >
-            {isCreate ? 'Approve & publish' : 'Approve update'}
+            Approve & publish
           </button>
           <button
             type="button"
@@ -153,16 +161,14 @@ function RequestDetailPanel({ record, rawMap, onSave, setNotice }) {
             onClick={handleReject}
             className="flex-1 inline-flex h-10 items-center justify-center rounded-card border border-rose-200 bg-rose-50 px-4 text-sm font-semibold text-rose-700 transition-colors hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-40"
           >
-            Reject
+            Return to host
           </button>
         </div>
       )}
 
       {!isPending && (
         <p className="text-xs text-muted border-t border-gray-200 pt-4">
-          Processed {request.processedAt
-            ? new Date(request.processedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
-            : '—'}
+          This listing has already been processed (status: {hotel.status}).
         </p>
       )}
     </AdminCard>
@@ -176,13 +182,13 @@ export default function AdminListingApprovalsPage() {
 
   const load = useCallback(() => {
     setLoading(true)
-    getHotelRequests()
+    getHotelsPendingReview()
       .then((data) => {
-        const requests = Array.isArray(data) ? data : (data?.content ?? [])
+        const hotels = Array.isArray(data) ? data : (data?.content ?? [])
         rawMap.current = Object.fromEntries(
-          requests.map((r) => [r.name || `Hotel ${r.hotelId}`, r]),
+          hotels.map((h) => [h.name || `Hotel ${h.id}`, h]),
         )
-        setRows(requests.map(mapRequestToRow))
+        setRows(hotels.map(mapHotelToRow))
       })
       .catch(() => toast.error('Failed to load listing requests'))
       .finally(() => setLoading(false))
@@ -191,11 +197,11 @@ export default function AdminListingApprovalsPage() {
   useEffect(() => { load() }, [load])
 
   const handleRowAction = useCallback((_row, _action, setNotice) => {
-    setNotice('Use the panel on the right to approve or reject this request.')
+    setNotice('Use the panel on the right to approve or return this listing.')
   }, [])
 
   const renderDetailPanel = useCallback(({ record, setNotice }) => (
-    <RequestDetailPanel
+    <HotelDetailPanel
       record={record}
       rawMap={rawMap}
       onSave={load}

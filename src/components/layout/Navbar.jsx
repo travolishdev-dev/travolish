@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import {
   Search,
@@ -178,7 +179,6 @@ export default function Navbar() {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [isLocaleOpen, setIsLocaleOpen] = useState(false)
   const [country, setCountry] = useState(readStoredCountry)
-  const [unreadCount, setUnreadCount] = useState(0)
   const menuRef = useRef(null)
   const navigate = useNavigate()
   const { pathname } = useLocation()
@@ -204,12 +204,16 @@ export default function Navbar() {
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
 
-  useEffect(() => {
-    if (!backendUserId) { setUnreadCount(0); return }
-    getUnreadCount(backendUserId)
-      .then((data) => setUnreadCount(typeof data === 'number' ? data : (data?.count ?? 0)))
-      .catch(() => {})
-  }, [backendUserId])
+  const { data: unreadData } = useQuery({
+    queryKey: ['notifications', 'unread-count', backendUserId],
+    queryFn: () => getUnreadCount(backendUserId),
+    enabled: !!backendUserId,
+    staleTime: 30_000,
+    refetchInterval: 60_000,
+  })
+  const unreadCount = backendUserId
+    ? (typeof unreadData === 'number' ? unreadData : (unreadData?.count ?? 0))
+    : 0
 
   const getInitial = () => {
     if (profile?.full_name) return profile.full_name[0].toUpperCase()

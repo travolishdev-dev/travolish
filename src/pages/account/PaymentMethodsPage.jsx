@@ -9,6 +9,7 @@ import {
   StatusPill,
 } from '../../components/portal/PortalUI'
 import { getUserPaymentMethods, addPaymentMethod } from '../../services/paymentMethodsApi'
+import CountrySelect from '../../components/common/CountrySelect'
 
 const NETWORK_COLORS = {
   VISA: 'from-slate-900 via-slate-800 to-slate-700',
@@ -303,7 +304,6 @@ export default function PaymentMethodsPage() {
           {[
             { key: 'cardholderName', label: t('account:payments.cardholderName'), placeholder: t('account:payments.cardholderPlaceholder') },
             { key: 'billingEmail',   label: t('account:payments.billingEmail'),   placeholder: 'you@example.com', type: 'email' },
-            { key: 'country',        label: t('account:payments.country'),         placeholder: 'India' },
             { key: 'postalCode',     label: t('account:payments.postalCode'),      placeholder: '110001' },
           ].map(({ key, label, placeholder, type = 'text' }) => (
             <label key={key} className="block">
@@ -319,6 +319,17 @@ export default function PaymentMethodsPage() {
               />
             </label>
           ))}
+          <div>
+            <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.18em] text-muted">
+              {t('account:payments.country')}
+            </span>
+            <CountrySelect
+              value={billing.country}
+              onChange={(v) => setBilling((prev) => ({ ...prev, country: v }))}
+              placeholder="Select country"
+              inputClass="rounded-2xl !h-[50px] text-base bg-[#fcfcfb] md:text-sm"
+            />
+          </div>
         </div>
 
         {saveMsg && (

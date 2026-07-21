@@ -28,6 +28,7 @@ import {
   X,
 } from 'lucide-react'
 import { normalizePhoneForStorage } from '../../lib/phone'
+import { PhoneField } from '../../components/common/PhoneField'
 import {
   HostShell,
   SectionCard,
@@ -39,6 +40,8 @@ import AmenitiesSelector from '../../components/host/AmenitiesSelector'
 import PoliciesForm from '../../components/host/PoliciesForm'
 import PhotoUploader from '../../components/host/PhotoUploader'
 import BookingPaymentConfig from '../../components/host/BookingPaymentConfig'
+import CountrySelect from '../../components/common/CountrySelect'
+import StateSelect from '../../components/common/StateSelect'
 import { generateListingDescription } from '../../services/listingsApi'
 import {
   createHotel,
@@ -550,7 +553,7 @@ export default function HostListingEditorPage() {
         guestServices:          formState.guestServices,
         sustainabilityFeatures: formState.sustainability,       // backend: sustainabilityFeatures
         // Contact — backend has phone/email directly on Hotel
-        phone:                  formState.contactPhone ? normalizePhoneForStorage(formState.contactPhone, '+91') : null,
+        phone:                  formState.contactPhone || null,
         email:                  formState.contactEmail || null,
       }
 
@@ -926,10 +929,22 @@ export default function HostListingEditorPage() {
               />
               <div className="grid gap-4 sm:grid-cols-2">
                 <HostField label="City" value={formState.location} onChange={fieldHandler('location')} placeholder="e.g., Hamburg" />
-                <HostField label="State / Province *" value={formState.state} onChange={fieldHandler('state')} placeholder="e.g., Bavaria" error={!formState.state.trim() ? 'Required' : ''} />
+                <StateSelect
+                  label="State / Province"
+                  country={formState.country}
+                  value={formState.state}
+                  onChange={(v) => setFormState((s) => ({ ...s, state: v }))}
+                  required
+                  error={!formState.state.trim() ? 'Required' : ''}
+                />
               </div>
               <div className="grid gap-4 sm:grid-cols-2">
-                <HostField label="Country" value={formState.country} onChange={fieldHandler('country')} placeholder="e.g., Germany" />
+                <CountrySelect
+                  label="Country"
+                  value={formState.country}
+                  onChange={(v) => setFormState((s) => ({ ...s, country: v, state: '' }))}
+                  placeholder="Select country"
+                />
                 <HostField label="Postal Code" value={formState.postalCode} onChange={fieldHandler('postalCode')} placeholder="e.g., 20095" />
               </div>
 
@@ -1404,10 +1419,10 @@ export default function HostListingEditorPage() {
             </div>
             <div className="mt-6 grid gap-5 sm:grid-cols-2">
               <HostField label="Contact Person" value={formState.contactPerson} onChange={fieldHandler('contactPerson')} placeholder="e.g., Rajiv Sharma" />
-              <HostField label="Phone Number" value={formState.contactPhone} onChange={fieldHandler('contactPhone')} type="tel" placeholder="+91 98765 43210" />
+              <PhoneField label="Phone Number" value={formState.contactPhone} onChange={(v) => setField('contactPhone', v)} variant="host" placeholder="98765 43210" />
               <HostField label="Email Address" value={formState.contactEmail} onChange={fieldHandler('contactEmail')} type="email" placeholder="manager@myproperty.com" />
               <HostField label="Website URL" value={formState.websiteUrl} onChange={fieldHandler('websiteUrl')} placeholder="https://myproperty.com" />
-              <HostField label="Emergency Contact" value={formState.emergencyContact} onChange={fieldHandler('emergencyContact')} placeholder="+91 98765 00000" />
+              <PhoneField label="Emergency Contact" value={formState.emergencyContact} onChange={(v) => setField('emergencyContact', v)} variant="host" placeholder="98765 00000" />
             </div>
           </SectionCard>
         )

@@ -28,7 +28,8 @@ import { checkAvailability, calculatePrice, createBooking } from '../../services
 import useAuthStore from '../../stores/useAuthStore'
 import useCurrency from '../../hooks/useCurrency'
 import { formatCurrencyAmount, currencyConfig } from '../../lib/currency'
-import { normalizePhoneForStorage } from '../../lib/phone'
+import { normalizePhoneForStorage, parsePhoneValue } from '../../lib/phone'
+import { PhoneField } from '../../components/common/PhoneField'
 
 const CHECKOUT_ADDONS = [
   {
@@ -61,9 +62,6 @@ function formatMoney(value, currencyCode) {
   return formatCurrencyAmount(value, currencyCode)
 }
 
-const DEFAULT_CHECK_IN = addDays(new Date(), 1)
-const DEFAULT_CHECK_OUT = addDays(new Date(), 4)
-
 export default function CheckoutPage() {
   const { t } = useTranslation(['booking', 'common'])
   const supportHighlights = useMemo(() => [
@@ -88,10 +86,10 @@ export default function CheckoutPage() {
 
   // ── Date state ──────────────────────────────────────────────────────────────
   const [checkIn, setCheckIn] = useState(() =>
-    incomingBooking?.checkIn ? parseISO(incomingBooking.checkIn) : DEFAULT_CHECK_IN,
+    incomingBooking?.checkIn ? parseISO(incomingBooking.checkIn) : addDays(new Date(), 1),
   )
   const [checkOut, setCheckOut] = useState(() =>
-    incomingBooking?.checkOut ? parseISO(incomingBooking.checkOut) : DEFAULT_CHECK_OUT,
+    incomingBooking?.checkOut ? parseISO(incomingBooking.checkOut) : addDays(new Date(), 4),
   )
 
   // ── Price / availability state ──────────────────────────────────────────────
@@ -259,7 +257,7 @@ export default function CheckoutPage() {
         userId: backendUserId ?? null,
         guestName: `${firstName} ${lastName}`.trim(),
         guestEmail: email,
-        guestPhone: normalizePhoneForStorage(phone, '+91'),
+        guestPhone: normalizePhoneForStorage(phone, parsePhoneValue(phone, '+91').countryCode),
         checkIn,
         checkOut,
         basePrice: selectedRoom.pricePerNight,
@@ -758,15 +756,12 @@ export default function CheckoutPage() {
                   className="w-full rounded-2xl border border-gray-200 bg-[#fcfcfb] px-4 py-3 text-base text-dark outline-none focus:border-dark"
                 />
               </label>
-              <label className="block">
-                <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.18em] text-muted">{t('phone')}</span>
-                <input
-                  type="tel"
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  className="w-full rounded-2xl border border-gray-200 bg-[#fcfcfb] px-4 py-3 text-base text-dark outline-none focus:border-dark"
-                />
-              </label>
+              <PhoneField
+                label={t('phone')}
+                value={phone}
+                onChange={setPhone}
+                placeholder="98765 43210"
+              />
             </div>
           </SectionCard>
 

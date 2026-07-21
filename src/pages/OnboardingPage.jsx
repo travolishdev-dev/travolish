@@ -14,6 +14,7 @@ import useOnboardingStore from '../stores/useOnboardingStore'
 import useAuthStore from '../stores/useAuthStore'
 import { publishListing } from '../services/listingsApi'
 import useCurrency from '../hooks/useCurrency'
+import CountrySelect from '../components/common/CountrySelect'
 import TravolishWordmark from '../components/common/TravolishWordmark'
 import {
   PROPERTY_CATEGORIES,
@@ -469,12 +470,11 @@ function StepAbout({ title, description, location, onTitleChange, onDescriptionC
           </div>
           <div>
             <label className="block text-xs font-semibold uppercase tracking-[0.14em] text-muted mb-2">Country</label>
-            <input
-              type="text"
+            <CountrySelect
               value={location?.country || ''}
-              onChange={(e) => onLocationChange({ country: e.target.value })}
-              placeholder="e.g. France"
-              className="w-full px-4 py-3.5 border border-gray-200 rounded-2xl text-base text-dark bg-[#fcfcfb] outline-none focus:border-brand transition-colors"
+              onChange={(v) => onLocationChange({ country: v })}
+              placeholder="Select country"
+              inputClass="rounded-2xl !h-[54px] text-base bg-[#fcfcfb]"
             />
           </div>
         </div>

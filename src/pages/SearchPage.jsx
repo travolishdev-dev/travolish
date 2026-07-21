@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { MapPin, Search } from 'lucide-react'
 import { motion as Motion } from 'framer-motion'
@@ -112,11 +112,11 @@ export default function SearchPage() {
   const [isLoading, setIsLoading] = useState(false)
   const [totalResults, setTotalResults] = useState(0)
   const [selectedPropertyId, setSelectedPropertyId] = useState(null)
-  const [bboxFilter, setBboxFilter] = useState(null)
   const sharedLocation = useNativeAppLocationStore()
   const debounceRef = useRef(null)
   const geocodeControllerRef = useRef(null)
   const propertyCardRefs = useRef(new Map())
+  const roomsCacheRef = useRef(null)
 
   const destination = searchDraft.destination.trim()
 
@@ -133,6 +133,7 @@ export default function SearchPage() {
           searchHotels({ query: destination || undefined, pageSize: 50 }),
           listRooms(),
         ])
+        roomsCacheRef.current = rooms
         const adapted = adaptHotels(searchResult.content ?? [], rooms).map(enrichProperty)
         setAllProperties(adapted)
         setTotalResults(searchResult.totalElements ?? 0)
@@ -171,37 +172,34 @@ export default function SearchPage() {
   const parsedMaxPrice = maxPrice ? parseInt(maxPrice, 10) : null
   const parsedMinRating = Number(minRating) || 0
 
-  const filteredResults = allProperties.filter((property) => {
+  const filteredResults = useMemo(() => {
     const totalGuests = Number(searchDraft.adults || 0) + Number(searchDraft.children || 0)
-    const matchesMin =
-      parsedMinPrice === null ||
-      (property.price !== null && property.price >= parsedMinPrice)
-    const matchesMax =
-      parsedMaxPrice === null ||
-      (property.price !== null && property.price <= parsedMaxPrice)
-    const matchesRating = !parsedMinRating || Number(property.rating || 0) >= parsedMinRating
-    const matchesType = propertyType === 'Any' || property.propertyType === propertyType
-    const matchesAmenities =
-      selectedAmenities.length === 0 ||
-      selectedAmenities.every((amenity) => property.amenities?.includes(amenity))
-    const matchesInstant = !instantBookOnly || property.instantBookable
-    const matchesCancellation = !freeCancellationOnly || property.freeCancellation
-    // null guests = capacity unknown → don't exclude; 0 = not set, treat same as unknown
-    const matchesGuests = !totalGuests || property.guests == null || Number(property.guests) >= totalGuests
+    return allProperties.filter((property) => {
+      const matchesMin =
+        parsedMinPrice === null ||
+        (property.price !== null && property.price >= parsedMinPrice)
+      const matchesMax =
+        parsedMaxPrice === null ||
+        (property.price !== null && property.price <= parsedMaxPrice)
+      const matchesRating = !parsedMinRating || Number(property.rating || 0) >= parsedMinRating
+      const matchesType = propertyType === 'Any' || property.propertyType === propertyType
+      const matchesAmenities =
+        selectedAmenities.length === 0 ||
+        selectedAmenities.every((amenity) => property.amenities?.includes(amenity))
+      const matchesInstant = !instantBookOnly || property.instantBookable
+      const matchesCancellation = !freeCancellationOnly || property.freeCancellation
+      const matchesGuests = !totalGuests || property.guests == null || Number(property.guests) >= totalGuests
+      return matchesMin && matchesMax && matchesRating && matchesType &&
+             matchesAmenities && matchesInstant && matchesCancellation && matchesGuests
+    })
+  }, [allProperties, parsedMinPrice, parsedMaxPrice, parsedMinRating, propertyType,
+      selectedAmenities, instantBookOnly, freeCancellationOnly,
+      searchDraft.adults, searchDraft.children])
 
-    return (
-      matchesMin &&
-      matchesMax &&
-      matchesRating &&
-      matchesType &&
-      matchesAmenities &&
-      matchesInstant &&
-      matchesCancellation &&
-      matchesGuests
-    )
-  })
-
-  const sortedResults = sortResults(filteredResults, sortOption, sharedLocation)
+  const sortedResults = useMemo(
+    () => sortResults(filteredResults, sortOption, sharedLocation),
+    [filteredResults, sortOption, sharedLocation],
+  )
   const sharedCoordinates = formatCoordinates(
     sharedLocation.latitude,
     sharedLocation.longitude,
@@ -245,7 +243,6 @@ export default function SearchPage() {
   const handleBboxSearch = useCallback(async (bbox) => {
     geocodeControllerRef.current?.abort()
     geocodeControllerRef.current = null
-    setBboxFilter(bbox)
     setIsLoading(true)
     try {
       const [searchResult, rooms] = await Promise.all([
@@ -257,7 +254,7 @@ export default function SearchPage() {
           lngMin: bbox.lngMin,
           lngMax: bbox.lngMax,
         }),
-        listRooms(),
+        roomsCacheRef.current ? Promise.resolve(roomsCacheRef.current) : listRooms(),
       ])
       const adapted = adaptHotels(searchResult.content ?? [], rooms).map(enrichProperty)
       setAllProperties(adapted)

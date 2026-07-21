@@ -168,7 +168,7 @@ export default function HostPricingRulesPage() {
       description="Seasonal and dynamic pricing rules for your listings."
       actions={[
         { label: 'Pricing AI', href: '/host/pricing-ai', secondary: true },
-        { label: 'Promotions', href: '/host/promotions' },
+        { label: 'Boost your Listing', href: '/host/promotions' },
       ]}
       mobileAction={{ label: 'New rule', onClick: () => setShowForm(true) }}
       stats={[

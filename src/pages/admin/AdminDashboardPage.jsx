@@ -93,9 +93,9 @@ export default function AdminDashboardPage() {
 
       <AdminActionGrid items={pendingActions} />
 
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,1.2fr)_minmax(360px,0.8fr)]">
-        <AdminMiniBars data={bookingTrend} />
-        <AdminActivityFeed items={activity} />
+      <div className={`grid gap-6 ${bookingTrend.length ? 'xl:grid-cols-[minmax(0,1.2fr)_minmax(360px,0.8fr)]' : ''}`}>
+        {bookingTrend.length > 0 && <AdminMiniBars data={bookingTrend} />}
+        {activity.length > 0 && <AdminActivityFeed items={activity} />}
       </div>
 
       <AdminApprovalTable rows={approvals} />

@@ -11,8 +11,8 @@ import { get } from '../../lib/api'
 const STATUS_TONE = {
   CONFIRMED: 'success',
   PENDING: 'warning',
-  COMPLETED: 'slate',
-  CANCELLED: 'error',
+  COMPLETED: 'neutral',
+  CANCELLED: 'danger',
 }
 
 function fmt(d) {

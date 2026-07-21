@@ -272,9 +272,9 @@ export default function HostPromotionsPage() {
 
   return (
     <HostShell
-      eyebrow="Promotions"
-      title="Promotions"
-      mobileTitle="Promotions"
+      eyebrow="Boost your Listing"
+      title="Boost your Listing"
+      mobileTitle="Boost your Listing"
       description="Listing boosts and scheduled campaigns."
       actions={[
         { label: 'Pricing rules', href: '/host/pricing', secondary: true },
@@ -288,7 +288,7 @@ export default function HostPromotionsPage() {
       {/* ── Discount promotions ── */}
       <SectionCard>
         <SectionHeading
-          eyebrow="Promotions"
+          eyebrow="Boost your Listing"
           title="Discount promotions"
           description="Enable and configure guest-facing discounts. Enabled promotions are applied automatically at checkout."
         />

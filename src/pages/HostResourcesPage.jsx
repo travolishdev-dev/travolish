@@ -49,7 +49,7 @@ const guides = [
 const tools = [
   { label: 'Host dashboard', href: '/host', description: 'Manage bookings, listings, and revenue in one place.' },
   { label: 'Pricing AI', href: '/host/pricing-ai', description: 'Get AI-driven rate suggestions based on demand signals.' },
-  { label: 'Promotions', href: '/host/promotions', description: 'Create promo codes and early-bird discounts.' },
+  { label: 'Boost your Listing', href: '/host/promotions', description: 'Create promo codes and early-bird discounts.' },
   { label: 'Availability calendar', href: '/host/availability', description: 'Block dates and manage your booking windows.' },
   { label: 'Reports', href: '/host/reports', description: 'Track earnings, occupancy, and guest metrics.' },
   { label: 'KYC & payouts', href: '/host/kyc', description: 'Complete identity verification to unlock payouts.' },

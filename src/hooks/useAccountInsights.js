@@ -1,4 +1,5 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useMemo } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { differenceInCalendarDays, format, isAfter, parseISO, startOfToday } from 'date-fns'
 import useAuthStore from '../stores/useAuthStore'
 import { listBookings } from '../services/bookingsApi'
@@ -8,66 +9,56 @@ export default function useAccountInsights() {
   const user = useAuthStore((state) => state.user)
   const backendUserId = useAuthStore((state) => state.backendUserId)
 
-  const [nextDeparture, setNextDeparture] = useState(undefined)
-  const [tripCount, setTripCount] = useState(undefined)
-  const [unreadCount, setUnreadCount] = useState(undefined)
-
-  useEffect(() => {
-    if (!user?.email && !backendUserId) return
-    let cancelled = false
-
-    const queries = []
-    if (backendUserId) queries.push(listBookings({ userId: backendUserId }))
-    if (user?.email)   queries.push(listBookings({ guestEmail: user.email }))
-
-    Promise.all(queries)
-      .then((results) => {
-        if (cancelled) return
-        const seen = new Set()
-        const bookings = results.flat().filter((b) => {
-          if (seen.has(b.id)) return false
-          seen.add(b.id)
-          return true
-        })
-        setTripCount(bookings.length)
-
-        const today = startOfToday()
-        const upcoming = bookings
-          .filter((b) => {
-            const s = b.status?.toUpperCase()
-            return (s === 'CONFIRMED' || s === 'PENDING') &&
-                   b.checkInDate &&
-                   isAfter(parseISO(b.checkInDate), today)
-          })
-          .sort((a, b) => parseISO(a.checkInDate) - parseISO(b.checkInDate))
-
-        if (upcoming.length > 0) {
-          const next = upcoming[0]
-          const days = differenceInCalendarDays(parseISO(next.checkInDate), today)
-          setNextDeparture({ days, note: `Check-in ${format(parseISO(next.checkInDate), 'MMM d, yyyy')}` })
-        } else {
-          setNextDeparture(null)
-        }
+  const { data: bookings, isPending: bookingsPending } = useQuery({
+    queryKey: ['bookings', backendUserId, user?.email],
+    queryFn: async () => {
+      const queries = []
+      if (backendUserId) queries.push(listBookings({ userId: backendUserId }))
+      if (user?.email)   queries.push(listBookings({ guestEmail: user.email }))
+      const results = await Promise.all(queries)
+      const seen = new Set()
+      return results.flat().filter((b) => {
+        if (seen.has(b.id)) return false
+        seen.add(b.id)
+        return true
       })
-      .catch(() => {
-        if (!cancelled) { setTripCount(0); setNextDeparture(null) }
+    },
+    enabled: !!backendUserId || !!user?.email,
+    staleTime: 30_000,
+  })
+
+  const { data: unreadData } = useQuery({
+    queryKey: ['notifications', 'unread-count', backendUserId],
+    queryFn: () => getUnreadCount(backendUserId),
+    enabled: !!backendUserId,
+    staleTime: 30_000,
+    refetchInterval: 60_000,
+  })
+
+  const tripCount = bookingsPending ? undefined : (bookings?.length ?? 0)
+  const unreadCount = !backendUserId
+    ? undefined
+    : typeof unreadData === 'number'
+      ? unreadData
+      : (unreadData?.count ?? undefined)
+
+  const nextDeparture = useMemo(() => {
+    if (!bookings) return undefined
+    const today = startOfToday()
+    const upcoming = bookings
+      .filter((b) => {
+        const s = b.status?.toUpperCase()
+        return (s === 'CONFIRMED' || s === 'PENDING') &&
+               b.checkInDate &&
+               isAfter(parseISO(b.checkInDate), today)
       })
+      .sort((a, b) => parseISO(a.checkInDate) - parseISO(b.checkInDate))
 
-    return () => { cancelled = true }
-  }, [user?.email])
-
-  useEffect(() => {
-    if (!backendUserId) return
-    let cancelled = false
-
-    getUnreadCount(backendUserId)
-      .then((data) => {
-        if (!cancelled) setUnreadCount(typeof data === 'number' ? data : 0)
-      })
-      .catch(() => { if (!cancelled) setUnreadCount(0) })
-
-    return () => { cancelled = true }
-  }, [backendUserId])
+    if (upcoming.length === 0) return null
+    const next = upcoming[0]
+    const days = differenceInCalendarDays(parseISO(next.checkInDate), today)
+    return { days, note: `Check-in ${format(parseISO(next.checkInDate), 'MMM d, yyyy')}` }
+  }, [bookings])
 
   // Memoize so the returned array reference is stable unless actual values change
   return useMemo(() => {

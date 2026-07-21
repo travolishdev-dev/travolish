@@ -7,6 +7,7 @@ import {
 } from '../../components/host/HostPortalUI'
 import { HostField } from '../../components/host/HostFormFields'
 import { getBankAccounts, registerBankAccount, deleteBankAccount, setPrimaryBankAccount } from '../../services/bankAccountsApi'
+import CountrySelect from '../../components/common/CountrySelect'
 import toast from 'react-hot-toast'
 import useHostContext from '../../hooks/useHostContext'
 
@@ -40,6 +41,7 @@ export default function HostBankAccountsPage() {
     swiftCode: '',
     iban: '',
     currency: '',
+    country: '',
   })
   const [saving, setSaving] = useState(false)
 
@@ -113,6 +115,7 @@ export default function HostBankAccountsPage() {
         swiftCode: formState.swiftCode || null,
         iban: formState.iban || null,
         currency: formState.currency || 'USD',
+        country: formState.country || null,
       })
       const data = await getBankAccounts(hostId)
       const items = data?.content ?? (Array.isArray(data) ? data : null)
@@ -121,7 +124,7 @@ export default function HostBankAccountsPage() {
         setAccounts(nextAccounts)
         setDefaultAccountId((current) => current ?? nextAccounts[0]?.id ?? null)
       }
-      setFormState({ accountName: '', bankName: '', routingNumber: '', accountNumber: '', swiftCode: '', iban: '', currency: '' })
+      setFormState({ accountName: '', bankName: '', routingNumber: '', accountNumber: '', swiftCode: '', iban: '', currency: '', country: '' })
     } catch {
       toast.error('Failed to save account. Please try again.')
     } finally {
@@ -247,6 +250,12 @@ export default function HostBankAccountsPage() {
               value={formState.currency}
               onChange={updateField('currency')}
               placeholder="USD / EUR / INR"
+            />
+            <CountrySelect
+              label="Country"
+              value={formState.country}
+              onChange={(v) => setFormState((prev) => ({ ...prev, country: v }))}
+              placeholder="Select country"
             />
             <button
               onClick={handleSave}

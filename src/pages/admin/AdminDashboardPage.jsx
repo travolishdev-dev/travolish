@@ -12,7 +12,7 @@ import { getAdminDashboardStats } from '../../services/adminApi'
 function buildStats(s) {
   return [
     { label: 'Total users', value: s.totalUsers.toLocaleString(), note: 'Registered accounts', tone: 'brand' },
-    { label: 'Active listings', value: s.totalHotels.toLocaleString(), note: `${s.pendingHotelRequests} pending requests`, tone: 'warning' },
+    { label: 'Active listings', value: s.totalHotels.toLocaleString(), note: `${s.pendingHotelRequests} awaiting review`, tone: 'warning' },
     { label: 'Flagged content', value: String(s.flaggedReviews), note: 'Awaiting moderation', tone: 'danger' },
     { label: 'KYC pending', value: String(s.pendingKYC), note: 'Verification queue', tone: 'success' },
   ]
@@ -20,7 +20,7 @@ function buildStats(s) {
 
 function buildPendingActions(s) {
   return [
-    { title: 'Hotel requests', value: String(s.pendingHotelRequests), meta: 'Change requests', href: '/admin/listing-approvals' },
+    { title: 'Listing approvals', value: String(s.pendingHotelRequests), meta: 'New listings + change requests', href: '/admin/listing-approvals' },
     { title: 'KYC documents', value: String(s.pendingKYC), meta: 'Verification queue', href: '/admin/verification' },
     { title: 'Moderation reports', value: String(s.flaggedReviews), meta: 'Flagged content', href: '/admin/moderation' },
     { title: 'Registered users', value: s.totalUsers.toLocaleString(), meta: 'Total accounts', href: '/admin/users' },
@@ -38,13 +38,16 @@ function buildApprovals(s) {
 
 export default function AdminDashboardPage() {
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(false)
   const [stats, setStats] = useState([])
   const [pendingActions, setPendingActions] = useState([])
   const [bookingTrend, setBookingTrend] = useState([])
   const [approvals, setApprovals] = useState([])
   const [activity, setActivity] = useState([])
 
-  useEffect(() => {
+  function load() {
+    setLoading(true)
+    setError(false)
     getAdminDashboardStats()
       .then((s) => {
         setStats(buildStats(s))
@@ -63,9 +66,11 @@ export default function AdminDashboardPage() {
           setActivity(s.recentActivity)
         }
       })
-      .catch(() => {})
+      .catch(() => setError(true))
       .finally(() => setLoading(false))
-  }, [])
+  }
+
+  useEffect(() => { load() }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   if (loading) {
     return (
@@ -77,6 +82,24 @@ export default function AdminDashboardPage() {
           </div>
           <div className="h-48 rounded-2xl bg-gray-100" />
           <div className="h-64 rounded-2xl bg-gray-100" />
+        </div>
+      </AdminShell>
+    )
+  }
+
+  if (error) {
+    return (
+      <AdminShell>
+        <div className="flex min-h-[40vh] flex-col items-center justify-center gap-4 rounded-2xl border border-rose-200 bg-rose-50 p-12 text-center">
+          <p className="text-lg font-semibold text-rose-700">Failed to load dashboard</p>
+          <p className="text-sm text-rose-600">The server may be unavailable. Check your connection and try again.</p>
+          <button
+            type="button"
+            onClick={load}
+            className="mt-2 inline-flex h-10 items-center rounded-card bg-rose-700 px-5 text-sm font-semibold text-white transition-colors hover:bg-rose-800"
+          >
+            Retry
+          </button>
         </div>
       </AdminShell>
     )

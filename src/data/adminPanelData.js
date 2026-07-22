@@ -42,10 +42,22 @@ export const adminNavItems = [
     description: 'Fees, taxes, and rates',
   },
   {
+    label: 'Bookings',
+    href: '/admin/bookings',
+    icon: 'bookings',
+    description: 'All platform reservations',
+  },
+  {
     label: 'Email logs',
     href: '/admin/email-logs',
     icon: 'mail',
     description: 'Outbound email activity',
+  },
+  {
+    label: 'Audit log',
+    href: '/admin/audit-log',
+    icon: 'audit',
+    description: 'Full platform event history',
   },
 ]
 
@@ -93,10 +105,10 @@ export const adminScreenConfigs = {
       'Manage traveler accounts, host applications, account status, verification state, and admin action history.',
     searchPlaceholder: 'Search name, email, phone, ID, or status',
     stats: [
-      { label: 'Registered accounts', value: '48,240', note: 'Travelers, hosts, admins', tone: 'brand' },
-      { label: 'Pending hosts', value: '42', note: 'Applications waiting', tone: 'warning' },
-      { label: 'Suspended', value: '118', note: 'Policy or payment risk', tone: 'danger' },
-      { label: 'Verified', value: '91%', note: 'Identity or payment verified', tone: 'success' },
+      { label: 'Registered accounts', value: '—', note: 'Travelers, hosts, admins', tone: 'brand' },
+      { label: 'Pending hosts', value: '—', note: 'Applications waiting', tone: 'warning' },
+      { label: 'Suspended', value: '—', note: 'Policy or payment risk', tone: 'danger' },
+      { label: 'Verified', value: '—', note: 'Identity or payment verified', tone: 'success' },
     ],
     filters: [
       { label: 'Role', field: 'Role' },
@@ -134,10 +146,10 @@ export const adminScreenConfigs = {
       'Track document submission, preview masked IDs, approve verification, reject with reason, or request resubmission.',
     searchPlaceholder: 'Search user, host, document type, or reviewer note',
     stats: [
-      { label: 'Pending review', value: '36', note: '6 beyond SLA', tone: 'warning' },
-      { label: 'Approved today', value: '18', note: 'Clean decisions', tone: 'success' },
-      { label: 'Rejected', value: '7', note: 'Document mismatch', tone: 'danger' },
-      { label: 'Expiring soon', value: '24', note: 'Next 30 days', tone: 'brand' },
+      { label: 'Pending review', value: '—', note: '6 beyond SLA', tone: 'warning' },
+      { label: 'Approved today', value: '—', note: 'Clean decisions', tone: 'success' },
+      { label: 'Rejected', value: '—', note: 'Document mismatch', tone: 'danger' },
+      { label: 'Expiring soon', value: '—', note: 'Next 30 days', tone: 'brand' },
     ],
     filters: [
       { label: 'Status', field: 'Status' },
@@ -305,7 +317,7 @@ export const adminScreenConfigs = {
       { label: 'Period', field: 'Period' },
       { label: 'Status', field: 'Status' },
     ],
-    bulkActions: ['Enable', 'Disable', 'Clone', 'Preview impact'],
+    bulkActions: ['Enable', 'Disable', 'Edit', 'Clone', 'Preview impact'],
     columns: ['Rule', 'Type', 'Applies to', 'Value', 'Period', 'Priority', 'Status', 'Action'],
     rows: [
       ['Standard commission', 'Commission', 'All listings', '12%', 'Always', '10', 'Active', 'Edit'],

@@ -75,9 +75,16 @@ function buildCountdown(dateStr, t) {
 }
 
 function buildRefundEstimate(booking) {
+  // Prefer an explicit refund amount from the backend
+  if (booking.refundAmount != null) return Number(booking.refundAmount)
   const total = Number(booking.totalPrice ?? 0)
   if (!total) return 0
-  return Math.round(total * 0.82)
+  const daysUntilCheckIn = booking.checkInDate
+    ? Math.ceil((new Date(booking.checkInDate) - Date.now()) / 86_400_000)
+    : 0
+  if (daysUntilCheckIn > 7) return total          // full refund
+  if (daysUntilCheckIn > 2) return Math.round(total * 0.5)  // 50%
+  return 0                                          // non-refundable
 }
 
 export default function TripDetailPage() {
@@ -146,7 +153,7 @@ export default function TripDetailPage() {
 
   const status = API_STATUS_MAP[booking.status] ?? 'upcoming'
   const hotelName = hotel?.name || `Hotel #${booking.hotelId}`
-  const image = placeholderImage(booking.hotelId)
+  const image = hotel?.imageUrl || hotel?.thumbnailUrl || hotel?.images?.[0] || placeholderImage(booking.hotelId)
   const paymentStatus =
     booking.status === 'PENDING' ? t('detail.paymentPending')
     : booking.status === 'CONFIRMED' ? t('detail.paymentConfirmed')
@@ -236,9 +243,28 @@ export default function TripDetailPage() {
             </div>
             <div className="mt-5 grid gap-3 md:grid-cols-3">
               {[
-                { title: t('detail.arrivalWindow'), detail: t('detail.arrivalWindowDetail'), icon: CalendarRange },
-                { title: t('detail.accessNotes'), detail: t('detail.accessNotesDetail'), icon: KeyRound },
-                { title: t('detail.hostMessage'), detail: t('detail.hostMessageDetail'), icon: MessageSquareText },
+                {
+                  title: t('detail.arrivalWindow'),
+                  detail: [
+                    hotel?.checkInTime ? `Check-in from ${hotel.checkInTime}` : null,
+                    hotel?.checkOutTime ? `Check-out by ${hotel.checkOutTime}` : null,
+                  ].filter(Boolean).join(' · ') || t('detail.arrivalWindowDetail'),
+                  icon: CalendarRange,
+                },
+                {
+                  title: t('detail.accessNotes'),
+                  detail: hotel?.houseRules || t('detail.accessNotesDetail'),
+                  icon: KeyRound,
+                },
+                {
+                  title: t('detail.hostMessage'),
+                  detail: hotel?.receptionHours
+                    ? `Reception: ${hotel.receptionHours}`
+                    : hotel?.twentyFourHourFrontDesk
+                      ? '24-hour front desk available'
+                      : t('detail.hostMessageDetail'),
+                  icon: MessageSquareText,
+                },
               ].map((item) => {
                 const Icon = item.icon
                 return (

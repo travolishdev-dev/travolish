@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import toast from 'react-hot-toast'
 import AdminManagementPage from '../../components/admin/AdminManagementPage'
 import { AdminCard, AdminSectionHeading, AdminStatusPill } from '../../components/admin/AdminPortalUI'
-import { approveHotel, getHotelsPendingReview, rejectHotel } from '../../services/adminApi'
+import { approveHotel, getHotelsPendingReview, rejectHotel, requestHotelFiles } from '../../services/adminApi'
 
 function mapHotelToRow(hotel) {
   return [
@@ -56,11 +56,17 @@ function HotelDetailPanel({ record, rawMap, onSave, setNotice }) {
   }
 
   async function handleReject() {
+    const reason = window.prompt(
+      `Reason for returning "${hotel.name}" to the host:`,
+      'Please complete all required fields and resubmit.',
+    )
+    if (reason === null) return
+    if (!window.confirm(`Return "${hotel.name}" to the host as DRAFT? They will need to revise and resubmit.`)) return
     setSaving(true)
     try {
-      await rejectHotel(hotel.id)
+      await rejectHotel(hotel.id, reason || 'Please complete all required fields and resubmit.')
       toast.success(`${hotel.name} returned to host as DRAFT`)
-      setNotice(`Returned: ${hotel.name}. Host must revise before re-submitting.`)
+      setNotice(`Returned: ${hotel.name}. Reason: "${reason || 'Please complete all required fields.'}"`)
       onSave()
     } catch {
       toast.error('Action failed')
@@ -146,7 +152,7 @@ function HotelDetailPanel({ record, rawMap, onSave, setNotice }) {
 
       {/* Action buttons — only for PENDING_REVIEW */}
       {isPending && (
-        <div className="flex gap-3 border-t border-gray-200 pt-4">
+        <div className="flex flex-wrap gap-2 border-t border-gray-200 pt-4">
           <button
             type="button"
             disabled={saving}
@@ -158,8 +164,26 @@ function HotelDetailPanel({ record, rawMap, onSave, setNotice }) {
           <button
             type="button"
             disabled={saving}
+            onClick={async () => {
+              const reason = window.prompt(`What documents are needed from "${hotel.name}"?`, 'Please upload the required supporting documents.')
+              if (reason === null) return
+              setSaving(true)
+              try {
+                await requestHotelFiles(hotel.id, reason || 'Please upload the required supporting documents.')
+                toast.success(`Document request sent`)
+                setNotice(`Document request sent to "${hotel.name}": "${reason}"`)
+                onSave()
+              } catch { toast.error('Request failed') } finally { setSaving(false) }
+            }}
+            className="inline-flex h-10 items-center justify-center rounded-card border border-amber-200 bg-amber-50 px-4 text-sm font-semibold text-amber-800 transition-colors hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            Request docs
+          </button>
+          <button
+            type="button"
+            disabled={saving}
             onClick={handleReject}
-            className="flex-1 inline-flex h-10 items-center justify-center rounded-card border border-rose-200 bg-rose-50 px-4 text-sm font-semibold text-rose-700 transition-colors hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-40"
+            className="inline-flex h-10 items-center justify-center rounded-card border border-rose-200 bg-rose-50 px-4 text-sm font-semibold text-rose-700 transition-colors hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-40"
           >
             Return to host
           </button>
@@ -196,9 +220,54 @@ export default function AdminListingApprovalsPage() {
 
   useEffect(() => { load() }, [load])
 
-  const handleRowAction = useCallback((_row, _action, setNotice) => {
-    setNotice('Use the panel on the right to approve or return this listing.')
-  }, [])
+  const handleRowAction = useCallback(async (row, action, setNotice) => {
+    const hotel = rawMap.current[row[0]]
+    if (!hotel) {
+      setNotice('Use the panel on the right to approve or return this listing.')
+      return
+    }
+
+    if (action === 'Approve') {
+      try {
+        await approveHotel(hotel.id)
+        toast.success(`${hotel.name || row[0]} approved — now live`)
+        setNotice(`Approved: ${hotel.name || row[0]}.`)
+        load()
+      } catch {
+        toast.error('Approval failed')
+      }
+    } else if (action === 'Request files') {
+      const reason = window.prompt(
+        `What documents are needed from "${hotel.name || row[0]}"?`,
+        'Please upload the required supporting documents.',
+      )
+      if (reason === null) return
+      try {
+        await requestHotelFiles(hotel.id, reason || 'Please upload the required supporting documents.')
+        toast.success(`Document request sent to host of ${hotel.name || row[0]}`)
+        setNotice(`Document request sent: "${reason}". Listing returned to DRAFT pending re-submission.`)
+        load()
+      } catch {
+        toast.error('Request failed')
+      }
+    } else if (action === 'Reject') {
+      const reason = window.prompt(
+        `Reason for rejecting "${hotel.name || row[0]}":`,
+        'Please complete all required fields and resubmit.',
+      )
+      if (reason === null) return
+      try {
+        await rejectHotel(hotel.id, reason || 'Please complete all required fields and resubmit.')
+        toast.success(`${hotel.name || row[0]} returned to host`)
+        setNotice(`Returned: ${hotel.name || row[0]}. Reason: "${reason}"`)
+        load()
+      } catch {
+        toast.error('Action failed')
+      }
+    } else {
+      setNotice('Use the panel on the right to approve or return this listing.')
+    }
+  }, [load])
 
   const renderDetailPanel = useCallback(({ record, setNotice }) => (
     <HotelDetailPanel

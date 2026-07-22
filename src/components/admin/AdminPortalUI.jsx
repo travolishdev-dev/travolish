@@ -34,6 +34,8 @@ import {
 } from 'lucide-react'
 import { adminNavItems } from '../../data/adminPanelData'
 import TravolishWordmark from '../common/TravolishWordmark'
+import useAuthStore from '../../stores/useAuthStore'
+import { adminSearch, getAdminAlerts } from '../../services/adminApi'
 
 const iconMap = {
   dashboard: LayoutDashboard,
@@ -43,7 +45,9 @@ const iconMap = {
   moderation: FileSearch,
   amenities: Layers3,
   pricing: CreditCard,
+  bookings: CalendarDays,
   mail: Mail,
+  audit: ClipboardCheck,
 }
 
 const toneClasses = {
@@ -162,50 +166,206 @@ function AdminMobileHeader({ onOpen }) {
 function AdminTopHeader() {
   const [query, setQuery] = useState('')
   const [notice, setNotice] = useState('')
+  const [alerts, setAlerts] = useState([])
+  const [alertsOpen, setAlertsOpen] = useState(false)
+  const [profileOpen, setProfileOpen] = useState(false)
+  const [searchResults, setSearchResults] = useState(null) // null = closed, [] = empty
+  const [searchLoading, setSearchLoading] = useState(false)
+  const alertsRef = useRef(null)
+  const profileRef = useRef(null)
+  const searchRef = useRef(null)
+  const searchTimer = useRef(null)
+  const profile = useAuthStore((s) => s.profile)
+  const signOut = useAuthStore((s) => s.signOut)
+
+  useEffect(() => {
+    getAdminAlerts()
+      .then((data) => setAlerts(Array.isArray(data) ? data : []))
+      .catch(() => {})
+  }, [])
+
+  useEffect(() => {
+    function handleClick(e) {
+      if (alertsRef.current && !alertsRef.current.contains(e.target)) setAlertsOpen(false)
+      if (profileRef.current && !profileRef.current.contains(e.target)) setProfileOpen(false)
+      if (searchRef.current && !searchRef.current.contains(e.target)) setSearchResults(null)
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [])
+
+  function handleQueryChange(e) {
+    const q = e.target.value
+    setQuery(q)
+    clearTimeout(searchTimer.current)
+    if (!q.trim()) { setSearchResults(null); return }
+    searchTimer.current = setTimeout(async () => {
+      setSearchLoading(true)
+      try {
+        const { users = [], hotels = [], bookings = [] } = await adminSearch(q.trim())
+        const flat = [
+          ...users.map((u) => ({
+            type: 'User',
+            label: [u.firstName, u.lastName].filter(Boolean).join(' ') || u.email || `User #${u.id}`,
+            meta: u.email ?? `ID ${u.id}`,
+            href: '/admin/users',
+          })),
+          ...hotels.map((h) => ({
+            type: 'Hotel',
+            label: h.name || `Hotel #${h.id}`,
+            meta: [h.city, h.country].filter(Boolean).join(', ') || `ID ${h.id}`,
+            href: '/admin/listing-approvals',
+          })),
+          ...bookings.map((b) => ({
+            type: 'Booking',
+            label: `Booking #${b.id}`,
+            meta: b.guestName ?? b.guestEmail ?? `Hotel ${b.hotelId}`,
+            href: '/admin/bookings',
+          })),
+        ]
+        setSearchResults(flat)
+      } catch {
+        setSearchResults([])
+      } finally {
+        setSearchLoading(false)
+      }
+    }, 350)
+  }
+
+  const displayName = profile?.full_name || profile?.email || 'Admin'
+  const initials = displayName
+    .split(' ')
+    .slice(0, 2)
+    .map((w) => w[0]?.toUpperCase() ?? '')
+    .join('') || 'AD'
+  const roleLabel = profile?.role
+    ? profile.role.charAt(0).toUpperCase() + profile.role.slice(1).toLowerCase()
+    : 'Operations'
 
   return (
     <div className="hidden space-y-3 lg:block">
       <header className="flex items-center justify-between gap-4">
-        <form
-          className="relative min-w-0 flex-1"
-          onSubmit={(event) => {
-            event.preventDefault()
-            setNotice(query.trim() ? `Global search queued for "${query.trim()}".` : 'Type something to search.')
-          }}
-        >
+        <div ref={searchRef} className="relative min-w-0 flex-1">
           <Search className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-muted" size={18} />
           <input
             type="search"
             value={query}
-            onChange={(event) => setQuery(event.target.value)}
+            onChange={handleQueryChange}
+            onFocus={() => { if (query.trim() && searchResults !== null) setSearchResults(searchResults) }}
             placeholder="Search bookings, users, listings, reports..."
             className="h-12 w-full rounded-card border border-gray-200 bg-white pl-11 pr-4 text-sm font-medium text-dark shadow-sm outline-none transition-colors placeholder:text-muted focus:border-brand"
           />
-        </form>
-        <button
-          type="button"
-          onClick={() => setNotice('Alerts panel opened. No critical production alerts in this mock view.')}
-          className="relative flex h-12 items-center gap-2 rounded-card border border-gray-200 bg-white px-4 text-sm font-semibold text-dark shadow-sm transition-colors hover:border-brand hover:text-brand"
-        >
-          <span className="relative">
-            <Bell size={17} />
-            <span className="absolute -right-1.5 -top-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-brand text-[9px] font-bold text-white">3</span>
-          </span>
-          Alerts
-        </button>
-        <button
-          type="button"
-          onClick={() => setNotice('Admin profile controls are ready for role and permission wiring.')}
-          className="flex h-12 items-center gap-3 rounded-card border border-gray-200 bg-white px-4 text-left shadow-sm transition-colors hover:border-brand"
-        >
-          <span className="flex h-8 w-8 items-center justify-center rounded-card bg-dark text-xs font-semibold text-white">
-            AD
-          </span>
-          <span>
-            <span className="block text-sm font-semibold text-dark">Admin desk</span>
-            <span className="block text-xs text-muted">Operations</span>
-          </span>
-        </button>
+          {searchLoading && (
+            <span className="absolute right-4 top-1/2 -translate-y-1/2 text-xs text-muted">Searching…</span>
+          )}
+          {searchResults !== null && !searchLoading && (
+            <div className="absolute left-0 top-[calc(100%+6px)] z-[100] w-full overflow-hidden rounded-card border border-gray-200 bg-white shadow-[0_12px_32px_rgba(15,23,42,0.12)]">
+              {searchResults.length === 0 ? (
+                <p className="px-4 py-4 text-sm text-muted">No results for "{query}"</p>
+              ) : (
+                <div className="divide-y divide-gray-100">
+                  {searchResults.slice(0, 12).map((r, i) => (
+                    <Link
+                      key={i}
+                      to={r.href ?? '#'}
+                      onClick={() => { setSearchResults(null); setQuery('') }}
+                      className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-[#fff1f3]"
+                    >
+                      <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-card bg-gray-100 text-xs font-semibold text-muted uppercase">
+                        {r.type?.[0] ?? '?'}
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-sm font-semibold text-dark">{r.label}</span>
+                        <span className="block truncate text-xs text-muted">{r.meta ?? r.type}</span>
+                      </span>
+                    </Link>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+        <div ref={alertsRef} className="relative">
+          <button
+            type="button"
+            onClick={() => setAlertsOpen((prev) => !prev)}
+            className="relative flex h-12 items-center gap-2 rounded-card border border-gray-200 bg-white px-4 text-sm font-semibold text-dark shadow-sm transition-colors hover:border-brand hover:text-brand"
+          >
+            <span className="relative">
+              <Bell size={17} />
+              {alerts.some((a) => (a.count ?? 0) > 0) && (
+                <span className="absolute -right-1.5 -top-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-brand text-[9px] font-bold text-white">
+                  {String(Math.min(alerts.reduce((s, a) => s + (a.count ?? 0), 0), 99))}
+                </span>
+              )}
+            </span>
+            Alerts
+          </button>
+          {alertsOpen && (
+            <div className="absolute right-0 top-[calc(100%+6px)] z-[90] w-72 overflow-hidden rounded-card border border-gray-200 bg-white shadow-[0_12px_32px_rgba(15,23,42,0.12)]">
+              <div className="border-b border-gray-200 px-4 py-3">
+                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted">Active alerts</p>
+              </div>
+              <div className="divide-y divide-gray-100">
+                {alerts.map((a) => (
+                  <Link
+                    key={a.type}
+                    to={a.href ?? '#'}
+                    onClick={() => setAlertsOpen(false)}
+                    className="flex items-center justify-between gap-3 px-4 py-3 transition-colors hover:bg-[#fff1f3]"
+                  >
+                    <span className="text-sm text-dark">{a.label}</span>
+                    <span className={`inline-flex h-6 min-w-[24px] items-center justify-center rounded-full px-1.5 text-xs font-bold ${(a.count ?? 0) > 0 ? 'bg-brand text-white' : 'bg-gray-100 text-muted'}`}>
+                      {a.count ?? 0}
+                    </span>
+                  </Link>
+                ))}
+                {alerts.length === 0 && (
+                  <p className="px-4 py-4 text-sm text-muted">No active alerts.</p>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+        <div ref={profileRef} className="relative">
+          <button
+            type="button"
+            onClick={() => setProfileOpen((prev) => !prev)}
+            className="flex h-12 items-center gap-3 rounded-card border border-gray-200 bg-white px-4 text-left shadow-sm transition-colors hover:border-brand"
+          >
+            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-card bg-dark text-xs font-semibold text-white">
+              {initials}
+            </span>
+            <span className="hidden xl:block">
+              <span className="block max-w-[120px] truncate text-sm font-semibold text-dark">{displayName}</span>
+              <span className="block text-xs text-muted">{roleLabel}</span>
+            </span>
+          </button>
+          {profileOpen && (
+            <div className="absolute right-0 top-[calc(100%+6px)] z-[90] w-56 overflow-hidden rounded-card border border-gray-200 bg-white shadow-[0_12px_32px_rgba(15,23,42,0.12)]">
+              <div className="border-b border-gray-200 px-4 py-3">
+                <p className="truncate text-sm font-semibold text-dark">{displayName}</p>
+                <p className="mt-0.5 truncate text-xs text-muted">{profile?.email ?? roleLabel}</p>
+              </div>
+              <div className="py-1">
+                <Link
+                  to="/admin"
+                  onClick={() => setProfileOpen(false)}
+                  className="flex w-full items-center gap-2.5 px-4 py-2.5 text-sm text-dark transition-colors hover:bg-[#fff1f3] hover:text-brand"
+                >
+                  Dashboard
+                </Link>
+                <button
+                  type="button"
+                  onClick={() => { setProfileOpen(false); signOut() }}
+                  className="flex w-full items-center gap-2.5 px-4 py-2.5 text-sm text-rose-600 transition-colors hover:bg-rose-50"
+                >
+                  Sign out
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
       </header>
       {notice ? (
         <div className="rounded-card border border-brand/20 bg-[#fff1f3] px-4 py-3 text-sm font-semibold text-brand-dark">

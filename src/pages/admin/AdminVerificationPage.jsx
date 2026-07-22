@@ -1,9 +1,9 @@
-import { createElement, useCallback, useEffect, useRef, useState } from 'react'
+import { createElement, useCallback, useEffect, useRef, useState, useMemo } from 'react'
 import { FileImage, History, IdCard, ShieldCheck } from 'lucide-react'
 import toast from 'react-hot-toast'
 import AdminManagementPage from '../../components/admin/AdminManagementPage'
 import { AdminCard, AdminSectionHeading, AdminStatusPill } from '../../components/admin/AdminPortalUI'
-import { approveKYC, getAllKYC, rejectKYC, requestKYCResubmit } from '../../services/adminApi'
+import { approveKYC, assignKYCReviewer, getAllKYC, rejectKYC, requestKYCResubmit } from '../../services/adminApi'
 
 function maskId(str) {
   if (!str) return '—'
@@ -61,20 +61,54 @@ export default function AdminVerificationPage() {
         toast.error('Approval failed')
       }
     } else if (action === 'Reject') {
+      const reason = window.prompt(`Reason for rejecting ${row[0]}:`, 'Document mismatch')
+      if (reason === null) return
       try {
-        await rejectKYC(kyc.id, 'Document mismatch')
+        await rejectKYC(kyc.id, reason || 'Document mismatch')
         toast.success(`${row[0]} KYC rejected`)
         load()
       } catch {
         toast.error('Rejection failed')
       }
     } else if (action === 'Request files') {
+      const reason = window.prompt(`Reason for requesting resubmission from ${row[0]}:`, 'Additional documents required')
+      if (reason === null) return
       try {
-        await requestKYCResubmit(kyc.id)
+        await requestKYCResubmit(kyc.id, reason || 'Additional documents required')
         toast.success(`Resubmission requested for ${row[0]}`)
         load()
       } catch {
         toast.error('Request failed')
+      }
+    } else if (action === 'View timeline') {
+      try {
+        const logs = await getAuditLogs('KYC', kyc.id)
+        if (Array.isArray(logs) && logs.length > 0) {
+          const latest = logs[0]
+          setNotice(`${row[0]} audit: ${latest.action}${latest.actorName ? ` by ${latest.actorName}` : ''} — ${latest.details || ''}`)
+        } else {
+          const reason = kyc.rejectionReason || kyc.adminNote || kyc.reason || null
+          if (row[4] === 'REJECTED' && reason) {
+            setNotice(`${row[0]} was rejected. Reason: "${reason}"`)
+          } else {
+            setNotice(`Viewing ${row[0]} — status: ${row[4]}. No audit entries yet.`)
+          }
+        }
+      } catch {
+        setNotice(`Viewing ${row[0]} — status: ${row[4]}`)
+      }
+    } else if (action === 'Assign reviewer') {
+      const idStr = window.prompt(`Reviewer admin ID to assign to ${row[0]}:`)
+      if (idStr === null || !idStr.trim()) return
+      const reviewerId = parseInt(idStr.trim(), 10)
+      if (isNaN(reviewerId)) { toast.error('Enter a valid numeric admin ID'); return }
+      try {
+        await assignKYCReviewer(kyc.id, reviewerId)
+        toast.success(`Reviewer #${reviewerId} assigned to ${row[0]}`)
+        setNotice(`Reviewer #${reviewerId} assigned to ${row[0]}.`)
+        load()
+      } catch {
+        toast.error('Assignment failed')
       }
     } else {
       setNotice(`Viewing ${row[0]} — status: ${row[4]}`)
@@ -89,11 +123,22 @@ export default function AdminVerificationPage() {
       onRowAction={handleRowAction}
       detailContent={({ record, setNotice }) => {
         const kyc = record ? rawMap.current[record[0]] : null
-        const history = [
-          ['Submitted', record?.[3] || '—', 'Documents received'],
-          ['Screened', 'Today', 'Name and document metadata checked'],
-          [record?.[4] || 'Pending', 'Now', 'Awaiting admin decision'],
-        ]
+        const [auditLogs, setAuditLogs] = useState([])
+        useEffect(() => {
+          if (!kyc?.id) { setAuditLogs([]); return }
+          getAuditLogs('KYC', kyc.id).then((data) => setAuditLogs(Array.isArray(data) ? data : [])).catch(() => setAuditLogs([]))
+        }, [kyc?.id])
+        const history = auditLogs.length > 0
+          ? auditLogs.map((e) => [
+              e.action,
+              e.createdAt ? new Date(e.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—',
+              e.details || (e.actorName ? `by ${e.actorName}` : ''),
+            ])
+          : [
+              ['Submitted', record?.[3] || '—', 'Documents received'],
+              ['Screened', '—', 'Name and document metadata checked'],
+              [record?.[4] || 'Pending', 'Now', 'Awaiting admin decision'],
+            ]
 
         return (
           <AdminCard className="space-y-6">
@@ -160,6 +205,14 @@ export default function AdminVerificationPage() {
                   </div>
                 ))}
               </div>
+              {kyc && record?.[4] === 'REJECTED' && (
+                <div className="mt-4 rounded-card border border-rose-200 bg-rose-50 px-3 py-2.5">
+                  <p className="text-xs font-semibold uppercase tracking-[0.14em] text-rose-700">Rejection reason</p>
+                  <p className="mt-1 text-sm text-rose-800">
+                    {kyc.rejectionReason || kyc.adminNote || kyc.reason || 'No reason recorded.'}
+                  </p>
+                </div>
+              )}
             </div>
 
             <button
@@ -177,6 +230,32 @@ export default function AdminVerificationPage() {
               <ShieldCheck size={16} />
               Open full review
             </button>
+
+            {kyc && (
+              <div className="flex flex-wrap gap-2 border-t border-gray-200 pt-4">
+                <button
+                  type="button"
+                  onClick={() => handleRowAction(record, 'Approve', setNotice)}
+                  className="flex-1 inline-flex h-10 items-center justify-center rounded-card bg-dark px-4 text-sm font-semibold text-white transition-colors hover:bg-gray-800"
+                >
+                  Approve
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleRowAction(record, 'Reject', setNotice)}
+                  className="inline-flex h-10 items-center justify-center rounded-card border border-rose-200 bg-rose-50 px-4 text-sm font-semibold text-rose-700 transition-colors hover:bg-rose-100"
+                >
+                  Reject
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleRowAction(record, 'Request files', setNotice)}
+                  className="inline-flex h-10 items-center justify-center rounded-card border border-amber-200 bg-amber-50 px-4 text-sm font-semibold text-amber-800 transition-colors hover:bg-amber-100"
+                >
+                  Request resubmit
+                </button>
+              </div>
+            )}
           </AdminCard>
         )
       }}

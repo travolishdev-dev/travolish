@@ -58,7 +58,7 @@ export async function getBooking(id) {
 }
 
 export async function cancelBooking(booking) {
-  return put(`/api/bookings/${booking.id}`, { ...booking, status: 'CANCELLED' })
+  return post(`/api/bookings/${booking.id}/cancel`)
 }
 
 export async function confirmBooking(id, booking) {

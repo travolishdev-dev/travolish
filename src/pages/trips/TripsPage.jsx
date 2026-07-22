@@ -92,7 +92,7 @@ function adaptBooking(booking, hotelMap, t) {
       title: hotel.name || `Hotel #${booking.hotelId}`,
       location: hotel.city || '',
       country: hotel.country || '',
-      image: placeholderImage(booking.hotelId),
+      image: hotel.imageUrl || hotel.thumbnailUrl || hotel.images?.[0] || placeholderImage(booking.hotelId),
     },
   }
 }

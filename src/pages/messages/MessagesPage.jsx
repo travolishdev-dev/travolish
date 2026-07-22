@@ -10,6 +10,7 @@ import {
   StatusPill,
 } from '../../components/portal/PortalUI'
 import { listConversations } from '../../services/chatApi'
+import { getUser } from '../../services/usersApi'
 import useAuthStore from '../../stores/useAuthStore'
 
 const PLACEHOLDER_IMAGES = [
@@ -28,13 +29,13 @@ function formatTime(dt) {
   try { return format(parseISO(dt), 'MMM d') } catch { return '' }
 }
 
-function adaptConversation(c, userId) {
+function adaptConversation(c, userId, nameMap) {
   const isUser1 = c.userId1 === userId
   const otherId = isUser1 ? c.userId2 : c.userId1
   const unread = isUser1 ? (c.user1UnreadCount ?? 0) : (c.user2UnreadCount ?? 0)
   return {
     id: String(c.id),
-    participant: `User #${otherId}`,
+    participant: nameMap?.[otherId] ?? `User #${otherId}`,
     otherId,
     title: `Thread #${c.id}`,
     unreadCount: unread,
@@ -54,7 +55,19 @@ export default function MessagesPage() {
   useEffect(() => {
     if (!userId) { setLoading(false); return }
     listConversations(userId)
-      .then((data) => setConversations((data ?? []).map((c) => adaptConversation(c, userId))))
+      .then(async (data) => {
+        const list = data ?? []
+        const otherIds = [...new Set(list.map((c) => c.userId1 === userId ? c.userId2 : c.userId1).filter(Boolean))]
+        const nameMap = {}
+        await Promise.allSettled(
+          otherIds.map((id) =>
+            getUser(id).then((u) => {
+              nameMap[id] = [u.firstName, u.lastName].filter(Boolean).join(' ') || u.email || null
+            }).catch(() => {}),
+          ),
+        )
+        setConversations(list.map((c) => adaptConversation(c, userId, nameMap)))
+      })
       .catch(() => {})
       .finally(() => setLoading(false))
   }, [userId])

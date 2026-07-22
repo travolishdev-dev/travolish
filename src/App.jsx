@@ -73,6 +73,7 @@ const AdminCategoriesAmenitiesPage = lazy(() => import('./pages/admin/AdminCateg
 const AdminPricingRulesPage       = lazy(() => import('./pages/admin/AdminPricingRulesPage'))
 const AdminBookingsPage           = lazy(() => import('./pages/admin/AdminBookingsPage'))
 const AdminEmailLogsPage          = lazy(() => import('./pages/admin/AdminEmailLogsPage'))
+const AdminAuditLogPage           = lazy(() => import('./pages/admin/AdminAuditLogPage'))
 import useAuthStore from './stores/useAuthStore'
 import useNativeAppLocationStore from './stores/useNativeAppLocationStore'
 import ProtectedRoute from './components/auth/ProtectedRoute'
@@ -664,6 +665,16 @@ export default function App() {
             <AppLayout>
               <ProtectedRoute requireRole="admin">
                 <AdminEmailLogsPage />
+              </ProtectedRoute>
+            </AppLayout>
+          }
+        />
+        <Route
+          path="/admin/audit-log"
+          element={
+            <AppLayout>
+              <ProtectedRoute requireRole="admin">
+                <AdminAuditLogPage />
               </ProtectedRoute>
             </AppLayout>
           }

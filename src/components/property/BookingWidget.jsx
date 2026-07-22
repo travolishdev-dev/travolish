@@ -474,12 +474,13 @@ export default function BookingWidget({ property, rooms = [], sticky = true }) {
       </form>
 
       {reviewBooking && (
-        <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/40 px-4 py-6">
+        <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/40 px-4 pt-24 pb-8">
           <div
-            className="max-h-[calc(100vh-3rem)] w-full max-w-lg overflow-y-auto rounded-[28px] bg-white shadow-[0_30px_90px_rgba(15,23,42,0.28)]"
-            style={{ maxHeight: 'calc(100dvh - 3rem)' }}
+            className="flex max-h-[calc(100vh-8rem)] w-full max-w-lg flex-col rounded-[28px] bg-white shadow-[0_30px_90px_rgba(15,23,42,0.28)]"
+            style={{ maxHeight: 'calc(100dvh - 8rem)' }}
           >
-            <div className="flex items-start justify-between gap-4 border-b border-gray-100 px-5 py-5">
+            {/* Fixed header */}
+            <div className="flex-none flex items-start justify-between gap-4 border-b border-gray-100 px-5 py-5">
               <div>
                 <div className="flex items-center gap-2">
                   <span className="flex h-9 w-9 items-center justify-center rounded-full bg-emerald-50 text-emerald-700">
@@ -494,79 +495,83 @@ export default function BookingWidget({ property, rooms = [], sticky = true }) {
               <button
                 type="button"
                 onClick={() => setReviewBooking(null)}
-                className="flex h-9 w-9 items-center justify-center rounded-full border border-gray-200 text-dark transition-colors hover:bg-gray-50"
+                className="flex h-9 w-9 flex-none items-center justify-center rounded-full border border-gray-200 text-dark transition-colors hover:bg-gray-50"
                 aria-label={t('closeReview')}
               >
                 <X size={16} />
               </button>
             </div>
 
-            <div className="space-y-5 px-5 py-5">
-              <section className="rounded-2xl border border-gray-100 bg-gray-50 p-4">
-                <p className="text-base font-semibold text-dark">
-                  {reviewBooking.propertyTitle}
-                </p>
-                <p className="mt-1 text-sm text-muted">{reviewBooking.location}</p>
-              </section>
+            {/* Scrollable content */}
+            <div className="min-h-0 flex-1 overflow-y-auto">
+              <div className="space-y-5 px-5 py-5">
+                <section className="rounded-2xl border border-gray-100 bg-gray-50 p-4">
+                  <p className="text-base font-semibold text-dark">
+                    {reviewBooking.propertyTitle}
+                  </p>
+                  <p className="mt-1 text-sm text-muted">{reviewBooking.location}</p>
+                </section>
 
-              <section className="grid gap-3 sm:grid-cols-2">
-                <div className="rounded-2xl border border-gray-100 p-4">
-                  <div className="flex items-center gap-2 text-sm font-semibold text-dark">
-                    <CalendarDays size={16} />
-                    {t('dates')}
+                <section className="grid gap-3 sm:grid-cols-2">
+                  <div className="rounded-2xl border border-gray-100 p-4">
+                    <div className="flex items-center gap-2 text-sm font-semibold text-dark">
+                      <CalendarDays size={16} />
+                      {t('dates')}
+                    </div>
+                    <p className="mt-2 text-sm text-muted">{reviewBooking.dateLabel}</p>
+                    <p className="mt-1 text-xs text-muted">
+                      {t('common:night', { count: reviewBooking.nights })}
+                    </p>
                   </div>
-                  <p className="mt-2 text-sm text-muted">{reviewBooking.dateLabel}</p>
-                  <p className="mt-1 text-xs text-muted">
-                    {t('common:night', { count: reviewBooking.nights })}
-                  </p>
-                </div>
-                <div className="rounded-2xl border border-gray-100 p-4">
-                  <div className="flex items-center gap-2 text-sm font-semibold text-dark">
-                    <Users size={16} />
-                    {t('guestCount')}
+                  <div className="rounded-2xl border border-gray-100 p-4">
+                    <div className="flex items-center gap-2 text-sm font-semibold text-dark">
+                      <Users size={16} />
+                      {t('guestCount')}
+                    </div>
+                    <p className="mt-2 text-sm text-muted">{reviewBooking.guestLabel}</p>
+                    <p className="mt-1 text-xs text-muted">
+                      {reviewBooking.guestDetails.fullName}
+                    </p>
                   </div>
-                  <p className="mt-2 text-sm text-muted">{reviewBooking.guestLabel}</p>
-                  <p className="mt-1 text-xs text-muted">
-                    {reviewBooking.guestDetails.fullName}
-                  </p>
-                </div>
-              </section>
+                </section>
 
-              <section className="rounded-2xl border border-gray-100 p-4">
-                <p className="text-sm font-semibold text-dark">{t('contact')}</p>
-                <p className="mt-2 text-sm text-muted">{reviewBooking.guestDetails.email}</p>
-                <p className="mt-1 text-sm text-muted">{reviewBooking.guestDetails.phone}</p>
-                {reviewBooking.guestDetails.note && (
-                  <p className="mt-2 text-xs text-muted">
-                    {t('note')} {reviewBooking.guestDetails.note}
-                  </p>
-                )}
-              </section>
+                <section className="rounded-2xl border border-gray-100 p-4">
+                  <p className="text-sm font-semibold text-dark">{t('contact')}</p>
+                  <p className="mt-2 text-sm text-muted">{reviewBooking.guestDetails.email}</p>
+                  <p className="mt-1 text-sm text-muted">{reviewBooking.guestDetails.phone}</p>
+                  {reviewBooking.guestDetails.note && (
+                    <p className="mt-2 text-xs text-muted">
+                      {t('note')} {reviewBooking.guestDetails.note}
+                    </p>
+                  )}
+                </section>
 
-              <section className="space-y-3 rounded-2xl border border-gray-100 p-4">
-                <SummaryRow
-                  label={t('roomTotal')}
-                  value={formatCurrency(reviewBooking.pricing.roomTotal)}
-                />
-                <SummaryRow
-                  label={t('serviceFee')}
-                  value={formatCurrency(reviewBooking.pricing.serviceFee)}
-                />
-                <SummaryRow
-                  label={t('taxes')}
-                  value={formatCurrency(reviewBooking.pricing.taxes)}
-                />
-                <div className="border-t border-gray-100 pt-3">
+                <section className="space-y-3 rounded-2xl border border-gray-100 p-4">
                   <SummaryRow
-                    label={t('finalPrice')}
-                    value={formatCurrency(reviewBooking.pricing.total)}
-                    isStrong
+                    label={t('roomTotal')}
+                    value={formatCurrency(reviewBooking.pricing.roomTotal)}
                   />
-                </div>
-              </section>
+                  <SummaryRow
+                    label={t('serviceFee')}
+                    value={formatCurrency(reviewBooking.pricing.serviceFee)}
+                  />
+                  <SummaryRow
+                    label={t('taxes')}
+                    value={formatCurrency(reviewBooking.pricing.taxes)}
+                  />
+                  <div className="border-t border-gray-100 pt-3">
+                    <SummaryRow
+                      label={t('finalPrice')}
+                      value={formatCurrency(reviewBooking.pricing.total)}
+                      isStrong
+                    />
+                  </div>
+                </section>
+              </div>
             </div>
 
-            <div className="flex flex-col-reverse gap-3 border-t border-gray-100 px-5 py-4 sm:flex-row sm:justify-end">
+            {/* Fixed footer */}
+            <div className="flex-none flex flex-col-reverse gap-3 border-t border-gray-100 px-5 py-4 sm:flex-row sm:justify-end">
               <button
                 type="button"
                 onClick={() => setReviewBooking(null)}

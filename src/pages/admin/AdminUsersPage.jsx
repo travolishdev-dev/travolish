@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Check, ChevronDown } from 'lucide-react'
+import { ArrowLeft, Check, ChevronDown } from 'lucide-react'
 import toast from 'react-hot-toast'
 import AdminManagementPage from '../../components/admin/AdminManagementPage'
 import { AdminCard, AdminSectionHeading } from '../../components/admin/AdminPortalUI'
 import {
   deleteUser,
-  getAllUsers,
+  getAuditLogs,
+  getUsersPage,
+  sendUserNotice,
   updateUserRole,
   updateUserStatus,
 } from '../../services/adminApi'
@@ -49,8 +51,8 @@ function mapUserToRow(u) {
   ]
 }
 
-function UserEditPanel({ record, rawMap, onSave, setNotice }) {
-  const user = record ? rawMap.current[record[0]] : null
+function UserEditPanel({ record, rawMap, nameToId, onSave, setNotice }) {
+  const user = record ? rawMap.current[nameToId.current[record[0]]] : null
 
   const [role, setRole] = useState('')
   const [status, setStatus] = useState('')
@@ -230,35 +232,107 @@ function UserEditPanel({ record, rawMap, onSave, setNotice }) {
   )
 }
 
+function UserLogsPanel({ user, onBack }) {
+  const [logs, setLogs] = useState([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    setLoading(true)
+    getAuditLogs('USER', user.id)
+      .then((data) => setLogs(Array.isArray(data) ? data : []))
+      .catch(() => setLogs([]))
+      .finally(() => setLoading(false))
+  }, [user.id])
+
+  const name = [user.firstName, user.lastName].filter(Boolean).join(' ') || user.email || `User #${user.id}`
+
+  return (
+    <AdminCard className="space-y-5">
+      <div className="flex items-center gap-3">
+        <button
+          type="button"
+          onClick={onBack}
+          className="inline-flex h-8 w-8 items-center justify-center rounded-card border border-gray-200 bg-white text-muted transition-colors hover:border-dark hover:text-dark"
+        >
+          <ArrowLeft size={14} />
+        </button>
+        <AdminSectionHeading
+          eyebrow="Activity log"
+          title={name}
+          description="Audit trail of admin actions on this account."
+        />
+      </div>
+
+      {loading ? (
+        <div className="space-y-2 animate-pulse">
+          {[...Array(4)].map((_, i) => <div key={i} className="h-12 rounded-card bg-gray-100" />)}
+        </div>
+      ) : logs.length === 0 ? (
+        <p className="rounded-card border border-dashed border-gray-200 bg-white p-6 text-center text-sm text-muted">
+          No audit log entries for this user yet.
+        </p>
+      ) : (
+        <div className="divide-y divide-gray-100">
+          {logs.map((entry) => (
+            <div key={entry.id} className="flex items-start gap-3 py-3">
+              <span className="mt-1 h-2 w-2 flex-none rounded-full bg-brand" />
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-semibold text-dark">
+                  {entry.action}
+                  {entry.actorName && (
+                    <span className="ml-1.5 font-normal text-muted">by {entry.actorName}</span>
+                  )}
+                </p>
+                {entry.details && (
+                  <p className="mt-0.5 text-xs text-muted">{entry.details}</p>
+                )}
+                <p className="mt-0.5 text-xs text-muted">
+                  {entry.createdAt ? new Date(entry.createdAt).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—'}
+                </p>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </AdminCard>
+  )
+}
+
 export default function AdminUsersPage() {
   const [rows, setRows] = useState([])
   const [loading, setLoading] = useState(true)
-  const rawMap = useRef({})
+  const [logUser, setLogUser] = useState(null)
+  const [page, setPage] = useState(0)
+  const [totalPages, setTotalPages] = useState(1)
+  const rawMap = useRef({})   // String(u.id) → user
+  const nameToId = useRef({}) // display name → String(u.id)
 
   const load = useCallback(() => {
     setLoading(true)
-    getAllUsers()
-      .then((users) => {
-        const list = users ?? []
-        rawMap.current = Object.fromEntries(
-          list.map((u) => {
-            const name = [u.firstName, u.lastName].filter(Boolean).join(' ') || u.email || `User #${u.id}`
-            return [name, u]
-          }),
-        )
+    getUsersPage(page)
+      .then((result) => {
+        const list = result.content ?? (Array.isArray(result) ? result : [])
+        const tp = result.totalPages ?? 1
+        rawMap.current = Object.fromEntries(list.map((u) => [String(u.id), u]))
+        nameToId.current = Object.fromEntries(list.map((u) => {
+          const name = [u.firstName, u.lastName].filter(Boolean).join(' ') || u.email || `User #${u.id}`
+          return [name, String(u.id)]
+        }))
         setRows(list.map(mapUserToRow))
+        setTotalPages(tp)
       })
       .catch(() => toast.error('Failed to load users'))
       .finally(() => setLoading(false))
-  }, [])
+  }, [page])
 
   useEffect(() => { load() }, [load])
 
   const handleRowAction = useCallback(async (row, action, setNotice) => {
-    const user = rawMap.current[row[0]]
+    const user = rawMap.current[nameToId.current[row[0]]]
     if (!user) return
 
     if (action === 'Delete') {
+      if (!window.confirm(`Permanently delete ${row[0]}? This cannot be undone.`)) return
       try {
         await deleteUser(user.id)
         toast.success(`${row[0]} deleted`)
@@ -282,19 +356,46 @@ export default function AdminUsersPage() {
       } catch {
         toast.error('Restore failed')
       }
+    } else if (action === 'Approve host') {
+      try {
+        await updateUserRole(user.id, 'HOST')
+        toast.success(`${row[0]} approved as host`)
+        setNotice(`${row[0]} role updated to HOST.`)
+        load()
+      } catch {
+        toast.error('Approval failed')
+      }
+    } else if (action === 'Send notice') {
+      const message = window.prompt(`Notice to send to ${row[0]}:`)
+      if (message === null || !message.trim()) return
+      try {
+        await sendUserNotice(user.id, message.trim())
+        toast.success(`Notice sent to ${row[0]}`)
+        setNotice(`Notice sent to ${row[0]}: "${message.trim()}"`)
+      } catch {
+        toast.error('Failed to send notice')
+      }
+    } else if (action === 'View log') {
+      setLogUser(user)
     } else {
-      setNotice(`Editing ${row[0]} — use the panel on the right to change role or status.`)
+      setNotice(`${row[0]} selected — use the panel on the right to change role or status.`)
     }
   }, [load])
 
-  const renderDetailPanel = useCallback(({ record, setNotice }) => (
-    <UserEditPanel
-      record={record}
-      rawMap={rawMap}
-      onSave={load}
-      setNotice={setNotice}
-    />
-  ), [load])
+  const renderDetailPanel = useCallback(({ record, setNotice }) => {
+    if (logUser) {
+      return <UserLogsPanel user={logUser} onBack={() => setLogUser(null)} />
+    }
+    return (
+      <UserEditPanel
+        record={record}
+        rawMap={rawMap}
+        nameToId={nameToId}
+        onSave={load}
+        setNotice={setNotice}
+      />
+    )
+  }, [load, logUser])
 
   return (
     <AdminManagementPage
@@ -303,6 +404,7 @@ export default function AdminUsersPage() {
       loading={loading}
       onRowAction={handleRowAction}
       detailContent={renderDetailPanel}
+      pagination={{ page, totalPages, onPage: setPage }}
     />
   )
 }

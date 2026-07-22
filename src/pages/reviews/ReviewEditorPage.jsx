@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Link, useNavigate, useSearchParams } from 'react-router-dom'
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { CheckCircle2, Loader2, Sparkles, Star } from 'lucide-react'
 import {
   PortalShell,
@@ -9,7 +9,7 @@ import {
   StatusPill,
 } from '../../components/portal/PortalUI'
 import { getHotel } from '../../services/hotelsApi'
-import { submitReview } from '../../services/reviewsApi'
+import { getReview, submitReview, updateReview } from '../../services/reviewsApi'
 
 const PLACEHOLDER_IMAGES = [
   'https://images.unsplash.com/photo-1542314831-068cd1dbfeeb?w=800&auto=format&fit=crop',
@@ -37,8 +37,10 @@ function placeholderImage(hotelId) {
 export default function ReviewEditorPage() {
   const { t } = useTranslation('property')
   const navigate = useNavigate()
+  const { reviewId } = useParams()
   const [searchParams] = useSearchParams()
   const hotelId = searchParams.get('hotelId')
+  const isEditMode = Boolean(reviewId)
 
   const [hotel, setHotel] = useState(null)
   const [loadError, setLoadError] = useState(null)
@@ -55,12 +57,39 @@ export default function ReviewEditorPage() {
   const [submitError, setSubmitError] = useState(null)
   const [published, setPublished] = useState(null)
 
+  // Load hotel for new reviews
   useEffect(() => {
-    if (!hotelId) return
+    if (!hotelId || isEditMode) return
     getHotel(hotelId)
       .then(setHotel)
       .catch(() => setLoadError(t('property:review.loadError')))
-  }, [hotelId])
+  }, [hotelId, isEditMode]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Load existing review for edit mode
+  useEffect(() => {
+    if (!isEditMode) return
+    getReview(reviewId)
+      .then((existing) => {
+        setTitle(existing.title ?? '')
+        setSummary(existing.content ?? '')
+        setOverallRating(existing.rating ?? 5)
+        setScores({
+          cleanliness: existing.cleanlinessRating ?? 5,
+          accuracy: existing.accuracyRating ?? 5,
+          communication: existing.communicationRating ?? 5,
+          location: existing.locationRating ?? 5,
+          checkIn: existing.checkInRating ?? 5,
+          value: existing.valueRating ?? 5,
+        })
+        if (existing.tags) {
+          setSelectedTags(existing.tags.split(',').map((t) => t.trim()).filter(Boolean))
+        }
+        if (existing.hotelId) {
+          getHotel(existing.hotelId).then(setHotel).catch(() => {})
+        }
+      })
+      .catch(() => setLoadError('Could not load review for editing.'))
+  }, [reviewId, isEditMode]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const reviewCategories = useMemo(() =>
     REVIEW_CATEGORY_IDS.map((id) => ({ id, label: t(`property:review.category.${id}`) })),
@@ -78,15 +107,21 @@ export default function ReviewEditorPage() {
     )
 
   const handleSubmit = async () => {
-    if (!hotelId || !title.trim() || !summary.trim()) return
+    if (!title.trim() || !summary.trim()) return
+    if (!isEditMode && !hotelId) return
     setIsSubmitting(true)
     setSubmitError(null)
     try {
-      const result = await submitReview(hotelId, {
+      const payload = {
         title: title.trim(),
         content: summary.trim(),
         rating: overallRating,
-      })
+        categoryScores: scores,
+        tags: selectedTags,
+      }
+      const result = isEditMode
+        ? await updateReview(reviewId, payload)
+        : await submitReview(hotelId, payload)
       setPublished(result)
     } catch {
       setSubmitError(t('property:review.submitError'))

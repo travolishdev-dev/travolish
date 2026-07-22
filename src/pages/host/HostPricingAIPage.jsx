@@ -86,6 +86,7 @@ export default function HostPricingAIPage() {
   }, [primaryHotelId, hostLoading])
 
   function loadDemandAnalysis() {
+    if (!primaryHotelId) return
     setDemandLoading(true)
     analyzeDemand(primaryHotelId)
       .then((data) => { if (data) setDemandData(data) })
@@ -94,6 +95,7 @@ export default function HostPricingAIPage() {
   }
 
   function loadCompetitorAnalysis() {
+    if (!primaryHotelId) return
     setCompetitorLoading(true)
     analyzeCompetitors(primaryHotelId)
       .then((data) => { if (data) setCompetitorData(data) })

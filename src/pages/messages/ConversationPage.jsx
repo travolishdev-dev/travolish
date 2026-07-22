@@ -10,6 +10,7 @@ import {
   StatusPill,
 } from '../../components/portal/PortalUI'
 import { getConversation, getMessages, sendMessage } from '../../services/chatApi'
+import { getUser } from '../../services/usersApi'
 import useAuthStore from '../../stores/useAuthStore'
 
 function formatTime(dt) {
@@ -35,6 +36,7 @@ export default function ConversationPage() {
   const [attachments, setAttachments] = useState([])
   const [attachmentNotice, setAttachmentNotice] = useState(null)
   const [typingPulse, setTypingPulse] = useState(false)
+  const [otherUserName, setOtherUserName] = useState(null)
   const bottomRef = useRef(null)
   const fileInputRef = useRef(null)
 
@@ -47,6 +49,13 @@ export default function ConversationPage() {
         ])
         setConversation(conv)
         setMessages((msgs.content ?? msgs).filter((m) => !m.isDeleted))
+        const otherId = conv.userId1 === userId ? conv.userId2 : conv.userId1
+        if (otherId) {
+          getUser(otherId).then((u) => {
+            const name = [u.firstName, u.lastName].filter(Boolean).join(' ') || u.email || null
+            if (name) setOtherUserName(name)
+          }).catch(() => {})
+        }
       } catch {
         // leave null — handled below
       } finally {
@@ -172,11 +181,12 @@ export default function ConversationPage() {
 
   const otherUserId = conversation.userId1 === userId ? conversation.userId2 : conversation.userId1
   const unread = conversation.userId1 === userId ? conversation.user1UnreadCount : conversation.user2UnreadCount
+  const displayName = otherUserName ?? `User #${otherUserId}`
 
   return (
     <PortalShell
       eyebrow={t('messages:conv.eyebrow')}
-      title={t('messages:conv.titlePattern', { id: otherUserId })}
+      title={displayName}
       mobileTitle={t('messages:conv.mobileTitle')}
       description={t('messages:conv.desc')}
       actions={[
@@ -184,7 +194,7 @@ export default function ConversationPage() {
       ]}
       stats={[
         { label: t('messages:conv.statThread'), value: `#${conversation.id}`, note: conversation.isActive ? t('messages:conv.statActive') : t('messages:conv.statInactive') },
-        { label: t('messages:conv.statParticipant'), value: `User #${otherUserId}`, note: t('messages:conv.statOtherUser') },
+        { label: t('messages:conv.statParticipant'), value: displayName, note: t('messages:conv.statOtherUser') },
         { label: t('messages:conv.statUnread'), value: String(unread ?? 0), note: t('messages:conv.statInThread') },
       ]}
       accent="from-sky-50 via-white to-emerald-50"
@@ -252,7 +262,7 @@ export default function ConversationPage() {
           {typingPulse && (
             <div className="flex justify-start">
               <div className="inline-flex items-center gap-2 rounded-[22px] border border-gray-200 bg-[#fcfcfb] px-4 py-3 text-sm text-muted">
-                <span>{t('messages:conv.typingPattern', { id: otherUserId })}</span>
+                <span>{t('messages:conv.typingPattern', { id: displayName })}</span>
                 <span className="flex gap-1">
                   <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-gray-400" />
                   <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-gray-400 [animation-delay:120ms]" />

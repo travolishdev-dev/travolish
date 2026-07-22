@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { adminScreenConfigs } from '../../data/adminPanelData'
 import {
   AdminDataTable,
@@ -66,13 +67,20 @@ const BULK_TO_ROW_ACTION = {
   'Approve selected': 'Approve',
   'Request resubmission': 'Request files',
   'Request edits': 'Request files',
-  'Dismiss': 'Moderate',
+  'Reject': 'Reject',
+  'Dismiss': 'Dismiss',
   'Suspend': 'Suspend',
   'Restore': 'Restore',
   'Escalate': 'Escalate',
   'Enable': 'Enable',
   'Disable': 'Disable',
+  'Clone': 'Clone',
   'Delete': 'Delete',
+  'Preview impact': 'Preview',
+  'Assign reviewer': 'Assign reviewer',
+  'Assign': 'Assign',
+  'Send warning': 'Send notice',
+  'Edit': 'Edit',
 }
 
 function downloadCSV(columns, rows, pageKey) {
@@ -92,9 +100,10 @@ function downloadCSV(columns, rows, pageKey) {
   URL.revokeObjectURL(url)
 }
 
-export default function AdminManagementPage({ pageKey, rows: rowsProp, loading = false, onRowAction, detailContent }) {
+export default function AdminManagementPage({ pageKey, rows: rowsProp, loading = false, onRowAction, onHeaderAction, detailContent, pagination }) {
   const config = adminScreenConfigs[pageKey]
   const baseRows = rowsProp ?? config.rows
+  const navigate = useNavigate()
 
   const [searchQuery, setSearchQuery] = useState('')
   const [activeFilters, setActiveFilters] = useState({})
@@ -191,6 +200,10 @@ export default function AdminManagementPage({ pageKey, rows: rowsProp, loading =
   function handleHeaderAction(action) {
     if (action === 'Export') {
       handleExportCSV()
+    } else if (action === 'Audit log') {
+      navigate('/admin/audit-log')
+    } else if (onHeaderAction) {
+      onHeaderAction(action)
     } else {
       setActionNotice(`${action} action opened for ${config.title}.`)
     }
@@ -225,14 +238,39 @@ export default function AdminManagementPage({ pageKey, rows: rowsProp, loading =
             Loading records…
           </div>
         ) : (
-          <AdminDataTable
-            columns={config.columns}
-            rows={filteredRows}
-            selectedRowKey={selectedRecord?.[0]}
-            onRowSelect={handleRowSelect}
-            onRowAction={handleRowAction}
-            onExport={handleExportCSV}
-          />
+          <div className="flex flex-col gap-4">
+            <AdminDataTable
+              columns={config.columns}
+              rows={filteredRows}
+              selectedRowKey={selectedRecord?.[0]}
+              onRowSelect={handleRowSelect}
+              onRowAction={handleRowAction}
+              onExport={handleExportCSV}
+            />
+            {pagination && pagination.totalPages > 1 && (
+              <div className="flex items-center justify-between border-t border-gray-200 pt-4 text-xs font-semibold text-muted">
+                <span>Page {pagination.page + 1} of {pagination.totalPages}</span>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    disabled={pagination.page === 0}
+                    onClick={() => pagination.onPage(pagination.page - 1)}
+                    className="inline-flex h-8 items-center rounded-card border border-gray-200 bg-white px-3 transition-colors hover:border-dark disabled:opacity-40"
+                  >
+                    Previous
+                  </button>
+                  <button
+                    type="button"
+                    disabled={pagination.page >= pagination.totalPages - 1}
+                    onClick={() => pagination.onPage(pagination.page + 1)}
+                    className="inline-flex h-8 items-center rounded-card border border-gray-200 bg-white px-3 transition-colors hover:border-dark disabled:opacity-40"
+                  >
+                    Next
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
         )}
         {detailContent
           ? detailContent({ record: selectedRecord, setNotice: setActionNotice })

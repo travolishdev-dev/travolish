@@ -3,7 +3,7 @@ import { FileWarning, RotateCcw, ShieldAlert, UserX } from 'lucide-react'
 import toast from 'react-hot-toast'
 import AdminManagementPage from '../../components/admin/AdminManagementPage'
 import { AdminCard, AdminSectionHeading, AdminStatusPill } from '../../components/admin/AdminPortalUI'
-import { approveReview, escalateReview, getFlaggedReviews, getPendingReviews, rejectReview } from '../../services/adminApi'
+import { approveReview, assignModerator, dismissReview, escalateReview, getFlaggedReviews, getPendingReviews, redactReview, rejectReview } from '../../services/adminApi'
 
 
 function mapReviewToRow(r) {
@@ -55,9 +55,9 @@ export default function AdminModerationPage() {
 
   const handleRowAction = useCallback(async (row, action, setNotice) => {
     const review = rawMap.current[row[0]]
-    if (!review) return
+    if (!review) { setNotice(`Viewing ${row[0]} — status: ${row[4]}`); return }
 
-    if (action === 'Moderate') {
+    if (action === 'Moderate' || action === 'Review') {
       try {
         await approveReview(review.id)
         toast.success(`${row[0]} approved`)
@@ -66,12 +66,23 @@ export default function AdminModerationPage() {
         toast.error('Action failed')
       }
     } else if (action === 'Reject') {
+      const reason = window.prompt(`Reason for rejecting ${row[0]}:`, 'Policy violation')
+      if (reason === null) return
       try {
-        await rejectReview(review.id, 'Policy violation')
+        await rejectReview(review.id, reason || 'Policy violation')
         toast.success(`${row[0]} rejected`)
         load()
       } catch {
         toast.error('Action failed')
+      }
+    } else if (action === 'Redact') {
+      if (!window.confirm(`Redact content for ${row[0]}? This will permanently remove the reported text.`)) return
+      try {
+        await redactReview(review.id)
+        toast.success(`${row[0]} redacted`)
+        load()
+      } catch {
+        toast.error('Redaction failed')
       }
     } else if (action === 'Escalate') {
       try {
@@ -80,6 +91,27 @@ export default function AdminModerationPage() {
         load()
       } catch {
         toast.error('Escalation failed')
+      }
+    } else if (action === 'Dismiss') {
+      try {
+        await dismissReview(review.id)
+        toast.success(`${row[0]} dismissed`)
+        setNotice(`${row[0]} dismissed — no policy violation found.`)
+        load()
+      } catch {
+        toast.error('Dismiss failed')
+      }
+    } else if (action === 'Assign') {
+      const idStr = window.prompt(`Moderator admin ID to assign ${row[0]}:`)
+      if (idStr === null || !idStr.trim()) return
+      const moderatorId = parseInt(idStr.trim(), 10)
+      if (isNaN(moderatorId)) { toast.error('Enter a valid numeric admin ID'); return }
+      try {
+        await assignModerator(review.id, moderatorId)
+        toast.success(`Moderator #${moderatorId} assigned to ${row[0]}`)
+        setNotice(`Moderator #${moderatorId} assigned to ${row[0]}.`)
+      } catch {
+        toast.error('Assignment failed')
       }
     } else {
       setNotice(`Viewing ${row[0]} — status: ${row[4]}`)
@@ -146,14 +178,69 @@ export default function AdminModerationPage() {
             </div>
 
             {report && (
-              <button
-                type="button"
-                onClick={() => setNotice(`Appeal window opened for ${record[0]} — status: ${record[4]}. Notify reporter and host when resolved.`)}
-                className="inline-flex h-11 items-center justify-center gap-2 rounded-card bg-dark px-4 text-sm font-semibold text-white"
-              >
-                <ShieldAlert size={16} />
-                Prepare appeal review
-              </button>
+              <div className="space-y-3 border-t border-gray-200 pt-4">
+                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted">Quick actions</p>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      try {
+                        await approveReview(report.id)
+                        toast.success(`${record[0]} approved`)
+                        setNotice(`${record[0]} approved — content cleared.`)
+                        load()
+                      } catch { toast.error('Action failed') }
+                    }}
+                    className="inline-flex h-9 items-center rounded-card bg-dark px-3 text-xs font-semibold text-white transition-colors hover:bg-gray-800"
+                  >
+                    Approve
+                  </button>
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      const reason = window.prompt(`Reason for rejecting ${record[0]}:`, 'Policy violation')
+                      if (reason === null) return
+                      try {
+                        await rejectReview(report.id, reason || 'Policy violation')
+                        toast.success(`${record[0]} rejected`)
+                        load()
+                      } catch { toast.error('Action failed') }
+                    }}
+                    className="inline-flex h-9 items-center rounded-card border border-rose-200 bg-rose-50 px-3 text-xs font-semibold text-rose-700 transition-colors hover:bg-rose-100"
+                  >
+                    Reject
+                  </button>
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      if (!window.confirm(`Redact content for ${record[0]}?`)) return
+                      try {
+                        await redactReview(report.id)
+                        toast.success(`${record[0]} redacted`)
+                        load()
+                      } catch { toast.error('Redaction failed') }
+                    }}
+                    className="inline-flex h-9 items-center rounded-card border border-amber-200 bg-amber-50 px-3 text-xs font-semibold text-amber-800 transition-colors hover:bg-amber-100"
+                  >
+                    Redact
+                  </button>
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      try {
+                        await escalateReview(report.id)
+                        toast.success(`${record[0]} escalated for appeal review`)
+                        setNotice(`${record[0]} escalated — legal or safety team notified.`)
+                        load()
+                      } catch { toast.error('Escalation failed') }
+                    }}
+                    className="inline-flex h-9 items-center gap-1.5 rounded-card border border-gray-200 bg-white px-3 text-xs font-semibold text-dark transition-colors hover:border-brand hover:text-brand"
+                  >
+                    <ShieldAlert size={13} />
+                    Prepare appeal review
+                  </button>
+                </div>
+              </div>
             )}
           </AdminCard>
         )

@@ -111,8 +111,8 @@ export default function CheckoutPage() {
   const [promoCode, setPromoCode] = useState('')
   const [appliedPromo, setAppliedPromo] = useState('')
   const [promoNotice, setPromoNotice] = useState('')
-  const [bookingMode] = useState(() =>
-    incomingBooking?.bookingMode || (Number(propertyId) % 2 === 0 ? 'request' : 'instant'),
+  const [bookingMode, setBookingMode] = useState(() =>
+    incomingBooking?.bookingMode || 'instant',
   )
 
   useEffect(() => {
@@ -150,6 +150,12 @@ export default function CheckoutPage() {
         if (cancelled) return
         setHotel(hotelData)
         setRooms(hotelRooms)
+        if (!incomingBooking?.bookingMode) {
+          setBookingMode(
+            hotelData.bookingMode ||
+            (hotelData.instantBook === false ? 'request' : 'instant'),
+          )
+        }
         if (Array.isArray(fetchedAddOns) && fetchedAddOns.length > 0) {
           setAddOns(fetchedAddOns)
         }
@@ -334,8 +340,9 @@ export default function CheckoutPage() {
     )
   }
 
+  const FALLBACK_IMAGE = 'https://images.unsplash.com/photo-1542314831-068cd1dbfeeb?w=800&auto=format&fit=crop'
   const propertyImage = hotel
-    ? `https://images.unsplash.com/photo-1542314831-068cd1dbfeeb?w=800&auto=format&fit=crop`
+    ? (hotel.imageUrl || hotel.thumbnailUrl || hotel.images?.[0] || FALLBACK_IMAGE)
     : null
 
   return (
@@ -365,9 +372,9 @@ export default function CheckoutPage() {
           note: dateLabel || t('selectDates'),
         },
         {
-          label: 'Reward ready',
-          value: '$275',
-          note: 'Can be applied later',
+          label: 'Booking type',
+          value: bookingMode === 'request' ? t('requestToBook') : t('instantBook'),
+          note: bookingMode === 'request' ? 'Awaiting host approval' : 'Confirmed immediately',
         },
       ]}
       accent="from-rose-50 via-white to-amber-50"
@@ -611,8 +618,8 @@ export default function CheckoutPage() {
               title={bookingMode === 'request' ? t('hostApprovalRequired') : t('instantConfirmation')}
               description={
                 bookingMode === 'request'
-                  ? 'This stay is shown as request-to-book in the traveller flow. The host should approve or decline within 24 hours once backend workflow is connected.'
-                  : 'This stay is shown as instant-bookable. Confirmation can be completed immediately when payment succeeds.'
+                  ? 'Your request will be sent to the host for approval. You will be notified within 24 hours.'
+                  : 'Your booking will be confirmed immediately upon submission.'
               }
             />
           </SectionCard>
@@ -799,7 +806,7 @@ export default function CheckoutPage() {
                           {addOn.description}
                         </p>
                       </div>
-                      <p className="text-lg font-semibold">${addOn.price}</p>
+                      <p className="text-lg font-semibold">{formatMoney(addOn.price, currency)}</p>
                     </div>
                   </button>
                 )

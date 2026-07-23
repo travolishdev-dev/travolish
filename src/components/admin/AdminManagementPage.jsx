@@ -24,7 +24,7 @@ function computeLiveStats(pageKey, rows) {
     case 'verification':
       return [
         { label: 'Pending review', value: String(rows.filter(r => ['PENDING', 'UNDER_REVIEW'].includes(r[4])).length), note: 'Awaiting decision', tone: 'warning' },
-        { label: 'Approved', value: String(rows.filter(r => r[4] === 'APPROVED').length), note: 'Clean decisions', tone: 'success' },
+        { label: 'Approved', value: String(rows.filter(r => r[4] === 'VERIFIED').length), note: 'Clean decisions', tone: 'success' },
         { label: 'Rejected', value: String(rows.filter(r => r[4] === 'REJECTED').length), note: 'Document mismatch', tone: 'danger' },
         { label: 'Total', value: String(rows.length), note: 'All KYC submissions', tone: 'brand' },
       ]

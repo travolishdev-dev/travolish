@@ -239,7 +239,7 @@ function UserLogsPanel({ user, onBack }) {
   useEffect(() => {
     setLoading(true)
     getAuditLogs('USER', user.id)
-      .then((data) => setLogs(Array.isArray(data) ? data : []))
+      .then((data) => setLogs(Array.isArray(data) ? data : (data?.content ?? [])))
       .catch(() => setLogs([]))
       .finally(() => setLoading(false))
   }, [user.id])

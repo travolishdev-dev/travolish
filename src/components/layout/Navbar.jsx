@@ -200,8 +200,15 @@ export default function Navbar() {
         setIsMenuOpen(false)
       }
     }
-    document.addEventListener('mousedown', handleClickOutside)
-    return () => document.removeEventListener('mousedown', handleClickOutside)
+    const handleEscape = (e) => {
+      if (e.key === 'Escape') setIsMenuOpen(false)
+    }
+    document.addEventListener('pointerdown', handleClickOutside)
+    document.addEventListener('keydown', handleEscape)
+    return () => {
+      document.removeEventListener('pointerdown', handleClickOutside)
+      document.removeEventListener('keydown', handleEscape)
+    }
   }, [])
 
   // Close the dropdown on every route change (SPA navigation doesn't unmount Navbar)

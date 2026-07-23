@@ -114,7 +114,8 @@ function AppLayout({ children }) {
   const portalRoute = isPortalRoute(pathname)
   const adminRoute = pathname.startsWith('/admin')
   const hostRoute = pathname.startsWith('/host')
-  const showTravellerAssistant = !adminRoute && !hostRoute
+  const messagesRoute = pathname.startsWith('/messages')
+  const showTravellerAssistant = !adminRoute && !hostRoute && !messagesRoute
 
   return (
     <div className="min-h-screen flex flex-col">

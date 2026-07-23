@@ -22,6 +22,18 @@ export async function deleteHotel(id) {
   return del(`/api/hotels/${id}`)
 }
 
+export async function submitForReview(id) {
+  return post(`/api/hotels/${id}/submit-for-review`)
+}
+
+export async function getHotelPromotions(hotelId) {
+  return get(`/api/hotels/${hotelId}/promotions`)
+}
+
+export async function saveHotelPromotion(hotelId, body) {
+  return post(`/api/hotels/${hotelId}/promotions`, body)
+}
+
 // ── Rooms ─────────────────────────────────────────────────────────────────────
 
 export async function getHostRooms(hotelId) {

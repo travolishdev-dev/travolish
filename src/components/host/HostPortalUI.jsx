@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import {
   Banknote,
@@ -11,6 +11,7 @@ import {
   LayoutDashboard,
   Menu,
   Megaphone,
+  MessageSquare,
   NotebookPen,
   OctagonAlert,
   ShieldCheck,
@@ -28,6 +29,7 @@ const hostNavGroups = [
     items: [
       { label: 'Dashboard', href: '/host', icon: LayoutDashboard },
       { label: 'Bookings', href: '/host/bookings', icon: CalendarCheck },
+      { label: 'Messages', href: '/messages', icon: MessageSquare },
       { label: 'Listings', href: '/host/listings', icon: Building2 },
       { label: 'Availability', href: '/host/availability', icon: CalendarDays },
       { label: 'Inventory', href: '/host/inventory', icon: Gauge },
@@ -160,6 +162,7 @@ function HostMobileChrome({ title, mobileAction }) {
   const isRTL = document.documentElement.dir === 'rtl'
   const prefersReduced = useReducedMotion()
   useAndroidBackClose(isDrawerOpen, () => setIsDrawerOpen(false))
+  useEffect(() => { setIsDrawerOpen(false) }, [pathname])
 
   return (
     <>

@@ -31,43 +31,44 @@ function fmtTotal(b) {
 
 export default function AdminBookingsPage() {
   const [bookings, setBookings] = useState([])
+  const [totalElements, setTotalElements] = useState(0)
+  const [totalPages, setTotalPages] = useState(1)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(false)
   const [search, setSearch] = useState('')
+  const [debouncedSearch, setDebouncedSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('ALL')
   const [page, setPage] = useState(0)
   const [actionLoading, setActionLoading] = useState(null)
+  const [refreshKey, setRefreshKey] = useState(0)
 
-  const load = useCallback(() => {
+  // Debounce search input by 300 ms
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(search), 300)
+    return () => clearTimeout(t)
+  }, [search])
+
+  // Reset to page 0 when filters change
+  useEffect(() => { setPage(0) }, [debouncedSearch, statusFilter])
+
+  // Fetch whenever page, filters, or a manual refresh changes
+  useEffect(() => {
+    let cancelled = false
     setLoading(true)
     setError(false)
-    getAdminBookings()
-      .then((data) => setBookings(Array.isArray(data) ? data : []))
-      .catch(() => setError(true))
-      .finally(() => setLoading(false))
-  }, [])
+    getAdminBookings({ page, size: PAGE_SIZE, search: debouncedSearch, status: statusFilter })
+      .then((data) => {
+        if (cancelled) return
+        setBookings(Array.isArray(data?.content) ? data.content : [])
+        setTotalElements(data?.totalElements ?? 0)
+        setTotalPages(data?.totalPages ?? 1)
+      })
+      .catch(() => { if (!cancelled) setError(true) })
+      .finally(() => { if (!cancelled) setLoading(false) })
+    return () => { cancelled = true }
+  }, [page, debouncedSearch, statusFilter, refreshKey])
 
-  useEffect(() => { load() }, [load])
-
-  const filtered = bookings.filter((b) => {
-    const matchesStatus = statusFilter === 'ALL' || b.status === statusFilter
-    const q = search.toLowerCase()
-    const matchesSearch = !q ||
-      b.guestName?.toLowerCase().includes(q) ||
-      b.guestEmail?.toLowerCase().includes(q) ||
-      String(b.id).includes(q) ||
-      String(b.hotelId).includes(q)
-    return matchesStatus && matchesSearch
-  })
-
-  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
-  const safePage = Math.min(page, totalPages - 1)
-  const visible = filtered.slice(safePage * PAGE_SIZE, (safePage + 1) * PAGE_SIZE)
-
-  const counts = bookings.reduce((acc, b) => {
-    acc[b.status] = (acc[b.status] || 0) + 1
-    return acc
-  }, {})
+  const refresh = useCallback(() => setRefreshKey((k) => k + 1), [])
 
   async function handleCancel(b) {
     if (!window.confirm(`Cancel booking #${b.id} for ${b.guestName ?? 'this guest'}?`)) return
@@ -75,7 +76,7 @@ export default function AdminBookingsPage() {
     try {
       await post(`/api/bookings/${b.id}/cancel`)
       toast.success(`Booking #${b.id} cancelled`)
-      load()
+      refresh()
     } catch {
       toast.error('Cancellation failed')
     } finally {
@@ -88,7 +89,7 @@ export default function AdminBookingsPage() {
     try {
       await confirmAdminBooking(b.id)
       toast.success(`Booking #${b.id} confirmed`)
-      load()
+      refresh()
     } catch {
       toast.error('Confirmation failed')
     } finally {
@@ -109,19 +110,19 @@ export default function AdminBookingsPage() {
           <button
             key={s}
             type="button"
-            onClick={() => { setStatusFilter(s); setPage(0) }}
+            onClick={() => setStatusFilter(s)}
             className={`rounded-full px-3 py-1.5 text-xs font-semibold transition-colors ${
               statusFilter === s ? 'bg-dark text-white' : 'border border-gray-200 bg-white text-dark hover:bg-gray-50'
             }`}
           >
-            {s === 'ALL' ? `All (${bookings.length})` : `${s} (${counts[s] ?? 0})`}
+            {s === 'ALL' ? `All (${totalElements})` : s}
           </button>
         ))}
         <input
           type="text"
           value={search}
-          onChange={(e) => { setSearch(e.target.value); setPage(0) }}
-          placeholder="Search name, email, ID…"
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Search name, email…"
           className="ml-auto rounded-full border border-gray-200 bg-white px-4 py-1.5 text-xs outline-none focus:border-dark"
         />
       </div>
@@ -129,7 +130,7 @@ export default function AdminBookingsPage() {
       <AdminCard>
         <AdminSectionHeading
           eyebrow="Bookings"
-          title={`${filtered.length} booking${filtered.length !== 1 ? 's' : ''}`}
+          title={`${totalElements} booking${totalElements !== 1 ? 's' : ''}`}
           description="Platform reservations with cancel and confirm actions."
         />
 
@@ -140,9 +141,9 @@ export default function AdminBookingsPage() {
         ) : error ? (
           <div className="mt-6 rounded-card border border-rose-200 bg-rose-50 px-4 py-6 text-center">
             <p className="text-sm font-semibold text-rose-700">Failed to load bookings</p>
-            <button type="button" onClick={load} className="mt-3 text-xs font-semibold text-rose-600 underline">Retry</button>
+            <button type="button" onClick={refresh} className="mt-3 text-xs font-semibold text-rose-600 underline">Retry</button>
           </div>
-        ) : filtered.length === 0 ? (
+        ) : bookings.length === 0 ? (
           <p className="mt-6 text-sm text-muted">No bookings match the current filter.</p>
         ) : (
           <>
@@ -158,7 +159,7 @@ export default function AdminBookingsPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
-                  {visible.map((b) => (
+                  {bookings.map((b) => (
                     <tr key={b.id} className="hover:bg-gray-50/50">
                       <td className="py-3 pr-4 font-mono text-xs text-muted">#{b.id}</td>
                       <td className="py-3 pr-4">
@@ -209,11 +210,11 @@ export default function AdminBookingsPage() {
 
             {totalPages > 1 && (
               <div className="mt-5 flex items-center justify-between gap-3 border-t border-gray-200 pt-4 text-xs font-semibold text-muted">
-                <span>Page {safePage + 1} of {totalPages} · {filtered.length} records</span>
+                <span>Page {page + 1} of {totalPages} · {totalElements} records</span>
                 <div className="flex gap-2">
                   <button
                     type="button"
-                    disabled={safePage === 0}
+                    disabled={page === 0}
                     onClick={() => setPage((p) => Math.max(0, p - 1))}
                     className="inline-flex h-8 items-center rounded-card border border-gray-200 bg-white px-3 transition-colors hover:border-dark disabled:opacity-40"
                   >
@@ -221,7 +222,7 @@ export default function AdminBookingsPage() {
                   </button>
                   <button
                     type="button"
-                    disabled={safePage >= totalPages - 1}
+                    disabled={page >= totalPages - 1}
                     onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
                     className="inline-flex h-8 items-center rounded-card border border-gray-200 bg-white px-3 transition-colors hover:border-dark disabled:opacity-40"
                   >

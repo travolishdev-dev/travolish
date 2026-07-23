@@ -1,16 +1,27 @@
-import { useEffect, useRef, useState } from 'react'
-import { Loader2, Send, Sparkles, X } from 'lucide-react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
+import { Link } from 'react-router-dom'
+import { ArrowUpRight, Loader2, MessageCircle, Send, Sparkles, X } from 'lucide-react'
 import TravolishWordmark from '../common/TravolishWordmark'
 import { getOrCreateConversation, getMessages, sendMessage } from '../../services/chatApi'
 import useAuthStore from '../../stores/useAuthStore'
 
 const SUPPORT_USER_ID = 4
 
-const QUICK_PROMPTS = [
-  'Find stays with free cancellation',
-  'What should I check before booking?',
-  'Help me compare two properties',
-]
+// Merge incoming DB messages into local state without losing optimistic messages.
+// Union by id; sort by createdAt (messages without a timestamp sort first so
+// the static welcome message stays at the top).
+function mergeMessages(prev, incoming) {
+  const knownIds = new Set(prev.map((m) => m.id))
+  const fresh = incoming.filter((m) => !knownIds.has(m.id))
+  if (!fresh.length) return prev
+  return [...prev, ...fresh].sort((a, b) => {
+    if (!a.createdAt && !b.createdAt) return 0
+    if (!a.createdAt) return -1
+    if (!b.createdAt) return 1
+    return new Date(a.createdAt) - new Date(b.createdAt)
+  })
+}
 
 function mapBackendMessages(messages, userId) {
   return messages.map((m) => ({
@@ -22,7 +33,9 @@ function mapBackendMessages(messages, userId) {
 }
 
 export default function TravellerAssistantWidget() {
+  const { t } = useTranslation('messages')
   const userId = useAuthStore((s) => s.backendUserId)
+  const authLoading = useAuthStore((s) => s.loading ?? s.isLoading ?? false)
 
   const [isOpen, setIsOpen] = useState(false)
   const [input, setInput] = useState('')
@@ -35,10 +48,18 @@ export default function TravellerAssistantWidget() {
   ])
   const [conversationId, setConversationId] = useState(null)
   const [loadingHistory, setLoadingHistory] = useState(false)
+  const [initError, setInitError] = useState(false)
   const [sending, setSending] = useState(false)
+  const [sendError, setSendError] = useState(null)
   const [isTyping, setIsTyping] = useState(false)
   const [isBubbleVisible, setIsBubbleVisible] = useState(false)
   const bottomRef = useRef(null)
+
+  const quickPrompts = useMemo(() => [
+    t('assistant.quickPrompt1'),
+    t('assistant.quickPrompt2'),
+    t('assistant.quickPrompt3'),
+  ], [t])
 
   useEffect(() => {
     if (!isOpen || !userId) return
@@ -46,6 +67,7 @@ export default function TravellerAssistantWidget() {
 
     async function initConversation() {
       setLoadingHistory(true)
+      setInitError(false)
       try {
         const conv = await getOrCreateConversation(userId, SUPPORT_USER_ID)
         if (cancelled || !conv?.id) return
@@ -62,7 +84,7 @@ export default function TravellerAssistantWidget() {
           setMessages(mapBackendMessages(items, userId))
         }
       } catch {
-        // Network error — stay in local-only mode
+        if (!cancelled) setInitError(true)
       } finally {
         if (!cancelled) setLoadingHistory(false)
       }
@@ -80,8 +102,13 @@ export default function TravellerAssistantWidget() {
     const trimmed = prompt.trim()
     if (!trimmed || sending || isTyping) return
 
-    setMessages((prev) => [...prev, { id: `guest-${Date.now()}`, sender: 'guest', text: trimmed }])
+    setSendError(null)
+    const optimisticId = `guest-${Date.now()}`
+    setMessages((prev) => [...prev, { id: optimisticId, sender: 'guest', text: trimmed }])
     setInput('')
+
+    // Auth store still resolving — stay silent; don't show a false "sign in" prompt
+    if (authLoading) return
 
     if (!userId || !conversationId) {
       setMessages((prev) => [
@@ -101,23 +128,47 @@ export default function TravellerAssistantWidget() {
       await sendMessage({ conversationId, receiverId: SUPPORT_USER_ID, messageText: trimmed })
       sent = true
     } catch {
-      // Message failed to persist
+      setMessages((prev) => prev.filter((m) => m.id !== optimisticId))
+      setSendError('Message not sent — please try again.')
     } finally {
       setSending(false)
     }
 
     if (!sent) return
 
+    // Capture the last known AI message ID before polling so we can detect
+    // when a new reply arrives rather than relying on a fixed timeout.
+    const lastAiId = messages.filter((m) => m.sender === 'assistant').slice(-1)[0]?.id ?? null
+
     setIsTyping(true)
     try {
-      await new Promise((resolve) => setTimeout(resolve, 2500))
-      const history = await getMessages(conversationId, { pageSize: 50 })
-      const items = (history?.content ?? (Array.isArray(history) ? history : []))
-        .filter((m) => !m.isDeleted)
-        .reverse()
-      if (items.length > 0) setMessages(mapBackendMessages(items, userId))
+      let gotReply = false
+      for (let attempt = 0; attempt < 5 && !gotReply; attempt++) {
+        await new Promise((resolve) => setTimeout(resolve, 1500))
+        const history = await getMessages(conversationId, { pageSize: 50 }).catch(() => null)
+        if (!history) continue
+        const items = (history?.content ?? (Array.isArray(history) ? history : []))
+          .filter((m) => !m.isDeleted)
+          .reverse()
+        const mapped = mapBackendMessages(items, userId)
+        const latestAiId = mapped.filter((m) => m.sender === 'assistant').slice(-1)[0]?.id ?? null
+        if (latestAiId !== null && latestAiId !== lastAiId) {
+          setMessages((prev) => mergeMessages(prev, mapped))
+          gotReply = true
+        }
+      }
+      // Final sync after max attempts — ensures we show whatever arrived
+      if (!gotReply) {
+        const history = await getMessages(conversationId, { pageSize: 50 }).catch(() => null)
+        if (history) {
+          const items = (history?.content ?? (Array.isArray(history) ? history : []))
+            .filter((m) => !m.isDeleted)
+            .reverse()
+          setMessages((prev) => mergeMessages(prev, mapBackendMessages(items, userId)))
+        }
+      }
     } catch {
-      // Polling failed
+      // Polling failed — message is saved; reply will appear on next open
     } finally {
       setIsTyping(false)
     }
@@ -125,12 +176,16 @@ export default function TravellerAssistantWidget() {
 
   /* ── FAB (closed state) ─────────────────────────────────── */
   if (!isOpen) {
+    const bubbleText = userId
+      ? 'Ask me about stays, deals, trips, or safety.'
+      : 'Sign in to chat with Travolish AI.'
+
     return (
       <>
         {isBubbleVisible && (
           <div className="traveller-assistant-cloud fixed bottom-[calc(9.4rem+env(safe-area-inset-bottom))] end-3 z-40 max-w-[224px] animate-in fade-in duration-150 md:bottom-[5.9rem] md:end-5">
             <p className="relative z-10 px-1 text-center text-xs font-semibold leading-5 text-dark">
-              Ask me about stays, deals, trips, or safety.
+              {bubbleText}
             </p>
           </div>
         )}
@@ -142,7 +197,7 @@ export default function TravellerAssistantWidget() {
           className="fixed bottom-[calc(6rem+env(safe-area-inset-bottom))] end-4 z-50 inline-flex h-14 w-14 items-center justify-center rounded-full bg-brand text-white shadow-[0_18px_45px_rgba(255,56,92,0.32)] transition-colors hover:bg-brand-dark md:bottom-6 md:end-6"
           aria-label="Open travel assistant"
         >
-          <TravolishWordmark className="h-6" style={{ filter: 'brightness(0) invert(1)' }} />
+          <MessageCircle size={24} />
         </button>
       </>
     )
@@ -157,7 +212,6 @@ export default function TravellerAssistantWidget() {
         className="relative overflow-hidden px-5 py-4 flex-shrink-0"
         style={{ background: 'linear-gradient(135deg, #FF385C 0%, #E8175D 55%, #C2185B 100%)' }}
       >
-        {/* subtle dot grid */}
         <div
           className="pointer-events-none absolute inset-0 opacity-[0.07]"
           style={{
@@ -166,8 +220,7 @@ export default function TravellerAssistantWidget() {
           }}
         />
         <div className="relative flex items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
-            {/* avatar */}
+          <div className="flex min-w-0 items-center gap-3">
             <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-white/20 ring-2 ring-white/30 backdrop-blur-sm">
               <TravolishWordmark className="h-5" style={{ filter: 'brightness(0) invert(1)' }} />
             </div>
@@ -179,25 +232,44 @@ export default function TravellerAssistantWidget() {
               <div className="mt-1 flex items-center gap-1.5">
                 <span className="h-2 w-2 flex-shrink-0 rounded-full bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.9)]" />
                 <span className="truncate text-[11px] leading-none text-white/75">
-                  {userId ? 'Live · Powered by Gemini' : 'Online · Ready to help'}
+                  Powered by Gemini
                 </span>
               </div>
             </div>
           </div>
-          <button
-            type="button"
-            onClick={() => setIsOpen(false)}
-            className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-white/20 text-white transition-colors hover:bg-white/35"
-            aria-label="Close travel assistant"
-          >
-            <X size={15} />
-          </button>
+          <div className="flex flex-shrink-0 items-center gap-1.5">
+            {conversationId && (
+              <Link
+                to={`/messages/${conversationId}`}
+                onClick={() => setIsOpen(false)}
+                className="flex h-8 w-8 items-center justify-center rounded-full bg-white/20 text-white transition-colors hover:bg-white/35"
+                aria-label="Open full conversation"
+              >
+                <ArrowUpRight size={14} />
+              </Link>
+            )}
+            <button
+              type="button"
+              onClick={() => setIsOpen(false)}
+              className="flex h-8 w-8 items-center justify-center rounded-full bg-white/20 text-white transition-colors hover:bg-white/35"
+              aria-label="Close travel assistant"
+            >
+              <X size={15} />
+            </button>
+          </div>
         </div>
       </div>
 
+      {/* ── Init error banner ── */}
+      {initError && (
+        <div className="flex-shrink-0 border-b border-amber-100 bg-amber-50 px-4 py-2.5 text-xs font-medium text-amber-800">
+          Could not connect to chat. Messages won&apos;t be saved this session.
+        </div>
+      )}
+
       {/* ── Message list ── */}
       <div
-        className="flex max-h-[320px] flex-1 flex-col gap-3 overflow-y-auto px-4 py-4"
+        className="flex max-h-[420px] flex-1 flex-col gap-3 overflow-y-auto px-4 py-4 md:max-h-[480px]"
         style={{
           background: 'linear-gradient(180deg, #f8f9fb 0%, #f4f5f8 100%)',
           scrollbarWidth: 'thin',
@@ -213,7 +285,6 @@ export default function TravellerAssistantWidget() {
           <>
             {messages.map((message) =>
               message.sender === 'assistant' ? (
-                /* Assistant bubble */
                 <div key={message.id} className="flex items-end gap-2 pr-10">
                   <div className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-rose-400 to-pink-600 shadow-sm shadow-rose-200">
                     <Sparkles size={11} className="text-white" />
@@ -223,7 +294,6 @@ export default function TravellerAssistantWidget() {
                   </div>
                 </div>
               ) : (
-                /* Guest bubble */
                 <div key={message.id} className="flex items-end justify-end pl-10">
                   <div className="rounded-2xl rounded-br-md bg-gradient-to-br from-rose-500 to-rose-600 px-4 py-3 text-sm leading-relaxed text-white shadow-sm shadow-rose-200">
                     {message.text}
@@ -232,7 +302,6 @@ export default function TravellerAssistantWidget() {
               )
             )}
 
-            {/* Typing indicator */}
             {isTyping && (
               <div className="flex items-end gap-2 pr-10">
                 <div className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-rose-400 to-pink-600 shadow-sm shadow-rose-200">
@@ -255,9 +324,9 @@ export default function TravellerAssistantWidget() {
       {/* ── Footer ── */}
       <div className="flex-shrink-0 border-t border-slate-100 bg-white px-4 pb-4 pt-3">
 
-        {/* Quick prompts — horizontal scroll row */}
+        {/* Quick prompts */}
         <div className="-mx-1 mb-3 flex gap-2 overflow-x-auto px-1 pb-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-          {QUICK_PROMPTS.map((prompt) => (
+          {quickPrompts.map((prompt) => (
             <button
               key={prompt}
               type="button"
@@ -269,6 +338,13 @@ export default function TravellerAssistantWidget() {
             </button>
           ))}
         </div>
+
+        {/* Send error */}
+        {sendError && (
+          <p className="mb-2 rounded-xl bg-rose-50 px-3 py-2 text-xs font-medium text-rose-700">
+            {sendError}
+          </p>
+        )}
 
         {/* Input row */}
         <form
@@ -292,7 +368,6 @@ export default function TravellerAssistantWidget() {
           </button>
         </form>
 
-        {/* Footer note */}
         <p className="mt-2.5 text-center text-[10px] text-slate-400">
           {userId ? 'Signed in · messages saved to your account' : 'Sign in to save your conversation history'}
         </p>

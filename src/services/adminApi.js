@@ -160,7 +160,12 @@ export const assignModerator = (reviewId, moderatorId) =>
   patch(`/api/reviews/${reviewId}/assign?moderatorId=${moderatorId}`)
 
 // ─── Admin-enriched bookings (includes hotelName) ────────────────────────────
-export const getAdminBookings = () => get('/api/bookings/admin')
+export const getAdminBookings = ({ page = 0, size = 20, search = '', status = 'ALL' } = {}) => {
+  const params = { page, size }
+  if (search) params.search = search
+  if (status && status !== 'ALL') params.status = status
+  return get('/api/bookings/admin', params)
+}
 
 export const confirmAdminBooking = (id) => post(`/api/bookings/${id}/confirm`)
 
@@ -170,11 +175,11 @@ export const adminSearch = async (q) => {
   const [users, hotels, bookings] = await Promise.allSettled([
     get('/api/users', { search: q }),
     get('/api/hotels', { search: q }),
-    get('/api/bookings/admin', { search: q }),
+    get('/api/bookings/admin', { search: q, size: 5 }),
   ])
   return {
     users: users.status === 'fulfilled' ? (Array.isArray(users.value) ? users.value.slice(0, 5) : []) : [],
     hotels: hotels.status === 'fulfilled' ? (Array.isArray(hotels.value) ? hotels.value.slice(0, 5) : []) : [],
-    bookings: bookings.status === 'fulfilled' ? (Array.isArray(bookings.value) ? bookings.value.slice(0, 5) : []) : [],
+    bookings: bookings.status === 'fulfilled' ? (Array.isArray(bookings.value?.content) ? bookings.value.content.slice(0, 5) : []) : [],
   }
 }

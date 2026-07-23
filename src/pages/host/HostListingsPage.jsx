@@ -12,20 +12,29 @@ import { getHostListings, getHostRooms } from '../../services/hostListingsApi'
 import { listBookingsByHotel } from '../../services/bookingsApi'
 import useHostContext from '../../hooks/useHostContext'
 
-const filters = ['All', 'Live', 'Draft updates']
+const filters = ['All', 'Live', 'In Review', 'Draft updates', 'Paused']
 
 // Map backend HotelStatus enum → UI label used by filter tabs
 function mapHotelStatus(raw) {
   if (raw === 'LIVE') return 'Live'
+  if (raw === 'PENDING_REVIEW') return 'In Review'
   if (raw === 'DRAFT') return 'Draft updates'
-  if (raw === 'PAUSED') return 'Draft updates'
-  return 'Live' // default for legacy rows
+  if (raw === 'PAUSED') return 'Paused'
+  return 'Draft updates'
+}
+
+function statusTone(status) {
+  if (status === 'Live') return 'success'
+  if (status === 'In Review') return 'sky'
+  if (status === 'Paused') return 'slate'
+  return 'warning'
 }
 
 function adaptListing(h) {
   return {
     id: h.id,
     status: mapHotelStatus(h.status),
+    adminNote: h.adminNote ?? null,
     market: h.city ?? h.country ?? h.market ?? '—',
     description: h.description ?? '',
     roomCount: h.totalRooms ?? h.roomCount ?? 0,
@@ -101,7 +110,9 @@ export default function HostListingsPage() {
   }, [activeFilter, listings])
 
   const liveCount = listings.filter((l) => l.status === 'Live').length
-  const draftCount = listings.filter((l) => l.status !== 'Live').length
+  const reviewCount = listings.filter((l) => l.status === 'In Review').length
+  const draftCount = listings.filter((l) => l.status === 'Draft updates').length
+  const pausedCount = listings.filter((l) => l.status === 'Paused').length
 
   return (
     <HostShell
@@ -116,7 +127,9 @@ export default function HostListingsPage() {
       mobileAction={{ label: 'New', href: '/host/listings/new' }}
       stats={[
         { label: 'Live', value: String(liveCount), note: 'Currently bookable' },
+        { label: 'In Review', value: String(reviewCount), note: 'Pending admin approval' },
         { label: 'Draft', value: String(draftCount), note: 'Needs updates' },
+        { label: 'Paused', value: String(pausedCount), note: 'Temporarily hidden' },
       ]}
     >
       <SectionCard>
@@ -161,7 +174,7 @@ export default function HostListingsPage() {
 
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
-                    <StatusPill tone={listing.status === 'Live' ? 'success' : 'warning'}>
+                    <StatusPill tone={statusTone(listing.status)}>
                       {listing.status}
                     </StatusPill>
                     <StatusPill tone="sky">{listing.market}</StatusPill>
@@ -171,6 +184,12 @@ export default function HostListingsPage() {
                       </StatusPill>
                     ) : null}
                   </div>
+                  {listing.status === 'Draft updates' && listing.adminNote && (
+                    <div className="mt-3 flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5 text-sm text-amber-800">
+                      <span className="shrink-0 font-semibold">Admin note:</span>
+                      <span className="leading-5">{listing.adminNote}</span>
+                    </div>
+                  )}
                   <h2 className="mt-3 text-xl font-semibold tracking-tight text-dark">
                     {listing.property.title}
                   </h2>

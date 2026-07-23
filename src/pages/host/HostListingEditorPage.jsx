@@ -46,6 +46,7 @@ import { generateListingDescription } from '../../services/listingsApi'
 import {
   createHotel,
   getHotel,
+  submitForReview,
   updateHotel,
   updatePolicies,
   updatePaymentConfig,
@@ -79,10 +80,17 @@ const TABS = [
   { id: 'status',    label: 'Status',           icon: ToggleRight },
 ]
 
-const HOTEL_STATUSES = [
+// LIVE is intentionally absent — hosts cannot self-publish; publishing requires admin approval.
+// LIVE appears as a selectable option only when the listing is already LIVE or PAUSED (toggling
+// visibility of a previously-approved listing does not require a new review).
+const HOTEL_STATUSES_APPROVED = [
   { value: 'LIVE',   label: 'Live',   description: 'Visible in search and bookable by guests.' },
-  { value: 'DRAFT',  label: 'Draft',  description: 'Hidden from search. Complete your listing before publishing.' },
-  { value: 'PAUSED', label: 'Paused', description: 'Temporarily hidden. All existing bookings remain.' },
+  { value: 'DRAFT',  label: 'Draft',  description: 'Hidden from search. Your listing will not be visible to travellers.' },
+  { value: 'PAUSED', label: 'Paused', description: 'Temporarily hidden from search. All existing bookings remain active.' },
+]
+const HOTEL_STATUSES_DRAFT = [
+  { value: 'DRAFT',  label: 'Draft',  description: 'Save your progress. Submit for review when ready to publish.' },
+  { value: 'PAUSED', label: 'Paused', description: 'Temporarily hidden from search. All existing bookings remain active.' },
 ]
 
 const STAR_RATINGS = ['1', '2', '3', '4', '5']
@@ -177,6 +185,7 @@ const EMPTY_DRAFT = {
   yearBuilt: '',
   lastRenovated: '',
   status: 'DRAFT',
+  adminNote: '',
 
   // Location
   streetAddress: '',
@@ -311,6 +320,7 @@ export default function HostListingEditorPage() {
   const [generatingDesc, setGeneratingDesc] = useState(false)
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState(null)
+  const [submitting, setSubmitting] = useState(false)
   const [geoLoading, setGeoLoading] = useState(false)
   const [geoError, setGeoError] = useState('')
 
@@ -333,6 +343,7 @@ export default function HostListingEditorPage() {
           longitude:   h.longitude != null ? String(h.longitude) : prev.longitude,
           houseRules:  h.houseRules       ?? prev.houseRules,
           status:      h.status           ?? prev.status,
+          adminNote:   h.adminNote        ?? prev.adminNote,
           category:     h.category        ?? prev.category,
           subTypes:     h.subTypes        ?? prev.subTypes,
           targetGuests: h.targetGuests    ?? prev.targetGuests,
@@ -616,6 +627,19 @@ export default function HostListingEditorPage() {
       setSaveError('Save failed. Please try again.')
     } finally {
       setSaving(false)
+    }
+  }
+
+  async function handleSubmitForReview() {
+    if (!id) return
+    setSubmitting(true)
+    try {
+      await submitForReview(id)
+      setFormState((prev) => ({ ...prev, status: 'PENDING_REVIEW', adminNote: '' }))
+    } catch {
+      setSaveError('Could not submit for review. Please try again.')
+    } finally {
+      setSubmitting(false)
     }
   }
 
@@ -1428,44 +1452,98 @@ export default function HostListingEditorPage() {
         )
 
       // ── STATUS ─────────────────────────────────────────────────────────────
-      case 'status':
+      case 'status': {
+        const isPendingReview = formState.status === 'PENDING_REVIEW'
+        // Previously-approved listings (LIVE/PAUSED) may freely toggle visibility without re-review.
+        // DRAFT listings must go through submit-for-review to become LIVE.
+        const editableStatuses = (formState.status === 'LIVE' || formState.status === 'PAUSED')
+          ? HOTEL_STATUSES_APPROVED
+          : HOTEL_STATUSES_DRAFT
+        const statusCfg = {
+          LIVE:           { dot: 'bg-emerald-500', border: 'border-emerald-500 bg-emerald-50', label: 'text-emerald-700' },
+          DRAFT:          { dot: 'bg-amber-400',   border: 'border-amber-400 bg-amber-50',    label: 'text-amber-700' },
+          PAUSED:         { dot: 'bg-rose-400',     border: 'border-rose-400 bg-rose-50',      label: 'text-rose-700' },
+          PENDING_REVIEW: { dot: 'bg-sky-400',      border: 'border-sky-400 bg-sky-50',        label: 'text-sky-700' },
+        }
+
         return (
           <SectionCard>
             <SectionHeading eyebrow="Status" title="Listing status" description="Control whether this property is visible to travellers." />
-            <div className="mt-6 grid gap-3">
-              {HOTEL_STATUSES.map((s) => {
-                const selected = formState.status === s.value
-                const cfg = {
-                  LIVE:   { dot: 'bg-emerald-500', border: 'border-emerald-500 bg-emerald-50', label: 'text-emerald-700' },
-                  DRAFT:  { dot: 'bg-amber-400',   border: 'border-amber-400 bg-amber-50',    label: 'text-amber-700' },
-                  PAUSED: { dot: 'bg-rose-400',     border: 'border-rose-400 bg-rose-50',      label: 'text-rose-700' },
-                }[s.value]
-                return (
-                  <label
-                    key={s.value}
-                    className={`flex cursor-pointer items-center gap-4 rounded-2xl border p-4 transition-colors ${
-                      selected ? cfg.border : 'border-gray-200 bg-white hover:border-gray-400'
-                    }`}
-                  >
-                    <input
-                      type="radio"
-                      name="hotelStatus"
-                      value={s.value}
-                      checked={selected}
-                      onChange={() => setField('status', s.value)}
-                      className="accent-brand shrink-0"
-                    />
-                    <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${cfg.dot}`} />
-                    <span>
-                      <span className={`block text-sm font-semibold ${selected ? cfg.label : 'text-dark'}`}>{s.label}</span>
-                      <span className="mt-0.5 block text-sm text-muted">{s.description}</span>
-                    </span>
-                  </label>
-                )
-              })}
-            </div>
+
+            {/* Admin note callout — shown when listing was returned to DRAFT with feedback */}
+            {formState.status === 'DRAFT' && formState.adminNote && (
+              <div className="mt-4 flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4">
+                <span className="mt-0.5 shrink-0 text-lg">⚠️</span>
+                <div>
+                  <p className="text-sm font-semibold text-amber-900">Action required from admin review</p>
+                  <p className="mt-1 text-sm leading-6 text-amber-800">{formState.adminNote}</p>
+                </div>
+              </div>
+            )}
+
+            {/* Read-only banner when under review */}
+            {isPendingReview ? (
+              <div className="mt-6 flex items-start gap-4 rounded-2xl border border-sky-200 bg-sky-50 p-5">
+                <span className={`mt-0.5 h-3 w-3 shrink-0 rounded-full ${statusCfg.PENDING_REVIEW.dot}`} />
+                <div>
+                  <p className={`text-sm font-semibold ${statusCfg.PENDING_REVIEW.label}`}>Under review</p>
+                  <p className="mt-1 text-sm text-muted">
+                    Your listing has been submitted and is awaiting admin approval. You cannot change its
+                    status while it is under review.
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <div className="mt-6 grid gap-3">
+                {editableStatuses.map((s) => {
+                  const selected = formState.status === s.value
+                  const cfg = statusCfg[s.value]
+                  return (
+                    <label
+                      key={s.value}
+                      className={`flex cursor-pointer items-center gap-4 rounded-2xl border p-4 transition-colors ${
+                        selected ? cfg.border : 'border-gray-200 bg-white hover:border-gray-400'
+                      }`}
+                    >
+                      <input
+                        type="radio"
+                        name="hotelStatus"
+                        value={s.value}
+                        checked={selected}
+                        onChange={() => setField('status', s.value)}
+                        className="accent-brand shrink-0"
+                      />
+                      <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${cfg.dot}`} />
+                      <span>
+                        <span className={`block text-sm font-semibold ${selected ? cfg.label : 'text-dark'}`}>{s.label}</span>
+                        <span className="mt-0.5 block text-sm text-muted">{s.description}</span>
+                      </span>
+                    </label>
+                  )
+                })}
+              </div>
+            )}
+
+            {/* Submit for review — shown only when listing is DRAFT and has been saved (has an id) */}
+            {formState.status === 'DRAFT' && id && (
+              <div className="mt-6 border-t border-gray-200 pt-5">
+                <p className="text-sm text-muted">
+                  Once your listing is complete, submit it for admin review. You will be notified by
+                  email when a decision is made.
+                </p>
+                <button
+                  type="button"
+                  disabled={submitting}
+                  onClick={handleSubmitForReview}
+                  className="mt-4 inline-flex h-11 items-center justify-center rounded-2xl bg-dark px-6 text-sm font-semibold text-white transition-colors hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  {submitting ? 'Submitting…' : 'Submit for review'}
+                </button>
+              </div>
+            )}
           </SectionCard>
         )
+      }
 
       default:
         return null

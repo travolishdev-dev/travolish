@@ -8,7 +8,7 @@ import {
 } from '../../components/host/HostPortalUI'
 import { HostField, HostPillButton } from '../../components/host/HostFormFields'
 import { getHotelBoosts, purchaseBoost, cancelBoost } from '../../services/boostApi'
-import { getHostRooms } from '../../services/hostListingsApi'
+import { getHostRooms, getHotelPromotions, saveHotelPromotion } from '../../services/hostListingsApi'
 import useHostContext from '../../hooks/useHostContext'
 
 const BOOST_TYPES = [
@@ -104,6 +104,36 @@ const DISCOUNT_PROMOTION_TYPES = [
   },
 ]
 
+const RULE_TYPE_TO_FRONTEND = {
+  EARLY_BIRD: 'early_bird',
+  LAST_MINUTE: 'last_minute',
+  FLASH_SALE: 'flash_sale',
+  PROMOTIONAL: 'coupon_code',
+  LONG_STAY: 'long_stay',
+  FREE_UPGRADE: 'free_upgrade',
+  FREE_BREAKFAST: 'free_breakfast',
+  LOYALTY: 'loyalty',
+}
+
+function adaptLoadedPromos(rules) {
+  const result = emptyDiscountPromo()
+  rules.forEach((r) => {
+    const id = RULE_TYPE_TO_FRONTEND[r.ruleType]
+    if (!id) return
+    const pct = r.multiplier != null ? Math.round((1 - r.multiplier) * 100) : 0
+    result[id] = {
+      ...result[id],
+      enabled: r.isActive !== false,
+      ...(pct > 0 ? { discountPercent: String(pct) } : {}),
+      ...(r.promoCode ? { code: r.promoCode } : {}),
+      ...(id === 'free_upgrade' && r.description ? { upgradeCondition: r.description } : {}),
+      ...(id === 'free_breakfast' && r.description ? { breakfastCondition: r.description } : {}),
+      ...(id === 'long_stay' && pct > 0 ? { weeklyDiscountPercent: String(pct) } : {}),
+    }
+  })
+  return result
+}
+
 function emptyDiscountPromo() {
   return Object.fromEntries(DISCOUNT_PROMOTION_TYPES.map((t) => [
     t.id,
@@ -188,13 +218,8 @@ export default function HostPromotionsPage() {
         setPromosNotice('No promotions enabled.')
         return
       }
-      // Fire and forget — backend endpoint may vary
       await Promise.all(enabled.map((p) =>
-        fetch(`/api/hotels/${primaryHotelId}/promotions`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(p),
-        }).catch(() => null)
+        saveHotelPromotion(primaryHotelId, p).catch(() => null)
       ))
       setPromosNotice(`${enabled.length} promotion${enabled.length !== 1 ? 's' : ''} saved.`)
     } catch {
@@ -212,13 +237,16 @@ export default function HostPromotionsPage() {
     Promise.all([
       getHotelBoosts(primaryHotelId).catch(() => []),
       getHostRooms(primaryHotelId).catch(() => []),
-    ]).then(([boosts, roomList]) => {
+      getHotelPromotions(primaryHotelId).catch(() => null),
+    ]).then(([boosts, roomList, existingPromos]) => {
       if (boosts.length > 0) setPromotions(boosts.map(adaptBoost))
       const rs = Array.isArray(roomList) ? roomList : (roomList?.content ?? roomList?.rooms ?? [])
       if (rs.length) {
         setRooms(rs)
-        // Pre-select first room
         setBoostForm((prev) => ({ ...prev, roomId: prev.roomId || String(rs[0].id) }))
+      }
+      if (Array.isArray(existingPromos) && existingPromos.length > 0) {
+        setDiscountPromos(adaptLoadedPromos(existingPromos))
       }
     }).finally(() => setLoading(false))
   }, [primaryHotelId, hostLoading])

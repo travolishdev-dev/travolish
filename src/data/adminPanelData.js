@@ -117,7 +117,7 @@ export const adminScreenConfigs = {
       { label: 'Joined date', field: 'Joined' },
     ],
     bulkActions: ['Send warning', 'Suspend', 'Restore', 'Export'],
-    columns: ['Name', 'Role', 'Status', 'Verification', 'Joined', 'Last active', 'Action'],
+    columns: ['Name', 'Role', 'Status', 'Verification', 'Joined', 'Email', 'Action'],
     rows: [
       ['Maya Chen', 'Host', 'Active', 'Verified', 'Jan 12, 2024', 'Today', 'View profile'],
       ['Aarav Mehta', 'User', 'Active', 'Payment verified', 'Mar 03, 2025', '12 min ago', 'Send notice'],

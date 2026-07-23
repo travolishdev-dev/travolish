@@ -73,6 +73,8 @@ export const getAllKYC = (status) =>
 
 export const getPendingKYC = () => get('/api/admin/kyc/pending')
 
+export const getKYCDetail = (id) => get(`/api/admin/kyc/${id}`)
+
 export const approveKYC = (id) => post(`/api/admin/kyc/${id}/approve`)
 
 export const rejectKYC = (id, reason = 'Admin decision') =>

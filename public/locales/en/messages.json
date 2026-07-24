@@ -62,5 +62,10 @@
     "looksGreat": "Looks great, thank you.",
     "confirmArrival": "Can you confirm the arrival timing?",
     "checkInNotes": "Please share the check-in notes again."
+  },
+  "assistant": {
+    "quickPrompt1": "Find stays with free cancellation",
+    "quickPrompt2": "What should I check before booking?",
+    "quickPrompt3": "Help me compare two properties"
   }
 }

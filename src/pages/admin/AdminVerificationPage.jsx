@@ -21,8 +21,12 @@ function mapKYCToRow(k) {
   return [name, docType, maskedId, submitted, status, '—', actionLabel]
 }
 
-const GOV_ID_TYPES = ['NATIONAL_ID', 'PASSPORT', 'DRIVERS_LICENSE']
-const ADDR_TYPES = ['PROOF_OF_ADDRESS', 'BUSINESS_LICENSE', 'BUSINESS_REGISTRATION']
+const GOV_ID_TYPES = ['GOVERNMENT_ID', 'NATIONAL_ID', 'PASSPORT', 'DRIVERS_LICENSE', 'ID']
+const ADDR_TYPES = ['PROOF_OF_ADDRESS', 'BUSINESS_LICENSE', 'BUSINESS_REGISTRATION', 'HOTEL_LICENSE', 'TAX_DOCUMENT', 'TAX_CERTIFICATE']
+
+function isValidFileUrl(url) {
+  return typeof url === 'string' && url.startsWith('http')
+}
 
 function KYCDetailPanel({ kyc, record, setNotice, onRowAction }) {
   const [auditLogs, setAuditLogs] = useState([])
@@ -50,8 +54,9 @@ function KYCDetailPanel({ kyc, record, setNotice, onRowAction }) {
     )
   }
 
-  const govIdUrl = detail?.documents?.find((d) => GOV_ID_TYPES.includes(d.documentType))?.fileUrl ?? null
-  const addrUrl = detail?.documents?.find((d) => ADDR_TYPES.includes(d.documentType))?.fileUrl ?? null
+  const govIdUrl = detail?.documents?.find((d) => GOV_ID_TYPES.includes(d.documentType) && isValidFileUrl(d.fileUrl))?.fileUrl ?? null
+  const addrUrl = detail?.documents?.find((d) => ADDR_TYPES.includes(d.documentType) && isValidFileUrl(d.fileUrl))?.fileUrl ?? null
+  const anyDocUrl = detail?.documents?.find((d) => isValidFileUrl(d.fileUrl))?.fileUrl ?? null
 
   const history = auditLogs.length > 0
     ? auditLogs.map((e) => [
@@ -143,11 +148,14 @@ function KYCDetailPanel({ kyc, record, setNotice, onRowAction }) {
       <button
         type="button"
         onClick={() => {
-          const docUrl = govIdUrl || addrUrl
+          const docUrl = govIdUrl || addrUrl || anyDocUrl
           if (docUrl) {
             window.open(docUrl, '_blank', 'noopener,noreferrer')
           } else {
-            setNotice('No document URL available for this KYC submission.')
+            const hasPending = detail?.documents?.some((d) => d.fileUrl === 'pending-upload')
+            setNotice(hasPending
+              ? 'Documents were uploaded before storage was configured — ask the host to re-upload their files.'
+              : 'No document URL available for this KYC submission.')
           }
         }}
         className="inline-flex h-11 items-center justify-center gap-2 rounded-card bg-dark px-4 text-sm font-semibold text-white"

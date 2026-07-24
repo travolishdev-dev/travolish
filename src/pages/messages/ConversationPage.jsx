@@ -1,13 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link, useParams } from 'react-router-dom'
-import { ArrowLeft, CheckCheck, ImagePlus, Paperclip, SendHorizonal, X } from 'lucide-react'
+import { ArrowLeft, CheckCheck, ImagePlus, SendHorizonal } from 'lucide-react'
 import { format, parseISO } from 'date-fns'
 import {
   PortalShell,
   SectionCard,
   SectionHeading,
-  StatusPill,
 } from '../../components/portal/PortalUI'
 import { getConversation, getMessages, sendMessage } from '../../services/chatApi'
 import { getUser } from '../../services/usersApi'
@@ -33,12 +32,8 @@ export default function ConversationPage() {
   const [loading, setLoading] = useState(true)
   const [text, setText] = useState('')
   const [sending, setSending] = useState(false)
-  const [attachments, setAttachments] = useState([])
-  const [attachmentNotice, setAttachmentNotice] = useState(null)
-  const [typingPulse, setTypingPulse] = useState(false)
   const [otherUserName, setOtherUserName] = useState(null)
   const bottomRef = useRef(null)
-  const fileInputRef = useRef(null)
 
   useEffect(() => {
     async function load() {
@@ -69,27 +64,10 @@ export default function ConversationPage() {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
 
-  useEffect(() => {
-    if (!conversation?.id) return undefined
-
-    const start = window.setTimeout(() => setTypingPulse(true), 1200)
-    const stop = window.setTimeout(() => setTypingPulse(false), 3800)
-    const interval = window.setInterval(() => {
-      setTypingPulse(true)
-      window.setTimeout(() => setTypingPulse(false), 2600)
-    }, 12000)
-
-    return () => {
-      window.clearTimeout(start)
-      window.clearTimeout(stop)
-      window.clearInterval(interval)
-    }
-  }, [conversation?.id])
-
   const quickReplies = useMemo(() => [
-    t('messages:quickReply.looksGreat'),
-    t('messages:quickReply.confirmArrival'),
-    t('messages:quickReply.checkInNotes'),
+    t('quickReply.looksGreat'),
+    t('quickReply.confirmArrival'),
+    t('quickReply.checkInNotes'),
   ], [t])
 
   const receiverId = conversation
@@ -100,17 +78,14 @@ export default function ConversationPage() {
 
   const handleSend = async (msgText) => {
     const trimmed = (msgText ?? text).trim()
-    const attachedFiles = msgText ? [] : attachments
-    if ((!trimmed && attachedFiles.length === 0) || !receiverId) return
+    if (!trimmed || !receiverId) return
     setText('')
-    setAttachments([])
-    setAttachmentNotice(null)
     const optimistic = {
       id: `tmp-${Date.now()}`,
       senderId: userId,
-      messageText: trimmed || t('messages:conv.attachment', { count: attachedFiles.length }),
+      messageText: trimmed,
       createdAt: new Date().toISOString(),
-      attachments: attachedFiles,
+      attachments: [],
       deliveryStatus: 'sending',
     }
     setMessages((prev) => [...prev, optimistic])
@@ -119,12 +94,12 @@ export default function ConversationPage() {
       const saved = await sendMessage({
         conversationId: Number(id),
         receiverId,
-        messageText: trimmed || optimistic.messageText,
+        messageText: trimmed,
       })
       setMessages((prev) =>
         prev.map((m) =>
           m.id === optimistic.id
-            ? { ...saved, attachments: attachedFiles, deliveryStatus: 'delivered' }
+            ? { ...saved, attachments: [], deliveryStatus: 'delivered' }
             : m,
         ),
       )
@@ -135,35 +110,17 @@ export default function ConversationPage() {
     }
   }
 
-  function handleAttachFiles(event) {
-    const selected = Array.from(event.target.files ?? []).map((file) => ({
-      id: `${file.name}-${file.lastModified}`,
-      name: file.name,
-      size: file.size,
-      type: file.type,
-    }))
-    if (!selected.length) return
-
-    setAttachments((prev) => [...prev, ...selected].slice(0, 5))
-    setAttachmentNotice(t('messages:conv.filesReady', { count: selected.length }))
-    event.target.value = ''
-  }
-
-  function removeAttachment(fileId) {
-    setAttachments((prev) => prev.filter((file) => file.id !== fileId))
-  }
-
   function getReceiptLabel(message) {
-    if (message.deliveryStatus === 'sending' || String(message.id).startsWith('tmp-')) return t('messages:conv.receiptSending')
-    if (message.readAt || message.isRead || message.readByReceiver) return t('messages:conv.receiptRead')
-    return t('messages:conv.receiptDelivered')
+    if (message.deliveryStatus === 'sending' || String(message.id).startsWith('tmp-')) return t('conv.receiptSending')
+    if (message.readAt || message.isRead || message.readByReceiver) return t('conv.receiptRead')
+    return t('conv.receiptDelivered')
   }
 
   if (loading) {
     return (
-      <PortalShell eyebrow={t('messages:conv.eyebrow')} title={t('messages:conv.loadingTitle')} actions={[{ label: t('messages:conv.backToInbox'), href: '/messages', secondary: true }]}>
+      <PortalShell eyebrow={t('conv.eyebrow')} title={t('conv.loadingTitle')} actions={[{ label: t('conv.backToInbox'), href: '/messages', secondary: true }]}>
         <SectionCard>
-          <div className="py-16 text-center text-sm text-muted">{t('messages:conv.fetchingMessages')}</div>
+          <div className="py-16 text-center text-sm text-muted">{t('conv.fetchingMessages')}</div>
         </SectionCard>
       </PortalShell>
     )
@@ -171,9 +128,9 @@ export default function ConversationPage() {
 
   if (!conversation) {
     return (
-      <PortalShell eyebrow={t('messages:conv.eyebrow')} title={t('messages:conv.notFound')} actions={[{ label: t('messages:conv.backToInbox'), href: '/messages' }]}>
+      <PortalShell eyebrow={t('conv.eyebrow')} title={t('conv.notFound')} actions={[{ label: t('conv.backToInbox'), href: '/messages' }]}>
         <SectionCard>
-          <p className="text-sm text-muted">{t('messages:conv.notFoundDesc')}</p>
+          <p className="text-sm text-muted">{t('conv.notFoundDesc')}</p>
         </SectionCard>
       </PortalShell>
     )
@@ -185,17 +142,17 @@ export default function ConversationPage() {
 
   return (
     <PortalShell
-      eyebrow={t('messages:conv.eyebrow')}
+      eyebrow={t('conv.eyebrow')}
       title={displayName}
-      mobileTitle={t('messages:conv.mobileTitle')}
-      description={t('messages:conv.desc')}
+      mobileTitle={t('conv.mobileTitle')}
+      description={t('conv.desc')}
       actions={[
-        { label: t('messages:conv.backToInbox'), href: '/messages', secondary: true },
+        { label: t('conv.backToInbox'), href: '/messages', secondary: true },
       ]}
       stats={[
-        { label: t('messages:conv.statThread'), value: `#${conversation.id}`, note: conversation.isActive ? t('messages:conv.statActive') : t('messages:conv.statInactive') },
-        { label: t('messages:conv.statParticipant'), value: displayName, note: t('messages:conv.statOtherUser') },
-        { label: t('messages:conv.statUnread'), value: String(unread ?? 0), note: t('messages:conv.statInThread') },
+        { label: t('conv.statThread'), value: `#${conversation.id}`, note: conversation.isActive ? t('conv.statActive') : t('conv.statInactive') },
+        { label: t('conv.statParticipant'), value: displayName, note: t('conv.statOtherUser') },
+        { label: t('conv.statUnread'), value: String(unread ?? 0), note: t('conv.statInThread') },
       ]}
       accent="from-sky-50 via-white to-emerald-50"
     >
@@ -204,20 +161,20 @@ export default function ConversationPage() {
         className="inline-flex items-center gap-2 self-start text-sm font-semibold text-dark transition-colors hover:text-muted"
       >
         <ArrowLeft size={16} />
-        {t('messages:conv.backToInbox')}
+        {t('conv.backToInbox')}
       </Link>
 
       <SectionCard>
         <SectionHeading
-          eyebrow={t('messages:conv.sectionEyebrow')}
-          title={t('messages:conv.sectionTitlePattern', { id: conversation.id })}
-          description={t('messages:conv.sectionDesc')}
+          eyebrow={t('conv.sectionEyebrow')}
+          title={t('conv.sectionTitlePattern', { id: conversation.id })}
+          description={t('conv.sectionDesc')}
         />
 
         {/* Message list */}
         <div className="mt-6 space-y-4 max-h-[480px] overflow-y-auto pr-1">
           {messages.length === 0 && (
-            <p className="py-10 text-center text-sm text-muted">{t('messages:conv.noMessages')}</p>
+            <p className="py-10 text-center text-sm text-muted">{t('conv.noMessages')}</p>
           )}
           {messages.map((message) => {
             const isMe = message.senderId === userId
@@ -259,18 +216,6 @@ export default function ConversationPage() {
               </div>
             )
           })}
-          {typingPulse && (
-            <div className="flex justify-start">
-              <div className="inline-flex items-center gap-2 rounded-[22px] border border-gray-200 bg-[#fcfcfb] px-4 py-3 text-sm text-muted">
-                <span>{t('messages:conv.typingPattern', { id: displayName })}</span>
-                <span className="flex gap-1">
-                  <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-gray-400" />
-                  <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-gray-400 [animation-delay:120ms]" />
-                  <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-gray-400 [animation-delay:240ms]" />
-                </span>
-              </div>
-            </div>
-          )}
           <div ref={bottomRef} />
         </div>
 
@@ -290,66 +235,25 @@ export default function ConversationPage() {
 
         {/* Compose */}
         <div className="mt-4 rounded-[26px] border border-gray-200 bg-[#fcfcfb] p-4">
-          {attachmentNotice ? (
-            <p className="mb-3 rounded-2xl bg-rose-50 px-3 py-2 text-xs font-semibold text-brand">
-              {attachmentNotice}
-            </p>
-          ) : null}
-          {attachments.length > 0 && (
-            <div className="mb-3 flex flex-wrap gap-2">
-              {attachments.map((file) => (
-                <span
-                  key={file.id}
-                  className="inline-flex max-w-full items-center gap-2 rounded-2xl border border-gray-200 bg-white px-3 py-2 text-xs font-semibold text-dark"
-                >
-                  <Paperclip size={13} />
-                  <span className="max-w-[180px] truncate">{file.name}</span>
-                  <button
-                    type="button"
-                    onClick={() => removeAttachment(file.id)}
-                    className="inline-flex h-5 w-5 items-center justify-center rounded-full text-muted hover:bg-gray-100 hover:text-dark"
-                    aria-label={t('messages:conv.removeFile', { name: file.name })}
-                  >
-                    <X size={12} />
-                  </button>
-                </span>
-              ))}
-            </div>
-          )}
           <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
-          <textarea
-            rows={3}
-            value={text}
-            onChange={(e) => setText(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) handleSend()
-            }}
-            placeholder={t('messages:conv.composePlaceholder')}
-            className="min-h-[108px] flex-1 resize-none bg-transparent text-base leading-7 text-dark outline-none placeholder:text-gray-400 md:text-sm"
-          />
-          <input
-            ref={fileInputRef}
-            type="file"
-            multiple
-            className="hidden"
-            onChange={handleAttachFiles}
-          />
-          <button
-            type="button"
-            onClick={() => fileInputRef.current?.click()}
-            className="inline-flex h-12 w-full items-center justify-center rounded-2xl border border-gray-200 bg-white text-dark transition-colors hover:bg-gray-50 sm:w-12"
-            aria-label={t('messages:conv.attachFiles')}
-          >
-            <Paperclip size={16} />
-          </button>
-          <button
-            type="button"
-            onClick={() => handleSend()}
-            disabled={(!text.trim() && attachments.length === 0) || sending}
-            className="inline-flex h-12 w-full items-center justify-center rounded-2xl bg-dark text-white transition-colors hover:bg-gray-800 disabled:opacity-40 sm:w-12"
-          >
-            <SendHorizonal size={16} />
-          </button>
+            <textarea
+              rows={3}
+              value={text}
+              onChange={(e) => setText(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) handleSend()
+              }}
+              placeholder={t('conv.composePlaceholder')}
+              className="min-h-[108px] flex-1 resize-none bg-transparent text-base leading-7 text-dark outline-none placeholder:text-gray-400 md:text-sm"
+            />
+            <button
+              type="button"
+              onClick={() => handleSend()}
+              disabled={!text.trim() || sending}
+              className="inline-flex h-12 w-full items-center justify-center rounded-2xl bg-dark text-white transition-colors hover:bg-gray-800 disabled:opacity-40 sm:w-12"
+            >
+              <SendHorizonal size={16} />
+            </button>
           </div>
         </div>
       </SectionCard>

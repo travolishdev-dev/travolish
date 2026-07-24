@@ -378,6 +378,8 @@ function AdminTopHeader() {
 
 export function AdminShell({ children }) {
   const [drawerOpen, setDrawerOpen] = useState(false)
+  const { pathname } = useLocation()
+  useEffect(() => { setDrawerOpen(false) }, [pathname])
 
   return (
     <main className="min-h-screen bg-[#fffdfb] text-dark">

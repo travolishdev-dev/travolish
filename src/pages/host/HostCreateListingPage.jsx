@@ -439,7 +439,6 @@ export default function HostCreateListingPage() {
         checkInTime:  draft.checkInTime || null,
         checkOutTime: draft.checkOutTime || null,
         amenities:    draft.amenities,
-        status:       'DRAFT',
       }
       const created = await createHotel(payload)
       // Backend promotes this user to ROLE_HOST during hotel creation.

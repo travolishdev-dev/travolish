@@ -62,5 +62,10 @@
     "looksGreat": "Perfecto, gracias.",
     "confirmArrival": "¿Puedes confirmar el horario de llegada?",
     "checkInNotes": "Por favor, comparte de nuevo las instrucciones de check-in."
+  },
+  "assistant": {
+    "quickPrompt1": "Buscar alojamientos con cancelación gratuita",
+    "quickPrompt2": "¿Qué debo comprobar antes de reservar?",
+    "quickPrompt3": "Ayúdame a comparar dos propiedades"
   }
 }

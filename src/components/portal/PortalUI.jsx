@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import {
@@ -178,6 +178,7 @@ function PortalMobileChrome({ title, mobileAction }) {
   const isRTL = i18n.dir() === 'rtl'
   const prefersReduced = useReducedMotion()
   useAndroidBackClose(isDrawerOpen, () => setIsDrawerOpen(false))
+  useEffect(() => { setIsDrawerOpen(false) }, [pathname])
   const mobileDrawerSections = useMemo(() => [
     {
       title: t('nav:portalMainGroup'),

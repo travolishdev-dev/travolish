@@ -150,6 +150,13 @@ function HotelDetailPanel({ record, rawMap, onSave, setNotice }) {
         </div>
       )}
 
+      {hotel.adminNote && (
+        <div className="rounded-card border border-amber-200 bg-amber-50 px-4 py-3">
+          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-amber-700">Previous admin note</p>
+          <p className="mt-1 text-sm text-amber-800">{hotel.adminNote}</p>
+        </div>
+      )}
+
       {/* Action buttons — only for PENDING_REVIEW */}
       {isPending && (
         <div className="flex flex-wrap gap-2 border-t border-gray-200 pt-4">

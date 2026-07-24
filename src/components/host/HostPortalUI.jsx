@@ -14,6 +14,7 @@ import {
   MessageSquare,
   NotebookPen,
   OctagonAlert,
+  Receipt,
   ShieldCheck,
   WalletCards,
   X,
@@ -50,6 +51,7 @@ const hostNavGroups = [
     items: [
       { label: 'KYC', href: '/host/kyc', icon: ShieldCheck },
       { label: 'Bank accounts', href: '/host/bank-accounts', icon: WalletCards },
+      { label: 'Tax documents', href: '/host/tax', icon: Receipt },
       { label: 'Auto replies', href: '/host/auto-replies', icon: BellRing },
       { label: 'Emergency', href: '/host/emergency', icon: OctagonAlert },
     ],
@@ -286,6 +288,7 @@ function HostMobileChrome({ title, mobileAction }) {
               <Link
                 key={item.href}
                 to={item.href}
+                onClick={() => setIsDrawerOpen(false)}
                 className={`flex flex-col items-center gap-1 rounded-2xl px-2 py-2 text-[11px] font-semibold transition-colors ${
                   isActive ? 'text-brand' : 'text-muted'
                 }`}

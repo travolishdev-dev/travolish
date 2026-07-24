@@ -50,6 +50,7 @@ const HostBankAccountsPage        = lazy(() => import('./pages/host/HostBankAcco
 const HostGuestReviewPage         = lazy(() => import('./pages/host/HostGuestReviewPage'))
 const HostAutoRepliesPage         = lazy(() => import('./pages/host/HostAutoRepliesPage'))
 const HostEmergencyPage           = lazy(() => import('./pages/host/HostEmergencyPage'))
+const HostTaxDocumentsPage        = lazy(() => import('./pages/host/HostTaxDocumentsPage'))
 const AboutPage                   = lazy(() => import('./pages/AboutPage'))
 const CareersPage                 = lazy(() => import('./pages/CareersPage'))
 const NewsroomPage                = lazy(() => import('./pages/NewsroomPage'))
@@ -576,6 +577,16 @@ export default function App() {
             <AppLayout>
               <ProtectedRoute requireRole="host">
                 <HostEmergencyPage />
+              </ProtectedRoute>
+            </AppLayout>
+          }
+        />
+        <Route
+          path="/host/tax"
+          element={
+            <AppLayout>
+              <ProtectedRoute requireRole="host">
+                <HostTaxDocumentsPage />
               </ProtectedRoute>
             </AppLayout>
           }

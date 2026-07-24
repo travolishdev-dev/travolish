@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Link } from 'react-router-dom'
-import { AlertCircle, CalendarClock, MapPin } from 'lucide-react'
+import { Link, useNavigate } from 'react-router-dom'
+import { AlertCircle, CalendarClock, MapPin, Star } from 'lucide-react'
 import { format, isBefore, parseISO, startOfDay } from 'date-fns'
 import {
   PortalShell,
@@ -11,6 +11,7 @@ import {
 } from '../../components/portal/PortalUI'
 import { listBookings, refreshBookingStatuses } from '../../services/bookingsApi'
 import { getHotel } from '../../services/hotelsApi'
+import { getUserReviews } from '../../services/reviewsApi'
 import useAuthStore from '../../stores/useAuthStore'
 import useCurrency from '../../hooks/useCurrency'
 
@@ -88,6 +89,7 @@ function adaptBooking(booking, hotelMap, t) {
       // Show the resolved display status, not the raw DB value, so it's always accurate
       { label: t('labels.status'), value: status.charAt(0).toUpperCase() + status.slice(1) },
     ],
+    hotelId: booking.hotelId,
     property: {
       title: hotel.name || `Hotel #${booking.hotelId}`,
       location: hotel.city || '',
@@ -101,10 +103,12 @@ export default function TripsPage() {
   const { t } = useTranslation(['trips', 'common'])
   const [activeFilter, setActiveFilter] = useState('all')
   const [bookings, setBookings] = useState([])
+  const [reviewMap, setReviewMap] = useState({})
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const { user, backendUserId } = useAuthStore()
   const { formatCurrency } = useCurrency()
+  const navigate = useNavigate()
 
   useEffect(() => {
     let cancelled = false
@@ -120,7 +124,11 @@ export default function TripsPage() {
         if (user?.email)   queries.push(listBookings({ guestEmail: user.email }))
         if (queries.length === 0) { setLoading(false); return }
 
-        const results = await Promise.all(queries)
+        const [results, userReviewsPage] = await Promise.all([
+          Promise.all(queries),
+          backendUserId ? getUserReviews(backendUserId).catch(() => null) : Promise.resolve(null),
+        ])
+
         const seen = new Set()
         const raw = results.flat().filter((b) => {
           if (seen.has(b.id)) return false
@@ -129,6 +137,15 @@ export default function TripsPage() {
         })
 
         if (cancelled) return
+
+        // Build hotelId → reviewId map from the user's submitted reviews
+        const reviews = userReviewsPage?.content ?? (Array.isArray(userReviewsPage) ? userReviewsPage : [])
+        const rMap = {}
+        for (const r of reviews) {
+          if (r.hotelId && !rMap[r.hotelId]) rMap[r.hotelId] = r.id
+        }
+        setReviewMap(rMap)
+
         const hotelIds = [...new Set(raw.map((b) => b.hotelId).filter(Boolean))]
         const hotels = await Promise.all(
           hotelIds.map((id) => getHotel(id).catch(() => ({ id })))
@@ -322,6 +339,34 @@ export default function TripsPage() {
                       <span className="text-sm text-muted">{t('detail.total')}</span>
                       <span className="text-xl font-semibold text-dark">{booking.total}</span>
                     </div>
+
+                    {booking.status === 'completed' && (
+                      reviewMap[booking.hotelId] ? (
+                        <button
+                          onClick={(e) => {
+                            e.preventDefault()
+                            e.stopPropagation()
+                            navigate(`/reviews/${reviewMap[booking.hotelId]}/edit`)
+                          }}
+                          className="mt-3 flex w-full items-center justify-center gap-2 rounded-full border border-gray-300 bg-gray-50 px-4 py-2 text-sm font-semibold text-dark transition-colors hover:bg-gray-100"
+                        >
+                          <Star size={14} className="fill-dark" />
+                          {t('viewReview', 'View Your Review')}
+                        </button>
+                      ) : (
+                        <button
+                          onClick={(e) => {
+                            e.preventDefault()
+                            e.stopPropagation()
+                            navigate(`/reviews/new?hotelId=${booking.hotelId}`)
+                          }}
+                          className="mt-3 flex w-full items-center justify-center gap-2 rounded-full border border-brand px-4 py-2 text-sm font-semibold text-brand transition-colors hover:bg-brand hover:text-white"
+                        >
+                          <Star size={14} />
+                          {t('writeReview', 'Write a Review')}
+                        </button>
+                      )
+                    )}
                   </div>
                 </div>
               </Link>

@@ -83,6 +83,9 @@ export const rejectKYC = (id, reason = 'Admin decision') =>
 export const requestKYCResubmit = (id, reason = 'Additional documents required') =>
   post(`/api/admin/kyc/${id}/request-resubmit?reason=${encodeURIComponent(reason)}`)
 
+// ─── Hotels ───────────────────────────────────────────────────────────────────
+export const getAllHotels = (params = {}) => get('/api/hotels', params)
+
 // ─── Pricing Rules ────────────────────────────────────────────────────────────
 export const getPricingRulesByType = (ruleType) =>
   get(`/api/inventory/pricing/rules/type/${ruleType}`)

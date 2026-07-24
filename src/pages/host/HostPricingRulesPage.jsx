@@ -62,7 +62,8 @@ const EMPTY_RULE = {
 }
 
 export default function HostPricingRulesPage() {
-  const { primaryHotelId, loading: hostLoading } = useHostContext()
+  const { hotels, primaryHotelId, loading: hostLoading } = useHostContext()
+  const [selectedHotelId, setSelectedHotelId] = useState(null)
   const [rules, setRules] = useState([])
   const [rooms, setRooms] = useState([])
   const [loading, setLoading] = useState(true)
@@ -72,13 +73,19 @@ export default function HostPricingRulesPage() {
   const [saveError, setSaveError] = useState(null)
 
   useEffect(() => {
-    if (hostLoading || !primaryHotelId) {
+    if (primaryHotelId && !selectedHotelId) setSelectedHotelId(primaryHotelId)
+  }, [primaryHotelId]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const activeHotelId = selectedHotelId ?? primaryHotelId
+
+  useEffect(() => {
+    if (hostLoading || !activeHotelId) {
       if (!hostLoading) setLoading(false)
       return
     }
     Promise.all([
-      getPricingRulesForHotel(primaryHotelId).catch(() => null),
-      getHostRooms(primaryHotelId).catch(() => []),
+      getPricingRulesForHotel(activeHotelId).catch(() => null),
+      getHostRooms(activeHotelId).catch(() => []),
     ]).then(([data, roomList]) => {
       // Always update rules (even when empty — fixes stale list after delete)
       const items = Array.isArray(data) ? data : (data?.content ?? [])
@@ -86,11 +93,11 @@ export default function HostPricingRulesPage() {
       const rs = Array.isArray(roomList) ? roomList : (roomList?.content ?? roomList?.rooms ?? [])
       if (rs.length) setRooms(rs)
     }).finally(() => setLoading(false))
-  }, [primaryHotelId, hostLoading])
+  }, [activeHotelId, hostLoading]) // eslint-disable-line react-hooks/exhaustive-deps
 
   function refreshRules() {
-    if (!primaryHotelId) return
-    getPricingRulesForHotel(primaryHotelId)
+    if (!activeHotelId) return
+    getPricingRulesForHotel(activeHotelId)
       .then((data) => {
         const items = Array.isArray(data) ? data : (data?.content ?? [])
         setRules(items.map(adaptRule)) // always update, even when empty
@@ -99,11 +106,12 @@ export default function HostPricingRulesPage() {
   }
 
   async function handleCreate() {
+    if (!activeHotelId) { setSaveError('No hotel selected.'); return }
     setSaving(true)
     setSaveError(null)
     try {
       await createPricingRule({
-        hotelId: primaryHotelId,
+        hotelId: activeHotelId,
         roomId: newRule.roomId ? Number(newRule.roomId) : null,
         description: newRule.description || null,
         ruleType: newRule.ruleType,
@@ -202,6 +210,17 @@ export default function HostPricingRulesPage() {
         {showForm && (
           <div className="mt-6 rounded-2xl border border-gray-200 bg-[#f8f6f2] p-5">
             <p className="text-sm font-semibold text-dark">New pricing rule</p>
+
+            {hotels.length > 1 && (
+              <div className="mt-4">
+                <HostSelect
+                  label="Apply to hotel"
+                  value={selectedHotelId ?? ''}
+                  onChange={(e) => setSelectedHotelId(Number(e.target.value))}
+                  options={hotels.map((h) => ({ value: String(h.id), label: h.name || `Hotel ${h.id}` }))}
+                />
+              </div>
+            )}
 
             <div className="mt-4 grid gap-4 md:grid-cols-2">
               <HostField
@@ -324,7 +343,7 @@ export default function HostPricingRulesPage() {
               <button
                 type="button"
                 onClick={handleCreate}
-                disabled={saving}
+                disabled={saving || !activeHotelId}
                 className="inline-flex items-center justify-center rounded-2xl bg-dark px-5 py-2.5 text-sm font-semibold text-white hover:bg-gray-800 disabled:opacity-50"
               >
                 {saving ? 'Creating…' : 'Create rule'}

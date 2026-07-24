@@ -44,7 +44,10 @@ import CountrySelect from '../../components/common/CountrySelect'
 import StateSelect from '../../components/common/StateSelect'
 import { generateListingDescription } from '../../services/listingsApi'
 import {
+  addNearbyAttraction,
   createHotel,
+  deleteNearbyAttraction,
+  getNearbyAttractions,
   getHotel,
   submitForReview,
   updateHotel,
@@ -317,6 +320,7 @@ export default function HostListingEditorPage() {
   const [activeTab, setActiveTab] = useState('basics')
   const [formState, setFormState] = useState(EMPTY_DRAFT)
   const videoInputRef = useRef(null)
+  const originalAttractionIds = useRef([])
   const [generatingDesc, setGeneratingDesc] = useState(false)
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState(null)
@@ -353,6 +357,12 @@ export default function HostListingEditorPage() {
           yearBuilt:   h.yearBuilt != null ? String(h.yearBuilt)   : prev.yearBuilt,
           lastRenovated: h.lastRenovated != null ? String(h.lastRenovated) : prev.lastRenovated,
           languagesSpoken: h.languagesSpoken ?? prev.languagesSpoken,
+          basics: {
+            guests:    h.maxGuests    != null ? h.maxGuests    : prev.basics.guests,
+            bedrooms:  h.numBedrooms  != null ? h.numBedrooms  : prev.basics.bedrooms,
+            bathrooms: h.numBathrooms != null ? h.numBathrooms : prev.basics.bathrooms,
+            beds:      h.numUnits     != null ? h.numUnits     : prev.basics.beds,
+          },
           totalRooms:   h.totalRooms   != null ? String(h.totalRooms)   : prev.totalRooms,
           totalFloors:  h.totalFloors  != null ? String(h.totalFloors)  : prev.totalFloors,
           totalBuildings: h.totalBuildings != null ? String(h.totalBuildings) : prev.totalBuildings,
@@ -362,7 +372,6 @@ export default function HostListingEditorPage() {
           distanceToAirport:        h.distanceToAirport        ?? prev.distanceToAirport,
           distanceToTrainMetro:     h.distanceToTrainMetro     ?? prev.distanceToTrainMetro,
           distanceToBeachCityCentre: h.distanceToBeachCityCentre ?? prev.distanceToBeachCityCentre,
-          nearbyAttractions: h.nearbyAttractions ?? prev.nearbyAttractions,
           amenities: h.amenities ?? prev.amenities,
           mealPlans:    h.mealPlans    ?? prev.mealPlans,
           transportation: h.transportation ?? prev.transportation,
@@ -371,6 +380,11 @@ export default function HostListingEditorPage() {
           targetAudience: h.targetAudience ?? prev.targetAudience,
           usp:            h.usp            ?? prev.usp,
           nearbyLandmark: h.nearbyLandmark ?? prev.nearbyLandmark,
+          aiTranslation:  h.aiTranslation  ?? prev.aiTranslation,
+          bedDetails: {
+            primary:   h.primaryBedType   ?? prev.bedDetails.primary,
+            secondary: h.secondaryBedType ?? prev.bedDetails.secondary,
+          },
           contactPerson:  h.contactPerson  ?? prev.contactPerson,
           contactPhone:   h.contactPhone   ?? prev.contactPhone,
           contactEmail:   h.contactEmail   ?? prev.contactEmail,
@@ -410,6 +424,13 @@ export default function HostListingEditorPage() {
             ...(h.paymentConfig ?? {}),
           },
         }))
+      })
+      .catch(() => {})
+    getNearbyAttractions(id)
+      .then((attractions) => {
+        if (!Array.isArray(attractions) || !attractions.length) return
+        originalAttractionIds.current = attractions.map((a) => a.id).filter(Boolean)
+        setFormState((prev) => ({ ...prev, nearbyAttractions: attractions }))
       })
       .catch(() => {})
   }, [id])
@@ -540,7 +561,11 @@ export default function HostListingEditorPage() {
         distanceToTrain:        formState.distanceToTrainMetro ? Number(formState.distanceToTrainMetro) : null,  // backend: distanceToTrain
         distanceToCityCentre:   formState.distanceToBeachCityCentre ? Number(formState.distanceToBeachCityCentre) : null,
         distanceToBeach:        formState.distanceToBeachCityCentre ? Number(formState.distanceToBeachCityCentre) : null,
-        // Property details
+        // Property details — capacity counters
+        maxGuests:              formState.basics.guests    ? Number(formState.basics.guests)    : null,
+        numBedrooms:            formState.basics.bedrooms  ? Number(formState.basics.bedrooms)  : null,
+        numBathrooms:           formState.basics.bathrooms ? Number(formState.basics.bathrooms) : null,
+        numUnits:               formState.basics.beds      ? Number(formState.basics.beds)      : null,
         totalRooms:             formState.totalRooms ? Number(formState.totalRooms) : null,
         totalFloors:            formState.totalFloors ? Number(formState.totalFloors) : null,
         totalBuildings:         formState.totalBuildings ? Number(formState.totalBuildings) : null,
@@ -563,9 +588,24 @@ export default function HostListingEditorPage() {
         transportationOptions:  formState.transportation,       // backend: transportationOptions
         guestServices:          formState.guestServices,
         sustainabilityFeatures: formState.sustainability,       // backend: sustainabilityFeatures
+        // AI & SEO
+        targetAudience:         formState.targetAudience,
+        usp:                    formState.usp,
+        nearbyLandmark:         formState.nearbyLandmark || null,
+        aiTranslation:          formState.aiTranslation,
+        // Bed details
+        primaryBedType:         formState.bedDetails?.primary || null,
+        secondaryBedType:       formState.bedDetails?.secondary || null,
+        // Booking — last-minute cutoff
+        lastMinuteCutoffHours:  formState.bookingSettings.lastMinuteCutoffHours
+          ? Number(formState.bookingSettings.lastMinuteCutoffHours)
+          : null,
         // Contact — backend has phone/email directly on Hotel
         phone:                  formState.contactPhone || null,
         email:                  formState.contactEmail || null,
+        contactPerson:          formState.contactPerson || null,
+        websiteUrl:             formState.websiteUrl || null,
+        emergencyContact:       formState.emergencyContact || null,
       }
 
       let savedHotel
@@ -620,6 +660,25 @@ export default function HostListingEditorPage() {
           advancePaymentPercent:     advPct,
           acceptedPaymentMethods:    pm,
         }).catch(() => {})
+
+        // ── Nearby attractions — diff and sync ────────────────────────────────
+        const currentAttractionIds = new Set(
+          formState.nearbyAttractions.filter((a) => a.id).map((a) => a.id)
+        )
+        const deletedIds = originalAttractionIds.current.filter((aid) => !currentAttractionIds.has(aid))
+        await Promise.all(
+          deletedIds.map((aid) => deleteNearbyAttraction(hotelId, aid).catch(() => {}))
+        )
+        const newAttractions = formState.nearbyAttractions.filter((a) => !a.id && a.name?.trim())
+        const addedAttractions = await Promise.all(
+          newAttractions.map((a) =>
+            addNearbyAttraction(hotelId, { name: a.name, distance: a.distance }).catch(() => null)
+          )
+        )
+        // Update ref so a second save without reload still diffs correctly
+        const survivingIds = formState.nearbyAttractions.filter((a) => a.id).map((a) => a.id)
+        const freshIds = addedAttractions.filter((a) => a?.id).map((a) => a.id)
+        originalAttractionIds.current = [...survivingIds, ...freshIds]
       }
 
       navigate('/host/listings')

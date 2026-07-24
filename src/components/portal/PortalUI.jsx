@@ -325,6 +325,7 @@ function PortalMobileChrome({ title, mobileAction }) {
               <Link
                 key={item.href}
                 to={item.href}
+                onClick={() => setIsDrawerOpen(false)}
                 className={`flex flex-col items-center gap-1 rounded-2xl px-2 py-2 text-[11px] font-semibold transition-colors ${
                   isActive ? 'text-brand' : 'text-muted'
                 }`}

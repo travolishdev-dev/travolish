@@ -9,7 +9,7 @@ export async function getPricingSuggestionsByRoom(roomId) {
 }
 
 export async function getPendingSuggestions(hotelId) {
-  return get('/api/pricing/suggestions/pending', { hotelId })
+  return get('/api/pricing/suggestions/pending', { hotelId, size: 100 })
 }
 
 export async function generatePricingSuggestions(body) {

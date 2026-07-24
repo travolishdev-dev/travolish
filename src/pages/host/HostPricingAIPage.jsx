@@ -19,17 +19,29 @@ import {
 import useHostContext from '../../hooks/useHostContext'
 
 function adaptSuggestion(s) {
+  const score = s.confidenceScore ?? 0
+  const confidence = score >= 0.7 ? 'High' : score >= 0.4 ? 'Medium' : 'Low'
+
+  const fmt = (d) => d ? new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : null
+  const from = fmt(s.suggestedFromDate)
+  const to = fmt(s.suggestedToDate)
+  const dateWindow = from && to ? `${from} – ${to}` : '—'
+
+  const currentRate = s.currentPrice != null ? `$${s.currentPrice}` : '—'
+  const suggestedRate = s.suggestedPrice != null ? `$${s.suggestedPrice}` : '—'
+  const rationale = s.reason ? [s.reason.replace(/_/g, ' ')] : []
+
   return {
     id: s.id,
-    listingId: s.hotelId ?? s.listingId,
+    listingId: s.hotelId,
     roomId: s.roomId,
-    dateWindow: s.dateRange ?? s.dateWindow ?? '—',
-    currentRate: s.currentRate != null ? `$${s.currentRate}` : '—',
-    suggestedRate: s.suggestedRate != null ? `$${s.suggestedRate}` : '—',
-    confidence: s.confidenceLevel ?? s.confidence ?? 'Medium',
-    rationale: s.reasons ?? s.rationale ?? [],
-    hotelName: s.hotelName,
-    roomName: s.roomName,
+    dateWindow,
+    currentRate,
+    suggestedRate,
+    confidence,
+    rationale,
+    hotelName: s.hotelName ?? null,
+    roomName: s.roomName ?? null,
   }
 }
 

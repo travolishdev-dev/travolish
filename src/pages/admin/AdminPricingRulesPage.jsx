@@ -2,13 +2,20 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import toast from 'react-hot-toast'
 import AdminManagementPage from '../../components/admin/AdminManagementPage'
 import { AdminCard, AdminSectionHeading, AdminStatusPill } from '../../components/admin/AdminPortalUI'
-import { clonePricingRule, createPricingRule, deletePricingRule, getAllPricingRules, togglePricingRule, updatePricingRule } from '../../services/adminApi'
+import { clonePricingRule, createPricingRule, deletePricingRule, getAllHotels, getAllPricingRules, togglePricingRule, updatePricingRule } from '../../services/adminApi'
 
 const RULE_TYPES = ['SEASONAL', 'PROMOTIONAL', 'DYNAMIC', 'EARLY_BIRD', 'LAST_MINUTE', 'BULK', 'LOYALTY']
 
-function RuleForm({ description, setDescription, ruleType, setRuleType, multiplier, setMultiplier, priority, setPriority }) {
+function RuleForm({ description, setDescription, ruleType, setRuleType, multiplier, setMultiplier, priority, setPriority, hotelId, setHotelId, hotels }) {
   return (
     <div className="space-y-4">
+      <div>
+        <label className="mb-1.5 block text-xs font-semibold uppercase tracking-[0.16em] text-muted">Hotel</label>
+        <select value={hotelId ?? ''} onChange={(e) => setHotelId(e.target.value ? Number(e.target.value) : null)} className="h-10 w-full rounded-card border border-gray-200 bg-white px-3 text-sm font-semibold text-dark outline-none focus:border-brand">
+          <option value="">— Select a hotel —</option>
+          {hotels.map((h) => <option key={h.id} value={h.id}>{h.name || `Hotel ${h.id}`}</option>)}
+        </select>
+      </div>
       <div>
         <label className="mb-1.5 block text-xs font-semibold uppercase tracking-[0.16em] text-muted">Description</label>
         <input value={description} onChange={(e) => setDescription(e.target.value)} placeholder="e.g. Weekend premium" className="h-10 w-full rounded-card border border-gray-200 bg-white px-3 text-sm font-semibold text-dark outline-none focus:border-brand" />
@@ -33,12 +40,13 @@ function RuleForm({ description, setDescription, ruleType, setRuleType, multipli
   )
 }
 
-function RuleDetailPanel({ record, rawMap, nameToId, onSave, setNotice, mode, onEdit }) {
+function RuleDetailPanel({ record, rawMap, nameToId, onSave, setNotice, mode, onEdit, hotels }) {
   const rule = (mode === 'preview' || mode === 'edit') && record ? rawMap.current[nameToId.current[record[0]]] : null
   const [description, setDescription] = useState('')
   const [ruleType, setRuleType] = useState('SEASONAL')
   const [multiplier, setMultiplier] = useState('')
   const [priority, setPriority] = useState('')
+  const [hotelId, setHotelId] = useState(null)
   const [basePrice, setBasePrice] = useState('100')
   const [saving, setSaving] = useState(false)
 
@@ -48,16 +56,19 @@ function RuleDetailPanel({ record, rawMap, nameToId, onSave, setNotice, mode, on
       setRuleType(rule.ruleType ?? rule.pricingType ?? 'SEASONAL')
       setMultiplier(rule.multiplier != null ? String(rule.multiplier) : '')
       setPriority(rule.priority != null ? String(rule.priority) : '')
+      setHotelId(rule.hotelId ?? null)
     } else if (mode === 'create') {
-      setDescription(''); setRuleType('SEASONAL'); setMultiplier(''); setPriority('')
+      setDescription(''); setRuleType('SEASONAL'); setMultiplier(''); setPriority(''); setHotelId(null)
     }
   }, [rule?.id, mode]) // eslint-disable-line react-hooks/exhaustive-deps
 
   async function handleCreate() {
     if (!description.trim()) { toast.error('Description is required'); return }
+    if (!hotelId) { toast.error('Please select a hotel'); return }
     setSaving(true)
     try {
       await createPricingRule({
+        hotelId,
         description: description.trim(),
         ruleType,
         multiplier: multiplier ? Number(multiplier) : undefined,
@@ -104,6 +115,8 @@ function RuleDetailPanel({ record, rawMap, nameToId, onSave, setNotice, mode, on
           ruleType={ruleType} setRuleType={setRuleType}
           multiplier={multiplier} setMultiplier={setMultiplier}
           priority={priority} setPriority={setPriority}
+          hotelId={hotelId} setHotelId={setHotelId}
+          hotels={hotels}
         />
         <button type="button" disabled={saving} onClick={handleCreate} className="inline-flex h-10 w-full items-center justify-center rounded-card bg-dark text-sm font-semibold text-white transition-colors hover:bg-gray-800 disabled:opacity-40">
           {saving ? 'Creating…' : 'Create rule'}
@@ -121,6 +134,8 @@ function RuleDetailPanel({ record, rawMap, nameToId, onSave, setNotice, mode, on
           ruleType={ruleType} setRuleType={setRuleType}
           multiplier={multiplier} setMultiplier={setMultiplier}
           priority={priority} setPriority={setPriority}
+          hotelId={hotelId} setHotelId={setHotelId}
+          hotels={hotels}
         />
         <div className="flex gap-2 border-t border-gray-200 pt-4">
           <button type="button" disabled={saving} onClick={handleUpdate} className="flex-1 inline-flex h-10 items-center justify-center rounded-card bg-dark text-sm font-semibold text-white transition-colors hover:bg-gray-800 disabled:opacity-40">
@@ -243,9 +258,17 @@ function mapRuleToRow(r) {
 export default function AdminPricingRulesPage() {
   const [rows, setRows] = useState([])
   const [loading, setLoading] = useState(true)
+  const [hotels, setHotels] = useState([])
   const [panelMode, setPanelMode] = useState('preview') // 'preview' | 'create' | 'edit'
   const rawMap = useRef({})   // String(r.id) → rule
   const nameToId = useRef({}) // row[0] label → String(r.id)
+
+  useEffect(() => {
+    getAllHotels().then((data) => {
+      const items = Array.isArray(data) ? data : (data?.content ?? [])
+      setHotels(items)
+    }).catch(() => {})
+  }, [])
 
   const load = useCallback(() => {
     setLoading(true)
@@ -313,8 +336,9 @@ export default function AdminPricingRulesPage() {
       setNotice={setNotice}
       mode={panelMode}
       onEdit={setPanelMode}
+      hotels={hotels}
     />
-  ), [load, panelMode])
+  ), [load, panelMode, hotels])
 
   return (
     <AdminManagementPage

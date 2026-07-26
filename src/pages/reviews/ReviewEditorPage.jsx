@@ -44,6 +44,10 @@ export default function ReviewEditorPage() {
 
   const [hotel, setHotel] = useState(null)
   const [loadError, setLoadError] = useState(null)
+  const [loadingReview, setLoadingReview] = useState(isEditMode)
+
+  // In edit mode the hotel id comes from the review, not the URL
+  const effectiveHotelId = hotelId ?? hotel?.id
 
   const [overallRating, setOverallRating] = useState(5)
   const [scores, setScores] = useState(
@@ -68,6 +72,7 @@ export default function ReviewEditorPage() {
   // Load existing review for edit mode
   useEffect(() => {
     if (!isEditMode) return
+    setLoadingReview(true)
     getReview(reviewId)
       .then((existing) => {
         setTitle(existing.title ?? '')
@@ -85,10 +90,11 @@ export default function ReviewEditorPage() {
           setSelectedTags(existing.tags.split(',').map((t) => t.trim()).filter(Boolean))
         }
         if (existing.hotelId) {
-          getHotel(existing.hotelId).then(setHotel).catch(() => {})
+          return getHotel(existing.hotelId).then(setHotel).catch(() => {})
         }
       })
       .catch(() => setLoadError('Could not load review for editing.'))
+      .finally(() => setLoadingReview(false))
   }, [reviewId, isEditMode]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const reviewCategories = useMemo(() =>
@@ -108,7 +114,7 @@ export default function ReviewEditorPage() {
 
   const handleSubmit = async () => {
     if (!title.trim() || !summary.trim()) return
-    if (!isEditMode && !hotelId) return
+    if (!isEditMode && !effectiveHotelId) return
     setIsSubmitting(true)
     setSubmitError(null)
     try {
@@ -121,7 +127,7 @@ export default function ReviewEditorPage() {
       }
       const result = isEditMode
         ? await updateReview(reviewId, payload)
-        : await submitReview(hotelId, payload)
+        : await submitReview(effectiveHotelId, payload)
       setPublished(result)
     } catch {
       setSubmitError(t('property:review.submitError'))
@@ -130,7 +136,20 @@ export default function ReviewEditorPage() {
     }
   }
 
-  if (!hotelId) {
+  if (loadingReview) {
+    return (
+      <PortalShell eyebrow={t('property:review.eyebrow')} title="Loading review…">
+        <SectionCard>
+          <div className="flex items-center gap-2 text-sm text-muted py-4">
+            <Loader2 size={15} className="animate-spin" />
+            Loading your review…
+          </div>
+        </SectionCard>
+      </PortalShell>
+    )
+  }
+
+  if (!isEditMode && !hotelId) {
     return (
       <PortalShell
         eyebrow={t('property:review.eyebrow')}
@@ -161,7 +180,7 @@ export default function ReviewEditorPage() {
       <PortalShell eyebrow={t('property:review.eyebrow')} title={t('property:review.publishedTitle')} accent="from-emerald-50 via-white to-sky-50"
         actions={[
           { label: t('property:review.backToTrips'), href: '/trips', secondary: true },
-          { label: t('property:review.viewPropertyNamed', { name: hotel?.name || `#${hotelId}` }), href: `/property/${hotelId}` },
+          { label: t('property:review.viewPropertyNamed', { name: hotel?.name || `#${effectiveHotelId}` }), href: `/property/${effectiveHotelId}` },
         ]}
       >
         <SectionCard>
@@ -171,11 +190,11 @@ export default function ReviewEditorPage() {
             </div>
             <h2 className="text-2xl font-semibold text-dark">{t('property:review.publishedThanks')}</h2>
             <p className="mt-2 text-sm text-muted max-w-sm">
-              {t('property:review.publishedDesc', { rating: overallRating, name: hotel?.name || `Hotel #${hotelId}` })}
+              {t('property:review.publishedDesc', { rating: overallRating, name: hotel?.name || `Hotel #${effectiveHotelId}` })}
             </p>
             <div className="mt-6 flex gap-3">
               <button
-                onClick={() => navigate(`/property/${hotelId}`)}
+                onClick={() => navigate(`/property/${effectiveHotelId}`)}
                 className="px-5 py-2.5 bg-dark text-white text-sm font-semibold rounded-full hover:opacity-90 transition-all"
               >
                 {t('property:review.viewProperty')}
@@ -207,7 +226,7 @@ export default function ReviewEditorPage() {
       stats={[
         { label: t('property:review.statOverall'), value: `${overallRating}.0`, note: hotel?.city || '' },
         { label: t('property:review.statTags'), value: String(selectedTags.length), note: t('property:review.statHighlights') },
-        { label: t('property:review.statProperty'), value: hotel?.name || `#${hotelId}`, note: hotel?.country || '' },
+        { label: t('property:review.statProperty'), value: hotel?.name || `#${effectiveHotelId}`, note: hotel?.country || '' },
       ]}
       accent="from-rose-50 via-white to-sky-50"
     >
@@ -215,7 +234,7 @@ export default function ReviewEditorPage() {
         <div className="order-first space-y-6 xl:order-last">
           <SectionCard>
             <img
-              src={placeholderImage(hotelId)}
+              src={placeholderImage(effectiveHotelId)}
               alt={hotel?.name || ''}
               className="aspect-[4/3] w-full rounded-[24px] object-cover"
             />
@@ -232,7 +251,7 @@ export default function ReviewEditorPage() {
             </p>
 
             <Link
-              to={`/property/${hotelId}`}
+              to={`/property/${effectiveHotelId}`}
               className="mt-5 inline-flex w-full items-center justify-center rounded-full border border-gray-200 bg-white px-4 py-2.5 text-sm font-semibold text-dark transition-colors hover:bg-gray-50 sm:w-auto"
             >
               {t('property:review.openPropertyPage')}

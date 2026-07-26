@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useSearchContext } from '../../hooks/useSearchContext'
 import useCurrency from '../../hooks/useCurrency'
+import { saveSearch } from '../../lib/searchHistory'
 
 const DESTINATION_CARD_ITEM_CLASS =
   'shrink-0 snap-start basis-[82%] sm:basis-[calc((100%-1.25rem)/2)] lg:basis-[calc((100%-2.5rem)/3)] 2xl:basis-[calc((100%-5rem)/5)]'
@@ -89,7 +90,7 @@ export default function PopularDestinations({ hotels = [] }) {
   const [activeTab, setActiveTab] = useState('cities')
   const trackRef = useRef(null)
   const navigate = useNavigate()
-  const { updateSearchDraft } = useSearchContext()
+  const { searchDraft, updateSearchDraft } = useSearchContext()
   const { formatCurrency } = useCurrency()
 
   // Derive per-destination counts from the already-loaded hotels array.
@@ -167,8 +168,16 @@ export default function PopularDestinations({ hotels = [] }) {
             type="button"
             data-destination-carousel-item
             onClick={() => {
+              const updatedDraft = { ...searchDraft, destination: destination.name }
               updateSearchDraft({ destination: destination.name })
-              navigate('/search')
+              saveSearch(updatedDraft)
+              const params = new URLSearchParams()
+              params.set('destination', destination.name)
+              if (updatedDraft.checkIn) params.set('checkIn', updatedDraft.checkIn)
+              if (updatedDraft.checkOut) params.set('checkOut', updatedDraft.checkOut)
+              params.set('adults', String(updatedDraft.adults ?? 2))
+              if (updatedDraft.children > 0) params.set('children', String(updatedDraft.children))
+              navigate(`/search?${params.toString()}`)
             }}
             className={`${DESTINATION_CARD_ITEM_CLASS} group overflow-hidden rounded-card border border-gray-200 bg-white text-left shadow-[0_14px_34px_rgba(15,23,42,0.08)] card-hover-lift`}
           >

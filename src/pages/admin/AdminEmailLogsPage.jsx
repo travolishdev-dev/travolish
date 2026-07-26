@@ -8,6 +8,7 @@ import {
   AdminStatusPill,
 } from '../../components/admin/AdminPortalUI'
 import { getEmailLogs, getEmailLogStats } from '../../services/adminApi'
+import AdminPagination from '../../components/admin/AdminPagination'
 
 const STATUS_TONE = { SENT: 'success', FAILED: 'danger', SKIPPED: 'warning' }
 const TYPE_LABEL  = { PLAIN: 'Plain text', HTML: 'HTML', ATTACHMENT: 'Attachment', BATCH: 'Batch' }
@@ -99,8 +100,9 @@ export default function AdminEmailLogsPage() {
   const [search, setSearch]     = useState('')
   const [statusFilter, setStatusFilter] = useState('ALL')
   const [selected, setSelected] = useState(null)
-  const [page, setPage]         = useState(0)
+  const [page, setPage]             = useState(0)
   const [totalPages, setTotalPages] = useState(0)
+  const [totalElements, setTotalElements] = useState(0)
   const PAGE_SIZE = 50
 
   function load(p = 0, recipient = search, status = statusFilter) {
@@ -112,6 +114,7 @@ export default function AdminEmailLogsPage() {
       .then((data) => {
         setLogs(data?.content ?? [])
         setTotalPages(data?.totalPages ?? 0)
+        setTotalElements(data?.totalElements ?? 0)
         setPage(data?.number ?? 0)
       })
       .catch(() => {})
@@ -224,30 +227,14 @@ export default function AdminEmailLogsPage() {
               </table>
             </div>
 
-            {/* Pagination */}
-            {totalPages > 1 && (
-              <div className="mt-4 flex items-center justify-between border-t border-gray-100 pt-4">
-                <p className="text-xs text-muted">
-                  Page {page + 1} of {totalPages}
-                </p>
-                <div className="flex gap-2">
-                  <button
-                    disabled={page === 0}
-                    onClick={() => load(page - 1)}
-                    className="rounded-xl border border-gray-200 px-3 py-1.5 text-xs font-semibold text-dark hover:bg-gray-50 disabled:opacity-40"
-                  >
-                    Previous
-                  </button>
-                  <button
-                    disabled={page + 1 >= totalPages}
-                    onClick={() => load(page + 1)}
-                    className="rounded-xl border border-gray-200 px-3 py-1.5 text-xs font-semibold text-dark hover:bg-gray-50 disabled:opacity-40"
-                  >
-                    Next
-                  </button>
-                </div>
-              </div>
-            )}
+            <div className="mt-4">
+              <AdminPagination
+                page={page}
+                totalPages={totalPages}
+                totalElements={totalElements}
+                onPage={(p) => load(p)}
+              />
+            </div>
           </>
         )}
       </AdminCard>

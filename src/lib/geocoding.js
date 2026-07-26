@@ -31,7 +31,7 @@ export async function geocodeQuery(query, signal) {
   } catch { /* private browsing */ }
 
   try {
-    const url = `${NOMINATIM}?q=${encodeURIComponent(query)}&format=json&limit=1&countrycodes=in`
+    const url = `${NOMINATIM}?q=${encodeURIComponent(query)}&format=json&limit=1`
     const res = await throttledFetch(url, signal)
     if (!res.ok) return null
     const data = await res.json()

@@ -3,7 +3,7 @@
   "title": "ابحث عن إقامة تناسب رحلتك.",
   "description": "ابحث عن فنادق، وقارن التفاصيل المفيدة، واستمر في التصفح دون أن تفقد تجربة ترافوليش الأنيقة.",
   "destination": "الوجهة",
-  "destinationPlaceholder": "ابحث عن مدن أو فنادق",
+  "destinationPlaceholder": "ابحث عن وجهات أو فنادق",
   "checkInOut": "تسجيل الوصول / المغادرة",
   "guests": "الضيوف",
   "adults": "بالغون",
@@ -11,6 +11,10 @@
   "search": "بحث",
   "flexibleDates": "تواريخ مرنة",
   "selectCheckout": "اختر تاريخ المغادرة",
+  "guestAdultSingular": "بالغ",
+  "guestAdultPlural": "بالغون",
+  "guestChildSingular": "طفل",
+  "guestChildPlural": "أطفال",
   "smartPicks": "اختيارات ذكية",
   "nearHandoff": "عروض الفنادق بالقرب من موقعك",
   "nearHandoffDesc": "مرتبة حول {{coords}} من تسليم {{platform}} لتسهيل المقارنة.",
@@ -71,5 +75,7 @@
     "valueDesc": "أسعار ليلية منخفضة مع تقييمات ضيوف جيدة",
     "weekend": "مثالية لعطلة نهاية الأسبوع",
     "weekendDesc": "إقامات سهلة الحجز بجاذبية واسعة"
-  }
+  },
+  "errorLoadingStays": "تعذر تحميل الإقامات",
+  "errorLoadingStaysDesc": "تحقق من اتصالك وأعد تحميل الصفحة."
 }

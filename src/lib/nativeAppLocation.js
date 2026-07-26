@@ -64,9 +64,14 @@ export function sortPropertiesBySharedLocation(properties, sharedLocation) {
   const origin = [sharedLocation.latitude, sharedLocation.longitude]
 
   return [...properties].sort((left, right) => {
-    const leftDistance = calculateDistanceInKm(origin, left.coordinates)
-    const rightDistance = calculateDistanceInKm(origin, right.coordinates)
-    return leftDistance - rightDistance
+    const lc = left.coordinates
+    const rc = right.coordinates
+    if (!lc?.lat || !lc?.lng) return 1
+    if (!rc?.lat || !rc?.lng) return -1
+    return (
+      calculateDistanceInKm(origin, [lc.lat, lc.lng]) -
+      calculateDistanceInKm(origin, [rc.lat, rc.lng])
+    )
   })
 }
 

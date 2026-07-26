@@ -45,9 +45,30 @@ function adaptSuggestion(s) {
   }
 }
 
-function DemandMetric({ label, value, note }) {
+const MONTH_MAP = {
+  JAN: 0, FEB: 1, MAR: 2, APR: 3, MAY: 4, JUN: 5,
+  JUL: 6, AUG: 7, SEP: 8, OCT: 9, NOV: 10, DEC: 11,
+}
+
+function isCurrentSeason(label) {
+  if (!label) return false
+  const match = label.match(/\(([A-Z]{3})\s*[–-]\s*([A-Z]{3})\)/i)
+  if (!match) return false
+  const start = MONTH_MAP[match[1].toUpperCase()]
+  const end   = MONTH_MAP[match[2].toUpperCase()]
+  if (start === undefined || end === undefined) return false
+  const m = new Date().getMonth()
+  return start <= end ? m >= start && m <= end : m >= start || m <= end
+}
+
+function DemandMetric({ label, value, note, active }) {
   return (
-    <div className="rounded-[22px] border border-gray-200 bg-[#fcfbf8] px-4 py-4">
+    <div className={`relative rounded-[22px] border bg-[#fcfbf8] px-4 py-4 ${active ? 'border-dark' : 'border-gray-200'}`}>
+      {active && (
+        <span className="absolute end-3 top-3 rounded-full bg-dark px-2 py-0.5 text-[10px] font-semibold text-white">
+          Now
+        </span>
+      )}
       <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted">{label}</p>
       <p className="mt-2 text-lg font-semibold tracking-tight text-dark">{value ?? '—'}</p>
       {note && <p className="mt-1 text-xs leading-5 text-muted">{note}</p>}
@@ -262,16 +283,24 @@ export default function HostPricingAIPage() {
 
         {seasonalData && (
           <SectionCard>
-            <SectionHeading eyebrow="Seasonal" title="Seasonal pricing outlook" />
+            <SectionHeading
+              eyebrow="Seasonal"
+              title="Seasonal pricing outlook"
+              description="Market benchmarks based on travel trends. Adjust to your property's location and category."
+            />
             <div className="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-              {(seasonalData.windows ?? seasonalData.seasons ?? []).map((w, i) => (
-                <DemandMetric
-                  key={i}
-                  label={w.label ?? w.name ?? `Season ${i + 1}`}
-                  value={w.suggestedAdjustment ?? w.adjustment ?? w.rate}
-                  note={w.note ?? w.reason}
-                />
-              ))}
+              {(seasonalData.windows ?? seasonalData.seasons ?? []).map((w, i) => {
+                const label = w.label ?? w.name ?? `Season ${i + 1}`
+                return (
+                  <DemandMetric
+                    key={i}
+                    label={label}
+                    value={w.suggestedAdjustment ?? w.adjustment ?? w.rate}
+                    note={w.note ?? w.reason}
+                    active={isCurrentSeason(label)}
+                  />
+                )
+              })}
             </div>
           </SectionCard>
         )}

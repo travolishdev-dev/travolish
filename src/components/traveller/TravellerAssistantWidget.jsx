@@ -104,7 +104,7 @@ export default function TravellerAssistantWidget() {
 
     setSendError(null)
     const optimisticId = `guest-${Date.now()}`
-    setMessages((prev) => [...prev, { id: optimisticId, sender: 'guest', text: trimmed }])
+    setMessages((prev) => [...prev, { id: optimisticId, sender: 'guest', text: trimmed, createdAt: new Date().toISOString() }])
     setInput('')
 
     // Auth store still resolving — stay silent; don't show a false "sign in" prompt
@@ -153,7 +153,7 @@ export default function TravellerAssistantWidget() {
         const mapped = mapBackendMessages(items, userId)
         const latestAiId = mapped.filter((m) => m.sender === 'assistant').slice(-1)[0]?.id ?? null
         if (latestAiId !== null && latestAiId !== lastAiId) {
-          setMessages((prev) => mergeMessages(prev, mapped))
+          setMessages((prev) => mergeMessages(prev.filter((m) => m.id !== optimisticId), mapped))
           gotReply = true
         }
       }
@@ -164,7 +164,7 @@ export default function TravellerAssistantWidget() {
           const items = (history?.content ?? (Array.isArray(history) ? history : []))
             .filter((m) => !m.isDeleted)
             .reverse()
-          setMessages((prev) => mergeMessages(prev, mapBackendMessages(items, userId)))
+          setMessages((prev) => mergeMessages(prev.filter((m) => m.id !== optimisticId), mapBackendMessages(items, userId)))
         }
       }
     } catch {
@@ -205,7 +205,7 @@ export default function TravellerAssistantWidget() {
 
   /* ── Chat panel (open state) ────────────────────────────── */
   return (
-    <div className="fixed bottom-[calc(6rem+env(safe-area-inset-bottom))] end-4 z-50 flex w-[calc(100vw-2rem)] max-w-[360px] flex-col overflow-hidden rounded-[24px] bg-white shadow-[0_32px_80px_rgba(15,23,42,0.22),0_0_0_1px_rgba(15,23,42,0.06)] animate-in slide-in-from-bottom-4 fade-in duration-300 md:bottom-6 md:end-6">
+    <div className="fixed bottom-[calc(6rem+env(safe-area-inset-bottom))] end-4 z-50 flex w-[calc(100vw-2rem)] max-w-[360px] max-h-[calc(100dvh-8rem)] flex-col overflow-hidden rounded-[24px] bg-white shadow-[0_32px_80px_rgba(15,23,42,0.22),0_0_0_1px_rgba(15,23,42,0.06)] animate-in slide-in-from-bottom-4 fade-in duration-300 md:bottom-6 md:end-6 md:max-h-[calc(100dvh-3rem)]">
 
       {/* ── Header ── */}
       <div
@@ -269,7 +269,7 @@ export default function TravellerAssistantWidget() {
 
       {/* ── Message list ── */}
       <div
-        className="flex max-h-[420px] flex-1 flex-col gap-3 overflow-y-auto px-4 py-4 md:max-h-[480px]"
+        className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto px-4 py-4"
         style={{
           background: 'linear-gradient(180deg, #f8f9fb 0%, #f4f5f8 100%)',
           scrollbarWidth: 'thin',

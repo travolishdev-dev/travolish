@@ -42,9 +42,10 @@ export default function TravellerEmergencyPage() {
   const backendUserId = useAuthStore((s) => s.backendUserId)
   const user          = useAuthStore((s) => s.user)
 
-  const [activating,    setActivating]    = useState(null)   // contact key being activated
-  const [sosConfirmed,  setSosConfirmed]  = useState(false)
-  const [activeBooking, setActiveBooking] = useState(null)
+  const [activating,     setActivating]    = useState(null)   // contact key being activated
+  const [sosConfirmed,   setSosConfirmed]  = useState(false)
+  const [activeBooking,  setActiveBooking] = useState(null)
+  const [pendingContact, setPendingContact] = useState(null)  // contact awaiting confirmation
 
   useEffect(() => {
     if (!backendUserId) return
@@ -149,7 +150,7 @@ export default function TravellerEmergencyPage() {
                   <p className="mt-2 text-sm leading-6 text-muted">{contact.note}</p>
                   <button
                     type="button"
-                    onClick={() => handleCall(contact.key, contact.value)}
+                    onClick={() => setPendingContact(contact)}
                     disabled={isActive}
                     className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-dark px-4 py-3 text-sm font-semibold text-white transition-opacity disabled:opacity-60"
                   >
@@ -205,6 +206,66 @@ export default function TravellerEmergencyPage() {
           </SectionCard>
         </div>
       </div>
+      {pendingContact && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="sos-dialog-title"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4"
+        >
+          {/* Backdrop */}
+          <div
+            className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+            onClick={() => setPendingContact(null)}
+          />
+
+          {/* Panel */}
+          <div className="relative w-full max-w-sm rounded-[28px] bg-white p-6 shadow-2xl">
+            <div className="flex items-center gap-3">
+              <div className="rounded-2xl bg-rose-50 p-3 text-rose-600">
+                <ShieldAlert size={22} />
+              </div>
+              <p
+                id="sos-dialog-title"
+                className="text-base font-semibold text-dark"
+              >
+                Confirm emergency call
+              </p>
+            </div>
+
+            <p className="mt-4 text-sm leading-6 text-muted">
+              You are about to call{' '}
+              <span className="font-semibold text-dark">{pendingContact.label}</span>{' '}
+              at{' '}
+              <span className="font-semibold text-dark">{pendingContact.value}</span>.
+            </p>
+            <p className="mt-2 text-sm leading-6 text-muted">
+              This will open your phone dialer and log an SOS incident with Travolish. Only proceed in a genuine emergency.
+            </p>
+
+            <div className="mt-6 grid grid-cols-2 gap-3">
+              <button
+                type="button"
+                onClick={() => setPendingContact(null)}
+                className="inline-flex items-center justify-center rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm font-semibold text-dark transition-colors hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  handleCall(pendingContact.key, pendingContact.value)
+                  setPendingContact(null)
+                }}
+                className="inline-flex items-center justify-center gap-2 rounded-2xl bg-rose-600 px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-rose-700"
+              >
+                <PhoneCall size={15} />
+                Yes, call now
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </PortalShell>
   )
 }

@@ -100,14 +100,25 @@ async function fetchAutoAttractions(lat, lng) {
     if (cached) return JSON.parse(cached)
   } catch {}
 
-  const query = `[out:json][timeout:10];(node["amenity"~"^(restaurant|cafe|bar|fast_food|shopping_mall|hospital)$"]["name"](around:1000,${lat},${lng});node["railway"~"^(station|halt)$"]["name"](around:1500,${lat},${lng});node["highway"="bus_stop"]["name"](around:600,${lat},${lng});node["leisure"~"^(park|garden)$"]["name"](around:1000,${lat},${lng});node["natural"="beach"]["name"](around:2500,${lat},${lng});node["tourism"~"^(attraction|museum|gallery)$"]["name"](around:1500,${lat},${lng});node["aeroway"="aerodrome"]["name"](around:8000,${lat},${lng}););out 16;`
-  const res = await fetch('https://overpass-api.de/api/interpreter', {
-    method: 'POST',
-    body: `data=${encodeURIComponent(query)}`,
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-  })
+  const query = `[out:json][timeout:25];(node["amenity"~"^(restaurant|cafe|bar|fast_food|shopping_mall|hospital)$"]["name"](around:1000,${lat},${lng});node["railway"~"^(station|halt)$"]["name"](around:1500,${lat},${lng});node["highway"="bus_stop"]["name"](around:600,${lat},${lng});node["leisure"~"^(park|garden)$"]["name"](around:1000,${lat},${lng});node["natural"="beach"]["name"](around:2500,${lat},${lng});node["tourism"~"^(attraction|museum|gallery)$"]["name"](around:1500,${lat},${lng});node["aeroway"="aerodrome"]["name"](around:8000,${lat},${lng}););out 16;`
+  const clientAbort = new AbortController()
+  const clientTimer = setTimeout(() => clientAbort.abort(), 12000)
+  let res
+  try {
+    res = await fetch('https://overpass-api.de/api/interpreter', {
+      method: 'POST',
+      body: `data=${encodeURIComponent(query)}`,
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      signal: clientAbort.signal,
+    })
+  } catch {
+    return []
+  } finally {
+    clearTimeout(clientTimer)
+  }
   if (!res.ok) return []
   const data = await res.json()
+  if (!data.elements?.length) return []
   const seen = new Set()
   const results = (data.elements ?? [])
     .map((el) => {

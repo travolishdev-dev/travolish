@@ -179,6 +179,40 @@ export const adminScreenConfigs = {
       'Document numbers remain masked except in privileged preview mode.',
     ],
   },
+  'guest-verification': {
+    eyebrow: 'Guest KYC',
+    title: 'Guest identity verification',
+    description:
+      'Track guest document submission, preview masked IDs, approve verification, reject with reason, or request resubmission.',
+    searchPlaceholder: 'Search guest name, document type, or status',
+    stats: [
+      { label: 'Pending review', value: '—', note: 'Awaiting decision', tone: 'warning' },
+      { label: 'Approved', value: '—', note: 'Identity confirmed', tone: 'success' },
+      { label: 'Rejected', value: '—', note: 'Document mismatch', tone: 'danger' },
+      { label: 'Total', value: '—', note: 'All guest KYC submissions', tone: 'brand' },
+    ],
+    filters: [
+      { label: 'Status', field: 'Status' },
+      { label: 'Document type', field: 'Document' },
+      { label: 'Submission date', field: 'Submitted' },
+      { label: 'Reviewer', field: 'Reviewer' },
+    ],
+    bulkActions: ['Approve clean', 'Request resubmission', 'Assign reviewer', 'Export'],
+    columns: ['Name', 'Document', 'Masked number', 'Submitted', 'Status', 'Reviewer', 'Action'],
+    rows: [],
+    detailTitle: 'Guest verification review',
+    detailItems: [
+      'Government ID preview with masked number',
+      'Proof of address document',
+      'Decision controls for approve, reject, or resubmit',
+    ],
+    workflow: ['Open request', 'Preview document', 'Record notes', 'Approve or reject'],
+    states: ['Pending', 'Approved', 'Rejected', 'Resubmission requested'],
+    validations: [
+      'Reject and resubmission decisions require a reason.',
+      'Document numbers remain masked in the table view.',
+    ],
+  },
   listingApprovals: {
     eyebrow: 'Listings',
     title: 'Listing approval workflow',

@@ -8,6 +8,10 @@
   "locationNotShared": "ऐप से स्थान साझा नहीं किया गया",
   "permissionGranted": "अनुमति दी गई",
   "showingDefault": "डिफ़ॉल्ट क्रम दिखाया जा रहा है।",
+  "scopeForDestination": "\"{{destination}}\" के लिए",
+  "scopeNearLocation": "आपके साझा स्थान के पास",
+  "scopeAvailableNow": "अभी उपलब्ध",
+  "beforeFilters": "फिल्टर से पहले",
   "types": {
     "any": "कोई भी",
     "hotel": "होटल",

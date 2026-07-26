@@ -68,8 +68,20 @@ export default function RecentSearches() {
             key={item.city}
             type="button"
             onClick={() => {
-              updateSearchDraft({ destination: item.city })
-              navigate('/search')
+              updateSearchDraft({
+                destination: item.city,
+                checkIn: item.checkIn ?? '',
+                checkOut: item.checkOut ?? '',
+                adults: item.adults ?? 2,
+                children: item.children ?? 0,
+              })
+              const params = new URLSearchParams()
+              params.set('destination', item.city)
+              if (item.checkIn) params.set('checkIn', item.checkIn)
+              if (item.checkOut) params.set('checkOut', item.checkOut)
+              params.set('adults', String(item.adults ?? 2))
+              if (item.children) params.set('children', String(item.children))
+              navigate(`/search?${params.toString()}`)
             }}
             className="group w-[272px] flex-shrink-0 overflow-hidden rounded-card border border-gray-200 bg-white text-left shadow-[0_14px_34px_rgba(15,23,42,0.08)] transition-all hover:-translate-y-0.5 hover:shadow-[0_18px_42px_rgba(15,23,42,0.12)]"
           >

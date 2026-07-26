@@ -71,12 +71,13 @@ export function adaptHotel(hotel, priceMap = {}, capacityMap = {}) {
     beds: hotel.beds ?? 1,
     bedrooms: hotel.bedrooms ?? 1,
     bathrooms: hotel.bathrooms ?? 1,
-    // Use explicit hotel-level maxGuests when set; null means unknown → search filter skips it.
-    // Room capacity is used for booking, not search discovery.
-    guests: hotel.maxGuests ?? hotel.guests ?? null,
+    // Hotel-level capacity takes priority; fall back to max room capacity from rooms data.
+    // null means unknown — the search filter will pass unknowns rather than hide them.
+    guests: hotel.maxGuests ?? hotel.guests ?? capacityMap[hotel.id] ?? null,
     description: hotel.description || '',
     houseRules: hotel.houseRules ?? null,
     instantBookable: hotel.instantBooking ?? true,
+    freeCancellation: hotel.freeCancellation ?? hotel.free_cancellation ?? null,
     minimumStay: hotel.minimumStay ?? 1,
     checkInTime: hotel.checkInTime ?? null,
     checkOutTime: hotel.checkOutTime ?? null,

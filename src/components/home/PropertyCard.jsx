@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { ArrowRight, ChevronLeft, ChevronRight, Heart, Star } from 'lucide-react'
@@ -23,6 +23,9 @@ export default function PropertyCard({ property, index = 0, variant = 'default' 
   const [currentImage, setCurrentImage] = useState(0)
   const [isHovered, setIsHovered] = useState(false)
   const [imageLoaded, setImageLoaded] = useState(false)
+  useEffect(() => {
+    setImageLoaded(false)
+  }, [currentImage])
   const toggleWishlist = useWishlistStore((s) => s.toggleWishlist)
   const isWishlisted = useWishlistStore((s) => s.isWishlisted(property.id))
   const { formatCurrency } = useCurrency()
@@ -201,6 +204,7 @@ export default function PropertyCard({ property, index = 0, variant = 'default' 
           <button
             onClick={handleWishlist}
             className="absolute top-3 right-3 z-10 p-2 transition-transform active:scale-90"
+            aria-label={t('common:saveProperty')}
           >
             <Heart
               size={24}
@@ -225,6 +229,7 @@ export default function PropertyCard({ property, index = 0, variant = 'default' 
             <button
               onClick={prevImage}
               className="absolute left-2 top-1/2 -translate-y-1/2 w-8 h-8 bg-white/90 backdrop-blur-sm rounded-full flex items-center justify-center shadow-md hover:bg-white hover:scale-110 transition-all"
+              aria-label={t('common:previousImage')}
             >
               <ChevronLeft size={16} />
             </button>
@@ -233,6 +238,7 @@ export default function PropertyCard({ property, index = 0, variant = 'default' 
             <button
               onClick={nextImage}
               className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 bg-white/90 backdrop-blur-sm rounded-full flex items-center justify-center shadow-md hover:bg-white hover:scale-110 transition-all"
+              aria-label={t('common:nextImage')}
             >
               <ChevronRight size={16} />
             </button>
@@ -257,15 +263,15 @@ export default function PropertyCard({ property, index = 0, variant = 'default' 
         <div className="space-y-0.5">
           <div className="flex items-start justify-between gap-2">
             <h3 className="font-semibold text-[15px] text-dark truncate">
-              {property.location}, {property.country}
+              {[property.location, property.country].filter(Boolean).join(', ')}
             </h3>
             <div className="flex items-center gap-1 flex-shrink-0 mt-0.5">
               <Star size={13} className="fill-dark text-dark" />
-              <span className="text-sm font-medium">{property.rating}</span>
+              <span className="text-sm font-medium">{Number(property.rating || 0).toFixed(1)}</span>
             </div>
           </div>
           <p className="text-muted text-sm truncate">{property.title}</p>
-          <p className="text-muted text-sm">{property.dates}</p>
+          <p className="text-muted text-sm">{property.dates || t('common:flexibleDates')}</p>
           <p className="text-[15px] mt-1">
             {getDisplayPrice(property) != null ? (
               <>

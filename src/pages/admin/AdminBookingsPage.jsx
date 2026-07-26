@@ -8,6 +8,7 @@ import {
   AdminStatusPill,
 } from '../../components/admin/AdminPortalUI'
 import { confirmAdminBooking, getAdminBookings } from '../../services/adminApi'
+import AdminPagination from '../../components/admin/AdminPagination'
 import { post } from '../../lib/api'
 
 const PAGE_SIZE = 20
@@ -208,29 +209,14 @@ export default function AdminBookingsPage() {
               </table>
             </div>
 
-            {totalPages > 1 && (
-              <div className="mt-5 flex items-center justify-between gap-3 border-t border-gray-200 pt-4 text-xs font-semibold text-muted">
-                <span>Page {page + 1} of {totalPages} · {totalElements} records</span>
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    disabled={page === 0}
-                    onClick={() => setPage((p) => Math.max(0, p - 1))}
-                    className="inline-flex h-8 items-center rounded-card border border-gray-200 bg-white px-3 transition-colors hover:border-dark disabled:opacity-40"
-                  >
-                    Previous
-                  </button>
-                  <button
-                    type="button"
-                    disabled={page >= totalPages - 1}
-                    onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
-                    className="inline-flex h-8 items-center rounded-card border border-gray-200 bg-white px-3 transition-colors hover:border-dark disabled:opacity-40"
-                  >
-                    Next
-                  </button>
-                </div>
-              </div>
-            )}
+            <div className="mt-5">
+              <AdminPagination
+                page={page}
+                totalPages={totalPages}
+                totalElements={totalElements}
+                onPage={setPage}
+              />
+            </div>
           </>
         )}
       </AdminCard>

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
   HostShell,
   SectionCard,
@@ -7,6 +7,15 @@ import {
 } from '../../components/host/HostPortalUI'
 import { getInventoryDashboard, getInventoryForecast, getInventoryAlerts } from '../../services/inventoryApi'
 import useHostContext from '../../hooks/useHostContext'
+
+const DEMAND_RANK = { LOW: 0, MEDIUM: 1, HIGH: 2, VERY_HIGH: 3 }
+
+function highestDemand(results, key) {
+  const levels = results.map((d) => d[key]?.demandLevel ?? 'LOW')
+  return levels.reduce((best, lvl) =>
+    (DEMAND_RANK[lvl] ?? 0) > (DEMAND_RANK[best] ?? 0) ? lvl : best,
+  'LOW')
+}
 
 const EMPTY_METRICS = [
   { label: 'Sellable nights', value: '—', note: '' },
@@ -17,77 +26,107 @@ const EMPTY_METRICS = [
 const EMPTY_FORECAST = [
   { title: 'Next 7 days', value: '—', note: '' },
   { title: 'Next 30 days', value: '—', note: '' },
-  { title: 'Weekend occupancy', value: '—', note: '' },
+  { title: 'Weekend demand', value: '—', note: '' },
 ]
 
 export default function HostInventoryPage() {
-  const { primaryHotelId, loading: hostLoading } = useHostContext()
+  const { hotels, loading: hostLoading } = useHostContext()
   const [metrics, setMetrics] = useState(EMPTY_METRICS)
   const [forecastBlocks, setForecastBlocks] = useState(EMPTY_FORECAST)
   const [alerts, setAlerts] = useState([])
 
+  // Stable dep — re-run only when the set of hotel IDs actually changes
+  const hotelIdsKey = useMemo(() => hotels.map((h) => h.id).join(','), [hotels])
+
   useEffect(() => {
-    if (hostLoading || !primaryHotelId) return
+    if (hostLoading || !hotels.length) return
 
-    getInventoryDashboard(primaryHotelId)
-      .then((data) => {
-        if (data) {
-          setMetrics([
-            {
-              label: 'Sellable nights',
-              value: data.sellableNights != null ? String(data.sellableNights) : '—',
-              note: data.availableNights != null ? `${data.availableNights} available` : '',
-            },
-            {
-              label: 'Booked nights',
-              value: data.bookedNights != null ? String(data.bookedNights) : '—',
-              note: '',
-            },
-            {
-              label: 'Occupancy',
-              value: data.occupancyRate != null ? `${data.occupancyRate}%` : '—',
-              note: data.status ?? '',
-            },
-          ])
-        }
+    const hotelIds = hotels.map((h) => h.id)
+
+    // ── Dashboard metrics (aggregate across all listings) ─────────────────────
+    Promise.all(hotelIds.map((id) => getInventoryDashboard(id).catch(() => null)))
+      .then((results) => {
+        const valid = results.filter(Boolean)
+        if (!valid.length) return
+
+        const totalSellable = valid.reduce((sum, d) => sum + (d.sellableNights ?? 0), 0)
+        const totalBooked   = valid.reduce((sum, d) => sum + (d.bookedNights ?? 0), 0)
+        const totalAvailable = valid.reduce((sum, d) => sum + (d.availableNights ?? 0), 0)
+        const occupancyRate = totalSellable > 0
+          ? Math.round((totalBooked / totalSellable) * 100)
+          : 0
+
+        let status
+        if (occupancyRate === 0)       status = 'VACANT'
+        else if (occupancyRate < 20)   status = 'LOW'
+        else if (occupancyRate > 85)   status = 'CRITICAL'
+        else if (occupancyRate > 70)   status = 'WARNING'
+        else                           status = 'GOOD'
+
+        setMetrics([
+          {
+            label: 'Sellable nights',
+            value: String(totalSellable),
+            note: `${totalAvailable} available`,
+          },
+          {
+            label: 'Booked nights',
+            value: String(totalBooked),
+            note: '',
+          },
+          {
+            label: 'Occupancy',
+            value: `${occupancyRate}%`,
+            note: status,
+          },
+        ])
       })
-      .catch(() => {})
 
-    getInventoryForecast(primaryHotelId)
-      .then((data) => {
-        if (data) {
-          const fmtDemand = (level) =>
-            level ? level.charAt(0) + level.slice(1).toLowerCase() : '—'
-          const fmtBookings = (v) =>
-            v != null ? `${v} booking${v !== 1 ? 's' : ''} avg/day` : ''
+    // ── Forecast (take highest demand, sum avg bookings) ──────────────────────
+    Promise.all(hotelIds.map((id) => getInventoryForecast(id).catch(() => null)))
+      .then((results) => {
+        const valid = results.filter(Boolean)
+        if (!valid.length) return
 
-          setForecastBlocks([
-            {
-              title: 'Next 7 days',
-              value: fmtDemand(data.next7Days?.demandLevel),
-              note: fmtBookings(data.next7Days?.avgBookings),
-            },
-            {
-              title: 'Next 30 days',
-              value: fmtDemand(data.next30Days?.demandLevel),
-              note: fmtBookings(data.next30Days?.avgBookings),
-            },
-            {
-              title: 'Weekend demand',
-              value: fmtDemand(data.weekendDemand),
-              note: fmtBookings(data.weekendAvgBookings),
-            },
-          ])
-        }
+        const fmtDemand   = (lvl) => lvl ? lvl.charAt(0) + lvl.slice(1).toLowerCase() : '—'
+        const fmtBookings = (v)   => v != null ? `${v} bookings avg/day` : ''
+        const sumAvg      = (key) => valid.reduce((sum, d) => sum + (d[key]?.avgBookings ?? 0), 0)
+
+        const weekendAvg = valid.reduce((sum, d) => sum + (d.weekendAvgBookings ?? 0), 0)
+        const weekendDemand = valid.reduce((best, d) => {
+          const lvl = d.weekendDemand ?? 'LOW'
+          return (DEMAND_RANK[lvl] ?? 0) > (DEMAND_RANK[best] ?? 0) ? lvl : best
+        }, 'LOW')
+
+        setForecastBlocks([
+          {
+            title: 'Next 7 days',
+            value: fmtDemand(highestDemand(valid, 'next7Days')),
+            note: fmtBookings(sumAvg('next7Days')),
+          },
+          {
+            title: 'Next 30 days',
+            value: fmtDemand(highestDemand(valid, 'next30Days')),
+            note: fmtBookings(sumAvg('next30Days')),
+          },
+          {
+            title: 'Weekend demand',
+            value: fmtDemand(weekendDemand),
+            note: fmtBookings(weekendAvg),
+          },
+        ])
       })
-      .catch(() => {})
 
-    getInventoryAlerts(primaryHotelId)
-      .then((data) => {
-        const items = Array.isArray(data) ? data : data?.alerts
-        if (items?.length) {
+    // ── Alerts (merge across all listings) ────────────────────────────────────
+    Promise.all(hotelIds.map((id) => getInventoryAlerts(id).catch(() => null)))
+      .then((results) => {
+        const all = results.flatMap((data) => {
+          const items = Array.isArray(data) ? data : data?.alerts
+          return items ?? []
+        })
+        if (all.length) {
           setAlerts(
-            items.map((a) => ({
+            all.map((a) => ({
               title: a.title ?? a.alertType ?? 'Alert',
               detail: a.detail ?? a.message ?? a.description ?? '',
               tone: a.tone ?? a.severity ?? 'warning',
@@ -95,8 +134,7 @@ export default function HostInventoryPage() {
           )
         }
       })
-      .catch(() => {})
-  }, [primaryHotelId, hostLoading])
+  }, [hotelIdsKey, hostLoading]) // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <HostShell

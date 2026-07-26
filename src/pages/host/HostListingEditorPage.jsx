@@ -1011,7 +1011,12 @@ export default function HostListingEditorPage() {
                 placeholder="e.g., 12 Harbour Road"
               />
               <div className="grid gap-4 sm:grid-cols-2">
-                <HostField label="City" value={formState.location} onChange={fieldHandler('location')} placeholder="e.g., Hamburg" />
+                <CountrySelect
+                  label="Country"
+                  value={formState.country}
+                  onChange={(v) => setFormState((s) => ({ ...s, country: v, state: '' }))}
+                  placeholder="Select country"
+                />
                 <StateSelect
                   label="State / Province"
                   country={formState.country}
@@ -1022,12 +1027,7 @@ export default function HostListingEditorPage() {
                 />
               </div>
               <div className="grid gap-4 sm:grid-cols-2">
-                <CountrySelect
-                  label="Country"
-                  value={formState.country}
-                  onChange={(v) => setFormState((s) => ({ ...s, country: v, state: '' }))}
-                  placeholder="Select country"
-                />
+                <HostField label="City" value={formState.location} onChange={fieldHandler('location')} placeholder="e.g., Hamburg" />
                 <HostField label="Postal Code" value={formState.postalCode} onChange={fieldHandler('postalCode')} placeholder="e.g., 20095" />
               </div>
 

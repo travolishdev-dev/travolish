@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { MapPin, Search } from 'lucide-react'
 import { motion as Motion } from 'framer-motion'
@@ -6,6 +7,7 @@ import { searchHotels, listRooms } from '../services/hotelsApi'
 import { adaptHotels } from '../lib/hotelAdapter'
 import { geocodeMissing } from '../lib/geocoding'
 import { useSearchContext } from '../hooks/useSearchContext'
+import { indianDestinations } from '../data/indianDestinations'
 import SearchControls from '../components/search/SearchControls'
 import SearchPropertyCard from '../components/search/SearchPropertyCard'
 import SearchResultsMap from '../components/search/SearchResultsMap'
@@ -100,6 +102,7 @@ function SearchCardSkeleton() {
 export default function SearchPage() {
   const { t } = useTranslation(['search', 'common'])
   const { searchDraft, updateSearchDraft } = useSearchContext()
+  const [searchParams] = useSearchParams()
   const [minPrice, setMinPrice] = useState('')
   const [maxPrice, setMaxPrice] = useState('')
   const [minRating, setMinRating] = useState(0)
@@ -108,6 +111,7 @@ export default function SearchPage() {
   const [instantBookOnly, setInstantBookOnly] = useState(false)
   const [freeCancellationOnly, setFreeCancellationOnly] = useState(false)
   const [sortOption, setSortOption] = useState('recommended')
+  const [searchTrigger, setSearchTrigger] = useState(0)
   const [allProperties, setAllProperties] = useState([])
   const [isLoading, setIsLoading] = useState(false)
   const [totalResults, setTotalResults] = useState(0)
@@ -118,6 +122,22 @@ export default function SearchPage() {
   const propertyCardRefs = useRef(new Map())
   const roomsCacheRef = useRef(null)
 
+  // Hydrate context from URL params on first mount so shared/bookmarked URLs work
+  useEffect(() => {
+    const dest = searchParams.get('destination')
+    const ci = searchParams.get('checkIn')
+    const co = searchParams.get('checkOut')
+    const adults = searchParams.get('adults')
+    const children = searchParams.get('children')
+    const updates = {}
+    if (dest !== null) updates.destination = dest
+    if (ci) updates.checkIn = ci
+    if (co) updates.checkOut = co
+    if (adults !== null) updates.adults = Math.max(1, parseInt(adults, 10) || 1)
+    if (children !== null) updates.children = Math.max(0, parseInt(children, 10) || 0)
+    if (Object.keys(updates).length > 0) updateSearchDraft(updates)
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
   const destination = searchDraft.destination.trim()
 
   useEffect(() => {
@@ -126,11 +146,26 @@ export default function SearchPage() {
     geocodeControllerRef.current = null
     clearTimeout(debounceRef.current)
 
+    const { checkIn, checkOut, adults, children } = searchDraft
+    const totalGuests = (Number(adults) || 0) + (Number(children) || 0)
+    const parsedRating = Number(minRating) || undefined
+    // Send as city when the input matches a known destination for more precise backend filtering
+    const knownDest = destination
+      ? indianDestinations.find((d) => d.name.toLowerCase() === destination.toLowerCase())
+      : null
+
     debounceRef.current = setTimeout(async () => {
       setIsLoading(true)
       try {
         const [searchResult, rooms] = await Promise.all([
-          searchHotels({ query: destination || undefined, pageSize: 50 }),
+          searchHotels({
+            ...(knownDest ? { city: knownDest.name } : { query: destination || undefined }),
+            checkIn: checkIn || undefined,
+            checkOut: checkOut || undefined,
+            guests: totalGuests || undefined,
+            minRating: parsedRating,
+            pageSize: 50,
+          }),
           listRooms(),
         ])
         roomsCacheRef.current = rooms
@@ -166,7 +201,7 @@ export default function SearchPage() {
       geocodeControllerRef.current = null
       clearTimeout(debounceRef.current)
     }
-  }, [destination])
+  }, [destination, searchDraft.checkIn, searchDraft.checkOut, searchDraft.adults, searchDraft.children, minRating, searchTrigger]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const parsedMinPrice = minPrice ? parseInt(minPrice, 10) : null
   const parsedMaxPrice = maxPrice ? parseInt(maxPrice, 10) : null
@@ -207,10 +242,10 @@ export default function SearchPage() {
   const isEmptyState = !isLoading && sortedResults.length === 0
   const visibleCount = sortedResults.length
   const resultScope = destination
-    ? `for "${destination}"`
+    ? t('search:scopeForDestination', { destination })
     : sharedLocation.hasSharedLocation
-      ? 'near your shared location'
-      : 'available now'
+      ? t('search:scopeNearLocation')
+      : t('search:scopeAvailableNow')
 
   const clearFilters = () => {
     setMinPrice('')
@@ -244,10 +279,19 @@ export default function SearchPage() {
     geocodeControllerRef.current?.abort()
     geocodeControllerRef.current = null
     setIsLoading(true)
+    const { checkIn, checkOut, adults, children } = searchDraft
+    const totalGuests = (Number(adults) || 0) + (Number(children) || 0)
+    const knownDest = destination
+      ? indianDestinations.find((d) => d.name.toLowerCase() === destination.toLowerCase())
+      : null
     try {
       const [searchResult, rooms] = await Promise.all([
         searchHotels({
-          query: destination || undefined,
+          ...(knownDest ? { city: knownDest.name } : { query: destination || undefined }),
+          checkIn: checkIn || undefined,
+          checkOut: checkOut || undefined,
+          guests: totalGuests || undefined,
+          minRating: Number(minRating) || undefined,
           pageSize: 50,
           latMin: bbox.latMin,
           latMax: bbox.latMax,
@@ -264,7 +308,7 @@ export default function SearchPage() {
     } finally {
       setIsLoading(false)
     }
-  }, [destination])
+  }, [destination, searchDraft, minRating]) // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <Motion.main
@@ -276,6 +320,7 @@ export default function SearchPage() {
       <SearchControls
         searchDraft={searchDraft}
         updateSearchDraft={updateSearchDraft}
+        onSearch={() => setSearchTrigger((c) => c + 1)}
         minPrice={minPrice}
         maxPrice={maxPrice}
         minRating={minRating}
@@ -350,7 +395,7 @@ export default function SearchPage() {
               </div>
               <p className="text-xs text-muted md:text-sm">
                 {totalResults > 0
-                  ? `${t('common:result', { count: totalResults })} before filters`
+                  ? `${t('common:result', { count: totalResults })} ${t('search:beforeFilters')}`
                   : t('search:refineHint')}
               </p>
             </div>
@@ -373,7 +418,7 @@ export default function SearchPage() {
                   onClick={clearFilters}
                   className="mt-5 rounded-full border border-gray-200 bg-white px-5 py-2.5 text-sm font-semibold text-dark transition-colors hover:bg-gray-50"
                 >
-                  Clear all filters
+                  {t('search:filters.clearFilters')}
                 </button>
               </div>
             ) : (

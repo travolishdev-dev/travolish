@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { ArrowUpRight, Clock3, Loader2 } from 'lucide-react'
+import { ArrowUpRight, Clock3, Loader2, X } from 'lucide-react'
 import { format, parseISO, isToday, isTomorrow, addDays, isAfter, isBefore } from 'date-fns'
 import {
   HostShell,
@@ -12,6 +12,7 @@ import { getDashboardOverview } from '../../services/analyticsApi'
 import { listBookingsByHotel } from '../../services/bookingsApi'
 import { getPayoutBalance } from '../../services/payoutsApi'
 import useHostContext from '../../hooks/useHostContext'
+import useCurrency from '../../hooks/useCurrency'
 
 function fmtCheckIn(dateStr) {
   try {
@@ -59,6 +60,22 @@ function buildStats(overview) {
   ]
 }
 
+function dismissedKey(hostId) {
+  return `travolish.host.${hostId}.dismissed_tasks`
+}
+
+function loadDismissed(hostId) {
+  try {
+    return new Set(JSON.parse(localStorage.getItem(dismissedKey(hostId)) ?? '[]'))
+  } catch { return new Set() }
+}
+
+function saveDismissed(hostId, set) {
+  try {
+    localStorage.setItem(dismissedKey(hostId), JSON.stringify([...set]))
+  } catch {}
+}
+
 function buildPriorityTasks(overview) {
   const tasks = []
 
@@ -95,18 +112,21 @@ function buildPriorityTasks(overview) {
       context: 'Upload required documents to unlock payouts and full host status.',
       href: '/host/kyc',
       tone: 'warning',
+      dismissable: true,
     })
     tasks.push({
       title: 'Set up auto-reply templates',
       context: 'Pre-written replies for check-in, arrival, and checkout save time during busy periods.',
       href: '/host/auto-replies',
       tone: 'sky',
+      dismissable: true,
     })
     tasks.push({
       title: 'Review pricing rules',
       context: 'Apply weekend premiums and last-minute fill rules to maximise revenue.',
       href: '/host/pricing',
       tone: 'brand',
+      dismissable: true,
     })
   }
 
@@ -132,10 +152,25 @@ function buildArrivalBoard(bookings) {
 
 export default function HostDashboardPage() {
   const { hostId, hotels, loading: hostLoading } = useHostContext()
+  const { formatCurrency } = useCurrency()
   const [overview, setOverview] = useState(null)
   const [arrivals, setArrivals] = useState([])
   const [payout, setPayout] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [dismissed, setDismissed] = useState(() => new Set())
+
+  useEffect(() => {
+    if (hostId) setDismissed(loadDismissed(hostId))
+  }, [hostId])
+
+  function dismissTask(title) {
+    setDismissed((prev) => {
+      const next = new Set(prev)
+      next.add(title)
+      saveDismissed(hostId, next)
+      return next
+    })
+  }
 
   useEffect(() => {
     if (hostLoading || !hostId) return
@@ -157,7 +192,9 @@ export default function HostDashboardPage() {
   }, [hostId, hotels, hostLoading])
 
   const stats = buildStats(overview)
-  const priorityTasks = buildPriorityTasks(overview)
+  const priorityTasks = buildPriorityTasks(overview).filter(
+    (t) => !t.dismissable || !dismissed.has(t.title),
+  )
 
   return (
     <HostShell
@@ -185,8 +222,18 @@ export default function HostDashboardPage() {
               <Link
                 key={task.title}
                 to={task.href}
-                className="group rounded-[24px] border border-gray-200 bg-[#fcfbf8] p-4 transition-colors hover:border-dark"
+                className="group relative rounded-[24px] border border-gray-200 bg-[#fcfbf8] p-4 transition-colors hover:border-dark"
               >
+                {task.dismissable && (
+                  <button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); e.preventDefault(); dismissTask(task.title) }}
+                    className="absolute end-3 top-3 rounded-full p-1 text-muted opacity-0 transition-opacity hover:text-dark group-hover:opacity-100"
+                    aria-label="Dismiss"
+                  >
+                    <X size={14} />
+                  </button>
+                )}
                 <StatusPill tone={task.tone}>{task.tone}</StatusPill>
                 <p className="mt-3 text-lg font-semibold tracking-tight text-dark">
                   {task.title}
@@ -214,21 +261,21 @@ export default function HostDashboardPage() {
             [
               'Available',
               payout?.availableBalance != null
-                ? `$${Number(payout.availableBalance).toLocaleString(undefined, { maximumFractionDigits: 0 })}`
+                ? formatCurrency(payout.availableBalance)
                 : '—',
               'Ready to transfer',
             ],
             [
               'Pending',
               payout?.pendingBalance != null
-                ? `$${Number(payout.pendingBalance).toLocaleString(undefined, { maximumFractionDigits: 0 })}`
+                ? formatCurrency(payout.pendingBalance)
                 : '—',
               'Awaiting checkout completion',
             ],
             [
               'Net earnings',
               payout?.netEarnings != null
-                ? `$${Number(payout.netEarnings).toLocaleString(undefined, { maximumFractionDigits: 0 })}`
+                ? formatCurrency(payout.netEarnings)
                 : '—',
               'After commissions & taxes',
             ],

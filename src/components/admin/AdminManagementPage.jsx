@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { adminScreenConfigs } from '../../data/adminPanelData'
 import {
@@ -10,6 +10,9 @@ import {
   AdminStatesPanel,
   AdminWorkflowPanel,
 } from './AdminPortalUI'
+import AdminPagination from './AdminPagination'
+
+const CLIENT_PAGE_SIZE = 20
 
 // Derive stat cards from actual loaded rows instead of static config
 function computeLiveStats(pageKey, rows) {
@@ -27,6 +30,13 @@ function computeLiveStats(pageKey, rows) {
         { label: 'Approved', value: String(rows.filter(r => r[4] === 'VERIFIED').length), note: 'Clean decisions', tone: 'success' },
         { label: 'Rejected', value: String(rows.filter(r => r[4] === 'REJECTED').length), note: 'Document mismatch', tone: 'danger' },
         { label: 'Total', value: String(rows.length), note: 'All KYC submissions', tone: 'brand' },
+      ]
+    case 'guest-verification':
+      return [
+        { label: 'Pending review', value: String(rows.filter(r => ['PENDING', 'UNDER_REVIEW'].includes(r[4])).length), note: 'Awaiting decision', tone: 'warning' },
+        { label: 'Approved', value: String(rows.filter(r => r[4] === 'APPROVED' || r[4] === 'VERIFIED').length), note: 'Identity confirmed', tone: 'success' },
+        { label: 'Rejected', value: String(rows.filter(r => r[4] === 'REJECTED').length), note: 'Document mismatch', tone: 'danger' },
+        { label: 'Total', value: String(rows.length), note: 'All guest KYC submissions', tone: 'brand' },
       ]
     case 'listingApprovals':
       return [
@@ -109,6 +119,10 @@ export default function AdminManagementPage({ pageKey, rows: rowsProp, loading =
   const [activeFilters, setActiveFilters] = useState({})
   const [selectedRowKey, setSelectedRowKey] = useState('')
   const [actionNotice, setActionNotice] = useState('')
+  const [clientPage, setClientPage] = useState(0)
+
+  // Reset to page 0 whenever search, filters, or the dataset changes
+  useEffect(() => { setClientPage(0) }, [searchQuery, activeFilters, baseRows.length]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const liveStats = useMemo(() => computeLiveStats(pageKey, baseRows), [pageKey, baseRows])
 
@@ -139,6 +153,15 @@ export default function AdminManagementPage({ pageKey, rows: rowsProp, loading =
       return matchesSearch && matchesFilters
     })
   }, [activeFilters, config, searchQuery, baseRows])
+
+  // Client-side pagination (only when no external server-side pagination is provided)
+  const useClientPagination = !pagination
+  const clientTotalPages = useClientPagination
+    ? Math.max(1, Math.ceil(filteredRows.length / CLIENT_PAGE_SIZE))
+    : 0
+  const visibleRows = useClientPagination
+    ? filteredRows.slice(clientPage * CLIENT_PAGE_SIZE, (clientPage + 1) * CLIENT_PAGE_SIZE)
+    : filteredRows
 
   const selectedRecord = useMemo(
     () => filteredRows.find((row) => row[0] === selectedRowKey) ?? filteredRows[0] ?? null,
@@ -241,34 +264,26 @@ export default function AdminManagementPage({ pageKey, rows: rowsProp, loading =
           <div className="flex flex-col gap-4">
             <AdminDataTable
               columns={config.columns}
-              rows={filteredRows}
+              rows={visibleRows}
               selectedRowKey={selectedRecord?.[0]}
               onRowSelect={handleRowSelect}
               onRowAction={handleRowAction}
               onExport={handleExportCSV}
             />
-            {pagination && pagination.totalPages > 1 && (
-              <div className="flex items-center justify-between border-t border-gray-200 pt-4 text-xs font-semibold text-muted">
-                <span>Page {pagination.page + 1} of {pagination.totalPages}</span>
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    disabled={pagination.page === 0}
-                    onClick={() => pagination.onPage(pagination.page - 1)}
-                    className="inline-flex h-8 items-center rounded-card border border-gray-200 bg-white px-3 transition-colors hover:border-dark disabled:opacity-40"
-                  >
-                    Previous
-                  </button>
-                  <button
-                    type="button"
-                    disabled={pagination.page >= pagination.totalPages - 1}
-                    onClick={() => pagination.onPage(pagination.page + 1)}
-                    className="inline-flex h-8 items-center rounded-card border border-gray-200 bg-white px-3 transition-colors hover:border-dark disabled:opacity-40"
-                  >
-                    Next
-                  </button>
-                </div>
-              </div>
+            {useClientPagination && filteredRows.length > CLIENT_PAGE_SIZE && (
+              <AdminPagination
+                page={clientPage}
+                totalPages={clientTotalPages}
+                totalElements={filteredRows.length}
+                onPage={setClientPage}
+              />
+            )}
+            {!useClientPagination && (
+              <AdminPagination
+                page={pagination.page}
+                totalPages={pagination.totalPages}
+                onPage={pagination.onPage}
+              />
             )}
           </div>
         )}

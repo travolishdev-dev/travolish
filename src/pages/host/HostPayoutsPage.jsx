@@ -17,7 +17,6 @@ export default function HostPayoutsPage() {
   const [primaryBankAccountId, setPrimaryBankAccountId] = useState(null)
   const [loading, setLoading] = useState(false)
   const [requesting, setRequesting] = useState(false)
-  const [payoutNotice, setPayoutNotice] = useState('')
 
   useEffect(() => {
     if (hostLoading || !hostId) return
@@ -199,40 +198,6 @@ export default function HostPayoutsPage() {
             ))}
           </div>
         )}
-      </SectionCard>
-
-      <SectionCard>
-        <SectionHeading
-          eyebrow="Tax"
-          title="Tax documents"
-          description="Placeholder document center for annual host tax forms."
-        />
-
-        <div className="mt-6 grid gap-3">
-          {[
-            ['2026 Form 1099-K', 'Preparing', 'Available after year-end reconciliation'],
-            ['2025 Earnings summary', 'Ready', 'Downloadable PDF placeholder'],
-            ['Tax profile', 'Needs review', 'Confirm legal name and payout country'],
-          ].map(([title, status, note]) => (
-            <div
-              key={title}
-              className="grid gap-3 rounded-2xl border border-gray-200 bg-[#fcfbf8] p-4 md:grid-cols-[minmax(0,1fr)_auto_auto] md:items-center"
-            >
-              <div>
-                <p className="text-sm font-semibold text-dark">{title}</p>
-                <p className="mt-1 text-sm text-muted">{note}</p>
-              </div>
-              <StatusPill tone={status === 'Ready' ? 'success' : 'warning'}>{status}</StatusPill>
-              <button
-                type="button"
-                onClick={() => setPayoutNotice(`${title} selected. Document download endpoint is not wired in this UI pass.`)}
-                className="inline-flex items-center justify-center rounded-2xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-semibold text-dark transition-colors hover:bg-gray-50"
-              >
-                View
-              </button>
-            </div>
-          ))}
-        </div>
       </SectionCard>
     </HostShell>
   )

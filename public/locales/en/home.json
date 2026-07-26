@@ -3,7 +3,7 @@
   "title": "Find a stay that fits your trip.",
   "description": "Search hotels, compare useful details, and keep browsing without losing the clean Travolish experience.",
   "destination": "Destination",
-  "destinationPlaceholder": "Search Indian cities or hotels",
+  "destinationPlaceholder": "Search destinations or hotels",
   "checkInOut": "Check-in / out",
   "guests": "Guests",
   "adults": "Adults",
@@ -11,6 +11,10 @@
   "search": "Search",
   "flexibleDates": "Flexible dates",
   "selectCheckout": "Select checkout",
+  "guestAdultSingular": "adult",
+  "guestAdultPlural": "adults",
+  "guestChildSingular": "child",
+  "guestChildPlural": "children",
   "smartPicks": "Smart picks",
   "nearHandoff": "Hotel deals near your handoff",
   "nearHandoffDesc": "Sorted around {{coords}} from your {{platform}} handoff so nearby stays stay easy to compare.",
@@ -71,5 +75,7 @@
     "valueDesc": "lower nightly rates with strong guest feedback",
     "weekend": "Weekend ready",
     "weekendDesc": "easy-to-book stays with broad appeal"
-  }
+  },
+  "errorLoadingStays": "Unable to load stays",
+  "errorLoadingStaysDesc": "Check your connection and refresh the page."
 }

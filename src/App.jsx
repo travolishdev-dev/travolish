@@ -45,6 +45,7 @@ const HostPromotionsPage          = lazy(() => import('./pages/host/HostPromotio
 const HostPricingAIPage           = lazy(() => import('./pages/host/HostPricingAIPage'))
 const HostPayoutsPage             = lazy(() => import('./pages/host/HostPayoutsPage'))
 const HostKycPage                 = lazy(() => import('./pages/host/HostKycPage'))
+const GuestKycPage                = lazy(() => import('./pages/guest/GuestKycPage'))
 const HostCreateListingPage       = lazy(() => import('./pages/host/HostCreateListingPage'))
 const HostBankAccountsPage        = lazy(() => import('./pages/host/HostBankAccountsPage'))
 const HostGuestReviewPage         = lazy(() => import('./pages/host/HostGuestReviewPage'))
@@ -287,6 +288,16 @@ export default function App() {
             <AppLayout>
               <ProtectedRoute requireAuth>
                 <NotificationSettingsPage />
+              </ProtectedRoute>
+            </AppLayout>
+          }
+        />
+        <Route
+          path="/account/kyc"
+          element={
+            <AppLayout>
+              <ProtectedRoute requireAuth>
+                <GuestKycPage />
               </ProtectedRoute>
             </AppLayout>
           }

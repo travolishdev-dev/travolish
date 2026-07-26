@@ -8,6 +8,10 @@
   "locationNotShared": "لم تتم مشاركة الموقع من التطبيق",
   "permissionGranted": "تم منح الإذن",
   "showingDefault": "عرض ترتيب النتائج الافتراضي.",
+  "scopeForDestination": "لـ \"{{destination}}\"",
+  "scopeNearLocation": "بالقرب من موقعك المشترك",
+  "scopeAvailableNow": "متاح الآن",
+  "beforeFilters": "قبل الفلاتر",
   "types": {
     "any": "الكل",
     "hotel": "فندق",

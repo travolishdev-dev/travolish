@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   defaultSearchDraft,
   SearchContext,
@@ -25,20 +25,16 @@ export function SearchProvider({ children }) {
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(searchDraft))
   }, [searchDraft])
 
-  const value = useMemo(() => {
-    const updateSearchDraft = (patch) => {
-      setSearchDraftState((current) => ({ ...current, ...patch }))
-    }
+  const updateSearchDraft = useCallback((patch) => {
+    setSearchDraftState((current) => ({ ...current, ...patch }))
+  }, [])
 
-    const resetSearchDraft = () => setSearchDraftState(defaultSearchDraft)
+  const resetSearchDraft = useCallback(() => setSearchDraftState(defaultSearchDraft), [])
 
-    return {
-      searchDraft,
-      setSearchDraft: setSearchDraftState,
-      updateSearchDraft,
-      resetSearchDraft,
-    }
-  }, [searchDraft])
+  const value = useMemo(
+    () => ({ searchDraft, setSearchDraft: setSearchDraftState, updateSearchDraft, resetSearchDraft }),
+    [searchDraft, updateSearchDraft, resetSearchDraft],
+  )
 
   return (
     <SearchContext.Provider value={value}>{children}</SearchContext.Provider>

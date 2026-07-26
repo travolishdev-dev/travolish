@@ -43,7 +43,7 @@ export default function ConversationPage() {
           getMessages(id),
         ])
         setConversation(conv)
-        setMessages((msgs.content ?? msgs).filter((m) => !m.isDeleted))
+        setMessages((msgs.content ?? msgs).filter((m) => !m.isDeleted).reverse())
         const otherId = conv.userId1 === userId ? conv.userId2 : conv.userId1
         if (otherId) {
           getUser(otherId).then((u) => {

@@ -35,7 +35,7 @@ function adaptListing(h) {
     id: h.id,
     status: mapHotelStatus(h.status),
     adminNote: h.adminNote ?? null,
-    market: h.city ?? h.country ?? h.market ?? '—',
+    market: h.city || h.state || h.stateProvince || h.country || h.market || '—',
     description: h.description ?? '',
     roomCount: h.totalRooms ?? h.roomCount ?? 0,
     occupancy30: h.occupancyRate != null ? `${h.occupancyRate}%` : h.occupancy30 ?? '—',
@@ -45,9 +45,9 @@ function adaptListing(h) {
     performanceNote: h.performanceNote ?? '',
     housekeeping: h.housekeeping ?? '—',
     property: {
-      title: h.name ?? h.property?.title ?? 'Untitled',
-      location: h.city ?? h.property?.location ?? '—',
-      country: h.country ?? h.property?.country ?? '—',
+      title: h.name || h.property?.title || 'Untitled',
+      location: h.city || h.state || h.stateProvince || h.property?.location || null,
+      country: h.country || h.property?.country || null,
       // imageUrl is the correct field name from Hotel entity; h.images[] doesn't exist
       image: h.imageUrl ?? h.images?.[0] ?? h.property?.image
         ?? 'https://images.unsplash.com/photo-1566073771259-6a8506099945?w=400&auto=format&fit=crop',
@@ -71,12 +71,17 @@ export default function HostListingsPage() {
       .then(async (data) => {
         const items = data?.content ?? (Array.isArray(data) ? data : null)
         if (!items?.length) return
-        setListings(items.map(adaptListing))
+        const sorted = [...items].sort((a, b) => {
+          const ta = new Date(a.updatedAt ?? a.createdAt ?? 0).getTime()
+          const tb = new Date(b.updatedAt ?? b.createdAt ?? 0).getTime()
+          return tb - ta
+        })
+        setListings(sorted.map(adaptListing))
 
         // Fetch pending bookings, room counts in parallel for all hotels
         const [bookingResults, roomResults] = await Promise.all([
           Promise.all(
-            items.map((h) =>
+            sorted.map((h) =>
               listBookingsByHotel(h.id)
                 .then((bookings) => {
                   const arr = Array.isArray(bookings) ? bookings : []
@@ -86,7 +91,7 @@ export default function HostListingsPage() {
             ),
           ),
           Promise.all(
-            items.map((h) =>
+            sorted.map((h) =>
               getHostRooms(h.id)
                 .then((rooms) => {
                   const arr = Array.isArray(rooms) ? rooms : (rooms?.content ?? [])
@@ -195,7 +200,7 @@ export default function HostListingsPage() {
                   </h2>
                   <p className="mt-2 inline-flex items-center gap-2 text-sm text-muted">
                     <MapPin size={14} />
-                    {listing.property.location}, {listing.property.country}
+                    {[listing.property.location, listing.property.country].filter(Boolean).join(', ') || '—'}
                   </p>
                   <p className="mt-3 text-sm leading-6 text-dark">{listing.description}</p>
                   <div className="mt-3 flex flex-wrap items-center gap-4 text-sm text-muted">

@@ -194,7 +194,12 @@ export default function HostRoomEditorPage() {
             <SectionHeading eyebrow="Room Details" title="Basic information" />
             <div className="mt-6 grid gap-5 md:grid-cols-2">
               <HostField label="Room name / number" value={formState.name} onChange={fieldHandler('name')} placeholder="e.g., Lagoon Suite 101" />
-              <HostField label="Listing ID" value={String(formState.listingId)} onChange={fieldHandler('listingId')} placeholder="13" type="number" />
+              <div>
+                <span className="mb-2 block text-sm font-semibold text-dark">Listing ID</span>
+                <div className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3.5 text-base text-muted md:text-sm select-none">
+                  {formState.listingId}
+                </div>
+              </div>
               <HostField label="Base rate (per night)" value={formState.baseRate} onChange={fieldHandler('baseRate')} placeholder="360" type="number" />
               <HostField label="Room size (m²)" value={formState.roomSize} onChange={fieldHandler('roomSize')} placeholder="32" type="number" />
               <HostField label="Max guests" value={formState.maxGuests} onChange={fieldHandler('maxGuests')} placeholder="2" type="number" />

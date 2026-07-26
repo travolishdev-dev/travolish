@@ -3,7 +3,7 @@
   "title": "Trouvez un séjour adapté.",
   "description": "Recherchez des hôtels, comparez les détails utiles et continuez avec une expérience Travolish claire.",
   "destination": "Destination",
-  "destinationPlaceholder": "Rechercher villes ou hôtels",
+  "destinationPlaceholder": "Rechercher des destinations ou hôtels",
   "checkInOut": "Arrivée / départ",
   "guests": "Voyageurs",
   "adults": "Adultes",
@@ -11,6 +11,10 @@
   "search": "Rechercher",
   "flexibleDates": "Dates flexibles",
   "selectCheckout": "Choisir le départ",
+  "guestAdultSingular": "adulte",
+  "guestAdultPlural": "adultes",
+  "guestChildSingular": "enfant",
+  "guestChildPlural": "enfants",
   "smartPicks": "Sélections intelligentes",
   "nearHandoff": "Offres d'hôtels près de chez vous",
   "nearHandoffDesc": "Triés autour de {{coords}} depuis votre transfert {{platform}} pour faciliter la comparaison.",
@@ -71,5 +75,7 @@
     "valueDesc": "tarifs nocturnes bas avec de bons avis clients",
     "weekend": "Prêt pour le week-end",
     "weekendDesc": "séjours faciles à réserver avec un large attrait"
-  }
+  },
+  "errorLoadingStays": "Impossible de charger les séjours",
+  "errorLoadingStaysDesc": "Vérifiez votre connexion et actualisez la page."
 }

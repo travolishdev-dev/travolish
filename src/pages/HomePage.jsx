@@ -287,7 +287,7 @@ export default function HomePage() {
   const [recommendationMode, setRecommendationMode] = useState('trusted')
   const sharedLocation = useNativeAppLocationStore()
 
-  const { data: properties = [], isLoading } = useQuery({
+  const { data: properties = [], isLoading, isError } = useQuery({
     queryKey: ['hotels', 'home'],
     queryFn: async () => {
       const [searchResult, rooms] = await Promise.all([
@@ -320,7 +320,7 @@ export default function HomePage() {
     [properties, sharedLocation],
   )
 
-  const nearbyProperties = nearbySource.slice(0, SECTION_SIZE)
+  const nearbyProperties = useMemo(() => nearbySource.slice(0, SECTION_SIZE), [nearbySource])
   const nearbyIds = useMemo(
     () => new Set(nearbyProperties.map((p) => p.id)),
     [nearbyProperties],
@@ -352,6 +352,11 @@ export default function HomePage() {
           <div className="space-y-16">
             <SectionSkeleton />
             <SectionSkeleton />
+          </div>
+        ) : isError ? (
+          <div className="rounded-[20px] border border-gray-200 bg-white p-10 text-center shadow-sm">
+            <p className="text-base font-semibold text-dark">{t('errorLoadingStays')}</p>
+            <p className="mt-2 text-sm text-muted">{t('errorLoadingStaysDesc')}</p>
           </div>
         ) : (
           <div className="space-y-16">

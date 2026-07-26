@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import {
   CalendarDays,
   Check,
@@ -17,6 +18,7 @@ import {
   formatDateRange,
   formatGuestSummary,
 } from '../../lib/searchFormatting'
+import { saveSearch } from '../../lib/searchHistory'
 import { useTranslation } from 'react-i18next'
 
 function CounterControl({ label, value, min = 0, onChange }) {
@@ -53,6 +55,7 @@ function CounterControl({ label, value, min = 0, onChange }) {
 export default function SearchControls({
   searchDraft,
   updateSearchDraft,
+  onSearch,
   minPrice,
   maxPrice,
   minRating,
@@ -74,7 +77,21 @@ export default function SearchControls({
   const [activePanel, setActivePanel] = useState(null)
   const [showFilters, setShowFilters] = useState(false)
   const panelRef = useRef(null)
+  const [, setSearchParams] = useSearchParams()
   const { t } = useTranslation(['search', 'home'])
+
+  function commitSearch() {
+    setActivePanel(null)
+    onSearch?.()
+    saveSearch(searchDraft)
+    const params = new URLSearchParams()
+    if (searchDraft.destination) params.set('destination', searchDraft.destination)
+    if (searchDraft.checkIn) params.set('checkIn', searchDraft.checkIn)
+    if (searchDraft.checkOut) params.set('checkOut', searchDraft.checkOut)
+    params.set('adults', String(searchDraft.adults ?? 2))
+    if (searchDraft.children > 0) params.set('children', String(searchDraft.children))
+    setSearchParams(params)
+  }
 
   const propertyTypes = useMemo(() => [
     { value: 'Any', label: t('search:types.any') },
@@ -210,8 +227,17 @@ export default function SearchControls({
                       key={`${destination.name}-${destination.region}`}
                       type="button"
                       onClick={() => {
+                        const updatedDraft = { ...searchDraft, destination: destination.name }
                         updateSearchDraft({ destination: destination.name })
                         setActivePanel(null)
+                        saveSearch(updatedDraft)
+                        const params = new URLSearchParams()
+                        if (updatedDraft.destination) params.set('destination', updatedDraft.destination)
+                        if (updatedDraft.checkIn) params.set('checkIn', updatedDraft.checkIn)
+                        if (updatedDraft.checkOut) params.set('checkOut', updatedDraft.checkOut)
+                        params.set('adults', String(updatedDraft.adults ?? 2))
+                        if (updatedDraft.children > 0) params.set('children', String(updatedDraft.children))
+                        setSearchParams(params)
                       }}
                       className="flex w-full items-center gap-3 rounded-2xl px-3 py-3 text-left transition-colors hover:bg-gray-50"
                     >
@@ -248,7 +274,7 @@ export default function SearchControls({
                     {t('home:checkInOut')}
                   </span>
                   <span className="mt-1 block truncate text-sm font-semibold text-dark">
-                    {formatDateRange(searchDraft.checkIn, searchDraft.checkOut)}
+                    {formatDateRange(searchDraft.checkIn, searchDraft.checkOut, { flexibleDates: t('home:flexibleDates'), selectCheckout: t('home:selectCheckout') })}
                   </span>
                 </span>
               </button>
@@ -280,7 +306,7 @@ export default function SearchControls({
                     {t('home:guests')}
                   </span>
                   <span className="mt-1 block truncate text-sm font-semibold text-dark">
-                    {formatGuestSummary(searchDraft.adults, searchDraft.children)}
+                    {formatGuestSummary(searchDraft.adults, searchDraft.children, { adultOne: t('home:guestAdultSingular'), adultMany: t('home:guestAdultPlural'), childOne: t('home:guestChildSingular'), childMany: t('home:guestChildPlural') })}
                   </span>
                 </span>
               </button>
@@ -323,7 +349,7 @@ export default function SearchControls({
 
             <button
               type="button"
-              onClick={() => setActivePanel(null)}
+              onClick={commitSearch}
               className="inline-flex min-h-[54px] items-center justify-center gap-2 rounded-[20px] bg-brand px-7 text-sm font-semibold text-white transition-colors hover:bg-brand-dark lg:min-h-full"
             >
               <Search size={17} />

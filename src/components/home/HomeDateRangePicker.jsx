@@ -34,9 +34,11 @@ function addDays(date, days) {
 function getThisWeekendRange() {
   const today = startOfToday()
   const day = today.getDay()
-  const daysUntilFriday = (5 - day + 7) % 7 || 7
-  const friday = addDays(today, daysUntilFriday)
-  return { from: friday, to: addDays(friday, 2) }
+  // Fri(5) or Sat(6): weekend has already started — use today as the check-in
+  // Any other day: jump forward to the next Friday
+  const daysToStart = (day === 5 || day === 6) ? 0 : (5 - day + 7) % 7
+  const from = addDays(today, daysToStart)
+  return { from, to: addDays(from, 2) }
 }
 
 function getNightCount(from, to) {
@@ -69,7 +71,7 @@ export default function HomeDateRangePicker({
   checkOut,
   onChange,
   onClose,
-  panelClassName = 'absolute left-0 right-0 top-[calc(100%+10px)] z-30 rounded-[24px] border border-gray-200 bg-white p-4 shadow-[0_18px_50px_rgba(15,23,42,0.16)] lg:left-1/2 lg:right-auto lg:w-[720px] lg:-translate-x-1/2',
+  panelClassName = 'absolute left-0 right-0 top-[calc(100%+10px)] z-30 max-h-[calc(100vh-120px)] overflow-y-auto rounded-[24px] border border-gray-200 bg-white p-4 shadow-[0_18px_50px_rgba(15,23,42,0.16)] lg:left-1/2 lg:right-auto lg:w-[720px] lg:-translate-x-1/2',
 }) {
   const { t } = useTranslation(['home', 'common'])
   const isWideCalendar = useIsWideCalendar()

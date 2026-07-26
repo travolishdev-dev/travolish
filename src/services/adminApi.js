@@ -158,6 +158,25 @@ export const reorderCatalogItem = (id, displayOrder) =>
 export const assignKYCReviewer = (id, reviewerId) =>
   patch(`/api/admin/kyc/${id}/assign?reviewerId=${reviewerId}`)
 
+// ─── Guest KYC (Admin) ────────────────────────────────────────────────────────
+export const getAllGuestKYC = (status) =>
+  get('/api/admin/kyc/guests', status ? { status } : {})
+
+export const getPendingGuestKYC = () => get('/api/admin/kyc/guests/pending')
+
+export const getGuestKYCDetail = (id) => get(`/api/admin/kyc/guests/${id}`)
+
+export const approveGuestKYC = (id) => post(`/api/admin/kyc/guests/${id}/approve`)
+
+export const rejectGuestKYC = (id, reason = 'Admin decision') =>
+  post(`/api/admin/kyc/guests/${id}/reject?reason=${encodeURIComponent(reason)}`)
+
+export const requestGuestKYCResubmit = (id, reason = 'Additional documents required') =>
+  post(`/api/admin/kyc/guests/${id}/request-resubmit?reason=${encodeURIComponent(reason)}`)
+
+export const assignGuestKYCReviewer = (id, reviewerId) =>
+  patch(`/api/admin/kyc/guests/${id}/assign?reviewerId=${reviewerId}`)
+
 // ─── Moderation assignment ────────────────────────────────────────────────────
 export const assignModerator = (reviewId, moderatorId) =>
   patch(`/api/reviews/${reviewId}/assign?moderatorId=${moderatorId}`)

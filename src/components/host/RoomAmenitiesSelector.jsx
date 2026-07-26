@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { ChevronDown, ChevronUp } from 'lucide-react'
 
-const CATEGORIES = [
+export const CATEGORIES = [
   {
     id: 'comfort',
     label: 'Room Comfort',

@@ -124,11 +124,21 @@ export default function HomeSearchPanel() {
       .slice(0, 5)
   }, [searchDraft.destination])
 
+  function buildSearchParams(draft) {
+    const params = new URLSearchParams()
+    if (draft.destination) params.set('destination', draft.destination)
+    if (draft.checkIn) params.set('checkIn', draft.checkIn)
+    if (draft.checkOut) params.set('checkOut', draft.checkOut)
+    params.set('adults', String(draft.adults ?? 2))
+    if (draft.children > 0) params.set('children', String(draft.children))
+    return params.toString()
+  }
+
   const handleSubmit = (event) => {
     event.preventDefault()
     setActivePanel(null)
     saveSearch(searchDraft)
-    navigate('/search')
+    navigate(`/search?${buildSearchParams(searchDraft)}`)
   }
 
   return (
@@ -153,6 +163,7 @@ export default function HomeSearchPanel() {
 
         <form
           onSubmit={handleSubmit}
+          onKeyDown={(e) => { if (e.key === 'Escape') setActivePanel(null) }}
           className="relative z-40 mx-auto mt-10 max-w-6xl rounded-[28px] border border-gray-200 bg-white p-2 shadow-[0_24px_64px_rgba(0,0,0,0.45)]"
           ref={panelRef}
         >
@@ -206,7 +217,7 @@ export default function HomeSearchPanel() {
                         updateSearchDraft({ destination: destination.name })
                         setActivePanel(null)
                         saveSearch(updatedDraft)
-                        navigate('/search')
+                        navigate(`/search?${buildSearchParams(updatedDraft)}`)
                       }}
                       className="flex w-full items-center gap-3 rounded-2xl px-3 py-3 text-left transition-colors hover:bg-gray-50"
                     >
@@ -243,7 +254,7 @@ export default function HomeSearchPanel() {
                   {t('checkInOut')}
                 </span>
                 <span className="mt-1 block truncate text-base font-semibold text-dark">
-                  {formatDateRange(searchDraft.checkIn, searchDraft.checkOut)}
+                  {formatDateRange(searchDraft.checkIn, searchDraft.checkOut, { flexibleDates: t('flexibleDates'), selectCheckout: t('selectCheckout') })}
                 </span>
               </span>
               </button>
@@ -273,7 +284,7 @@ export default function HomeSearchPanel() {
                   {t('guests')}
                 </span>
                 <span className="mt-1 block truncate text-base font-semibold text-dark">
-                  {formatGuestSummary(searchDraft.adults, searchDraft.children)}
+                  {formatGuestSummary(searchDraft.adults, searchDraft.children, { adultOne: t('guestAdultSingular'), adultMany: t('guestAdultPlural'), childOne: t('guestChildSingular'), childMany: t('guestChildPlural') })}
                 </span>
               </span>
               </button>

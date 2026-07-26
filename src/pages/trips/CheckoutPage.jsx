@@ -212,7 +212,7 @@ export default function CheckoutPage() {
       setIsAvailable(available)
       setPriceBreakdown(price)
     } catch {
-      setIsAvailable(null)
+      setIsAvailable(false)
       setPriceBreakdown(null)
     } finally {
       setIsCalculating(false)
@@ -245,7 +245,7 @@ export default function CheckoutPage() {
 
   const canReserve =
     !isCalculating &&
-    isAvailable !== false &&
+    isAvailable === true &&
     selectedRoom &&
     firstName.trim() &&
     email.trim() &&
@@ -257,6 +257,14 @@ export default function CheckoutPage() {
     setIsSubmitting(true)
     setSubmitError(null)
     try {
+      // Re-verify at submit time — catches stale state and any dates the host blocked after page load
+      let freshAvail = false
+      try { freshAvail = await checkAvailability(selectedRoom.id, checkIn, checkOut) } catch { /* network */ }
+      if (freshAvail !== true) {
+        setIsAvailable(false)
+        setSubmitError(t('datesUnavailable'))
+        return
+      }
       const booking = await createBooking({
         roomId: selectedRoom.id,
         hotelId: hotel.id,

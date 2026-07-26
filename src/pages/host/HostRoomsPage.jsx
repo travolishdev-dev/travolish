@@ -10,6 +10,11 @@ import {
 import { getHostListings, getHostRooms } from '../../services/hostListingsApi'
 import useHostContext from '../../hooks/useHostContext'
 import useCurrency from '../../hooks/useCurrency'
+import { CATEGORIES } from '../../components/host/RoomAmenitiesSelector'
+
+const AMENITY_LABEL = Object.fromEntries(
+  CATEGORIES.flatMap((cat) => cat.items.map((item) => [item.id, item.label])),
+)
 
 function adaptRoom(r) {
   return {
@@ -23,7 +28,9 @@ function adaptRoom(r) {
     baths: r.bathrooms != null ? `${r.bathrooms} bath` : r.baths ?? '—',
     rawBaseRate: r.pricePerNight ?? r.basePrice ?? null,
     baseRate: r.baseRate ?? '—',
-    upsells: r.amenities?.join(', ') ?? r.upsells ?? '',
+    upsells: (r.amenities?.length
+      ? r.amenities.map((id) => AMENITY_LABEL[id] ?? id).join(', ')
+      : null) ?? r.upsells ?? '',
     housekeepingState: r.housekeepingStatus ?? r.housekeepingState ?? '—',
     nightsSold: r.nightsSold ?? 0,
     note: r.description ?? r.note ?? '',
@@ -57,6 +64,7 @@ export default function HostRoomsPage() {
   const { hostId, loading: hostLoading } = useHostContext()
   const [listing, setListing] = useState(null)
   const [rooms, setRooms] = useState([])
+  const [roomsError, setRoomsError] = useState(null)
   const [loading, setLoading] = useState(false)
   const { formatCurrency } = useCurrency()
 
@@ -70,7 +78,10 @@ export default function HostRoomsPage() {
       setLoading(true)
       Promise.all([
         getHostListings(hostId).catch(() => null),
-        getHostRooms(id).catch(() => null),
+        getHostRooms(id).catch((err) => {
+          console.error('[HostRoomsPage] rooms fetch failed:', err)
+          return { _error: err?.message ?? 'Failed to load rooms' }
+        }),
       ]).then(([listingsData, roomsData]) => {
         if (cancelled) return
         if (listingsData) {
@@ -78,9 +89,11 @@ export default function HostRoomsPage() {
           const found = items?.find((h) => String(h.id) === String(id))
           if (found) setListing(adaptListing(found))
         }
-        if (roomsData) {
+        if (roomsData?._error) {
+          setRoomsError(roomsData._error)
+        } else if (roomsData) {
           const items = roomsData?.content ?? (Array.isArray(roomsData) ? roomsData : null)
-          if (items?.length) setRooms(items.map(adaptRoom))
+          setRooms((items ?? []).map(adaptRoom))
         }
       }).finally(() => {
         if (!cancelled) setLoading(false)
@@ -158,7 +171,7 @@ export default function HostRoomsPage() {
             </div>
             <p className="mt-3 text-sm leading-6 text-dark">{listing.description}</p>
             <div className="mt-4 flex flex-wrap gap-4 text-sm text-muted">
-              <span>{listing.roomCount} sellable room types</span>
+              <span>{rooms.length} sellable room types</span>
               <span>{listing.operationsStatus}</span>
               <span>{listing.nextArrival}</span>
             </div>
@@ -169,7 +182,12 @@ export default function HostRoomsPage() {
           <SectionHeading eyebrow="Inventory" title="Room roster" />
         </div>
 
-        {rooms.length === 0 ? (
+        {roomsError ? (
+          <div className="py-12 text-center">
+            <p className="text-sm font-semibold text-red-600">Could not load rooms</p>
+            <p className="mt-1 font-mono text-xs text-muted">{roomsError}</p>
+          </div>
+        ) : rooms.length === 0 ? (
           <div className="py-12 text-center">
             <p className="text-sm font-semibold text-dark">No rooms yet</p>
             <p className="mt-1 text-sm text-muted">Add your first room using the button above.</p>
@@ -218,6 +236,7 @@ export default function HostRoomsPage() {
                     </p>
                     <p className="mt-2 text-2xl font-semibold tracking-tight text-dark">
                       {room.rawBaseRate != null ? formatCurrency(room.rawBaseRate) : room.baseRate}
+                      <span className="ml-1 text-sm font-normal text-muted">/ night</span>
                     </p>
                     <p className="mt-1 text-sm text-muted">{room.upsells}</p>
                     <Link

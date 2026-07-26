@@ -7,6 +7,7 @@ import {
 import { getRevenueReport, getOccupancyReport } from '../../services/reportsApi'
 import { getDashboardOverview } from '../../services/analyticsApi'
 import useHostContext from '../../hooks/useHostContext'
+import { formatCurrencyAmount } from '../../lib/currency'
 
 const EMPTY_REPORT_CARDS = [
   { title: 'Total Revenue', amount: '—', delta: '—', note: '' },
@@ -137,11 +138,18 @@ export default function HostReportsPage() {
   const [revenueData, setRevenueData] = useState(null)
   const [trendBars, setTrendBars] = useState(null)
   const [comparisonCards, setComparisonCards] = useState(null)
-  const [dateRange, setDateRange] = useState({
-    from: '2026-05-01',
-    to: '2026-05-31',
+  const [dateRange, setDateRange] = useState(() => {
+    const now = new Date()
+    const y = now.getFullYear()
+    const m = String(now.getMonth() + 1).padStart(2, '0')
+    const lastDay = new Date(y, now.getMonth() + 1, 0).getDate()
+    return {
+      from: `${y}-${m}-01`,
+      to: `${y}-${m}-${String(lastDay).padStart(2, '0')}`,
+    }
   })
   const [fetching, setFetching] = useState(false)
+  const [applying, setApplying] = useState(false)
 
   const fetchReports = useCallback(
     async (startDate, endDate) => {
@@ -163,19 +171,19 @@ export default function HostReportsPage() {
           setReportCards([
             {
               title: 'Total Revenue',
-              amount: rev.totalRevenue != null ? `$${Math.round(rev.totalRevenue).toLocaleString()}` : '—',
+              amount: rev.totalRevenue != null ? formatCurrencyAmount(rev.totalRevenue) : '—',
               delta: rev.revenueGrowth != null ? `${rev.revenueGrowth > 0 ? '+' : ''}${rev.revenueGrowth}%` : '—',
               note: rev.revenuePeriod ?? '',
             },
             {
               title: 'Average Daily Rate',
-              amount: rev.averageDailyRate != null ? `$${Math.round(rev.averageDailyRate).toLocaleString()}` : '—',
+              amount: rev.averageDailyRate != null ? formatCurrencyAmount(rev.averageDailyRate) : '—',
               delta: rev.adrChange != null ? `${rev.adrChange > 0 ? '+' : ''}${rev.adrChange}%` : '—',
               note: '',
             },
             {
               title: 'RevPAR',
-              amount: rev.revPar != null ? `$${rev.revPar}` : '—',
+              amount: rev.revPar != null ? formatCurrencyAmount(rev.revPar) : '—',
               delta: rev.revParChange != null ? `${rev.revParChange > 0 ? '+' : ''}${rev.revParChange}%` : '—',
               note: '',
             },
@@ -220,8 +228,13 @@ export default function HostReportsPage() {
       setDateRange((current) => ({ ...current, [field]: event.target.value }))
   }
 
-  function handleApplyRange() {
-    fetchReports(dateRange.from, dateRange.to)
+  async function handleApplyRange() {
+    setApplying(true)
+    try {
+      await fetchReports(dateRange.from, dateRange.to)
+    } finally {
+      setApplying(false)
+    }
   }
 
   function handleExportCSV() {
@@ -294,26 +307,31 @@ export default function HostReportsPage() {
           <button
             type="button"
             onClick={handleApplyRange}
-            disabled={fetching}
+            disabled={applying}
             className="h-12 self-end rounded-xl bg-dark px-5 text-sm font-semibold text-white transition-colors hover:bg-gray-800 disabled:opacity-50"
           >
-            {fetching ? 'Loading…' : 'Apply'}
+            {applying ? 'Loading…' : 'Apply'}
           </button>
           <button
             type="button"
             onClick={handleExportCSV}
-            className="h-12 self-end rounded-xl border border-gray-200 bg-white px-5 text-sm font-semibold text-dark transition-colors hover:bg-gray-50"
+            disabled={fetching || applying}
+            className="h-12 self-end rounded-xl border border-gray-200 bg-white px-5 text-sm font-semibold text-dark transition-colors hover:bg-gray-50 disabled:opacity-40"
           >
             Export CSV
           </button>
           <button
             type="button"
             onClick={handleExportPDF}
-            className="h-12 self-end rounded-xl border border-gray-200 bg-white px-5 text-sm font-semibold text-dark transition-colors hover:bg-gray-50"
+            disabled={fetching || applying}
+            className="h-12 self-end rounded-xl border border-gray-200 bg-white px-5 text-sm font-semibold text-dark transition-colors hover:bg-gray-50 disabled:opacity-40"
           >
             Export PDF
           </button>
         </div>
+        {fetching && !applying && (
+          <p className="mt-4 animate-pulse text-sm text-muted">Fetching report data…</p>
+        )}
       </SectionCard>
 
       <SectionCard>

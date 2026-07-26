@@ -57,6 +57,7 @@
   "addOnsTitle": "Add-ons worth considering",
   "addOnsDesc": "Optional services you can include with your stay.",
   "bookingFailed": "Booking failed. Please check your details and try again.",
+  "datesUnavailable": "These dates are no longer available. Please select different dates.",
   "enterPromo": "Enter a promo code to preview a discount.",
   "directBooking": "Direct booking",
   "reviewBooking": "Review booking",

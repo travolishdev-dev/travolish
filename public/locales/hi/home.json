@@ -3,7 +3,7 @@
   "title": "अपनी यात्रा के लिए सही स्टे खोजें।",
   "description": "होटल खोजें, जरूरी विवरणों की तुलना करें, और साफ Travolish अनुभव में ब्राउज करते रहें।",
   "destination": "गंतव्य",
-  "destinationPlaceholder": "भारतीय शहर या होटल खोजें",
+  "destinationPlaceholder": "गंतव्य या होटल खोजें",
   "checkInOut": "चेक-इन / आउट",
   "guests": "मेहमान",
   "adults": "वयस्क",
@@ -11,6 +11,10 @@
   "search": "खोजें",
   "flexibleDates": "लचीली तारीखें",
   "selectCheckout": "चेकआउट चुनें",
+  "guestAdultSingular": "वयस्क",
+  "guestAdultPlural": "वयस्क",
+  "guestChildSingular": "बच्चा",
+  "guestChildPlural": "बच्चे",
   "smartPicks": "स्मार्ट चयन",
   "nearHandoff": "आपके स्थान के पास होटल डील",
   "nearHandoffDesc": "{{platform}} हैंडऑफ से {{coords}} के आसपास सॉर्ट किया गया।",
@@ -71,5 +75,7 @@
     "valueDesc": "मजबूत अतिथि प्रतिक्रिया के साथ कम नाइट रेट",
     "weekend": "सप्ताहांत के लिए तैयार",
     "weekendDesc": "व्यापक अपील के साथ आसान बुकिंग स्टे"
-  }
+  },
+  "errorLoadingStays": "स्टे लोड करने में असमर्थ",
+  "errorLoadingStaysDesc": "अपना कनेक्शन जांचें और पेज रिफ्रेश करें।"
 }

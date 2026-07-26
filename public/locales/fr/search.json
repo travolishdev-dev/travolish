@@ -8,6 +8,10 @@
   "locationNotShared": "La position n'a pas été partagée depuis l'application",
   "permissionGranted": "Autorisation accordée",
   "showingDefault": "Affichage de l'ordre par défaut.",
+  "scopeForDestination": "pour \"{{destination}}\"",
+  "scopeNearLocation": "près de votre position partagée",
+  "scopeAvailableNow": "disponibles maintenant",
+  "beforeFilters": "avant filtres",
   "types": {
     "any": "Tous",
     "hotel": "Hôtel",

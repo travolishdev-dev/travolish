@@ -11,6 +11,7 @@ import { getHotelAvailabilityRange, blockRoomDate, unblockRoomDate } from '../..
 import { getHostRooms, updateHotel } from '../../services/hostListingsApi'
 import { getPricingRulesForHotel, createPricingRule } from '../../services/pricingApi'
 import useHostContext from '../../hooks/useHostContext'
+import { formatCurrencyAmount } from '../../lib/currency'
 
 // ── Constants ────────────────────────────────────────────────────────────────
 const GRID_WINDOW = 14
@@ -306,7 +307,7 @@ function PricingGrid({
                     {hasOverride ? 'custom' : weekend ? 'wknd' : 'base'}
                   </span>
                   <span className="mt-0.5 tabular-nums leading-none">
-                    {price != null ? `$${Number(price).toLocaleString()}` : '—'}
+                    {price != null ? formatCurrencyAmount(price) : '—'}
                   </span>
                 </button>
               </div>
@@ -339,10 +340,10 @@ function CellEditor({ room, dateIso, cell, anchor, onClose, onBlockOne, onUnbloc
   const ref = useRef(null)
   const [saving, setSaving] = useState(false)
 
-  const available = cell?.available ?? 0
   const total     = cell?.total     ?? 1
   const blocked   = cell?.blocked   ?? 0
   const booked    = cell?.booked    ?? 0
+  const available = cell?.available ?? total
   const status    = cellStatus(cell)
 
   const formattedDate = parseIso(dateIso).toLocaleDateString('en-US', {
@@ -433,7 +434,7 @@ function CellEditor({ room, dateIso, cell, anchor, onClose, onBlockOne, onUnbloc
                 {available}
               </span>
               <button type="button" aria-label="Open one"
-                disabled={saving || blocked <= 0}
+                disabled={saving || available >= total}
                 onClick={() => run(() => onUnblockOne(room.id, dateIso))}
                 className="flex h-8 w-8 items-center justify-center rounded-full border border-gray-200 text-slate-700 transition hover:border-slate-400 disabled:opacity-30">
                 <Plus size={13} />
@@ -571,6 +572,9 @@ export default function HostAvailabilityPage() {
   const [gridStart, setGridStart] = useState(() => todayDate())
   const [gridLoading, setGridLoading] = useState(false)
 
+  // Selected listing (multi-property support)
+  const [selectedHotelId, setSelectedHotelId] = useState(null)
+
   // Cell editor
   const [editor, setEditor] = useState(null)
 
@@ -615,6 +619,11 @@ export default function HostAvailabilityPage() {
     [gridStart],
   )
 
+  // Init selected hotel when host context loads; don't override a user selection
+  useEffect(() => {
+    setSelectedHotelId((prev) => prev ?? primaryHotelId)
+  }, [primaryHotelId])
+
   // ── Load grid data ──
   async function loadGrid(hotelId, range) {
     const [roomsData, availData] = await Promise.all([
@@ -638,17 +647,17 @@ export default function HostAvailabilityPage() {
   }
 
   useEffect(() => {
-    if (hostLoading || !primaryHotelId) return
+    if (hostLoading || !selectedHotelId) return
     setGridLoading(true)
-    loadGrid(primaryHotelId, gridRange)
+    loadGrid(selectedHotelId, gridRange)
       .then(({ roomList, map }) => { setRooms(roomList); setByRoomDate(map) })
       .finally(() => setGridLoading(false))
-  }, [primaryHotelId, hostLoading, gridRange])
+  }, [selectedHotelId, hostLoading, gridRange])
 
   // Load per-date price overrides from existing FLAT rules
   useEffect(() => {
-    if (!primaryHotelId) return
-    getPricingRulesForHotel(primaryHotelId)
+    if (!selectedHotelId) return
+    getPricingRulesForHotel(selectedHotelId)
       .then((rules) => {
         const overrides = {}
         ;(Array.isArray(rules) ? rules : []).forEach((r) => {
@@ -665,7 +674,7 @@ export default function HostAvailabilityPage() {
         setPriceOverrides(overrides)
       })
       .catch(() => {})
-  }, [primaryHotelId])
+  }, [selectedHotelId])
 
   // ── Optimistic cell patch ──
   function patchCell(roomId, dateIso, fn) {
@@ -682,7 +691,7 @@ export default function HostAvailabilityPage() {
   }
 
   async function handleBlockOne(roomId, dateIso) {
-    await blockRoomDate(roomId, dateIso, 1, 'owner hold', primaryHotelId)
+    await blockRoomDate(roomId, dateIso, 1, 'owner hold', selectedHotelId)
     patchCell(roomId, dateIso, (c) => ({
       availableRooms: Math.max(0, Number(c.availableRooms) - 1),
       blockedRooms:   Number(c.blockedRooms ?? 0) + 1,
@@ -690,7 +699,7 @@ export default function HostAvailabilityPage() {
   }
 
   async function handleUnblockOne(roomId, dateIso) {
-    await unblockRoomDate(roomId, dateIso, 1, primaryHotelId)
+    await unblockRoomDate(roomId, dateIso, 1, selectedHotelId)
     patchCell(roomId, dateIso, (c) => ({
       availableRooms: Number(c.availableRooms) + 1,
       blockedRooms:   Math.max(0, Number(c.blockedRooms ?? 0) - 1),
@@ -698,7 +707,7 @@ export default function HostAvailabilityPage() {
   }
 
   async function handleBlockAll(roomId, dateIso, count) {
-    await blockRoomDate(roomId, dateIso, count, 'owner hold', primaryHotelId)
+    await blockRoomDate(roomId, dateIso, count, 'owner hold', selectedHotelId)
     patchCell(roomId, dateIso, (c) => ({
       blockedRooms:   Number(c.blockedRooms ?? 0) + count,
       availableRooms: 0,
@@ -706,7 +715,7 @@ export default function HostAvailabilityPage() {
   }
 
   async function handleOpenAll(roomId, dateIso, count) {
-    await unblockRoomDate(roomId, dateIso, count, primaryHotelId)
+    await unblockRoomDate(roomId, dateIso, count, selectedHotelId)
     patchCell(roomId, dateIso, (c) => ({
       blockedRooms:   0,
       availableRooms: Number(c.availableRooms) + count,
@@ -719,15 +728,15 @@ export default function HostAvailabilityPage() {
   }
 
   // ── Per-date pricing ──
-  const primaryHotel = hotels?.find((h) => h.id === primaryHotelId)
+  const primaryHotel = hotels?.find((h) => h.id === selectedHotelId)
   const basePrice    = primaryHotel?.weekdayPrice ?? primaryHotel?.pricing?.weekday ?? null
   const weekendPrice = primaryHotel?.weekendPrice ?? primaryHotel?.pricing?.weekend ?? null
 
   async function savePrice(dateIso, price) {
-    if (!primaryHotelId) return
+    if (!selectedHotelId) return
     try {
       await createPricingRule({
-        hotelId:      primaryHotelId,
+        hotelId:      selectedHotelId,
         ruleType:     'SEASONAL',
         pricingType:  'FLAT',
         description:  `Custom rate — ${dateIso}`,
@@ -792,14 +801,14 @@ export default function HostAvailabilityPage() {
         rooms.flatMap((room) =>
           dateList.map((iso) =>
             bulkAction === 'block'
-              ? blockRoomDate(room.id, iso, 1, 'owner hold', primaryHotelId).catch(() => null)
-              : unblockRoomDate(room.id, iso, 1, primaryHotelId).catch(() => null),
+              ? blockRoomDate(room.id, iso, 1, 'owner hold', selectedHotelId).catch(() => null)
+              : unblockRoomDate(room.id, iso, 1, selectedHotelId).catch(() => null),
           ),
         ),
       )
       setBulkNotice(`${bulkAction === 'block' ? 'Blocked' : 'Opened'} ${dateList.length} day${dateList.length !== 1 ? 's' : ''} across ${rooms.length} room${rooms.length !== 1 ? 's' : ''}.`)
       // Refresh grid
-      const { map } = await loadGrid(primaryHotelId, gridRange)
+      const { map } = await loadGrid(selectedHotelId, gridRange)
       setByRoomDate(map)
     } catch {
       setBulkNotice('Some dates could not be updated. Please try again.')
@@ -810,11 +819,11 @@ export default function HostAvailabilityPage() {
 
   // ── Save booking rules ──
   async function handleSaveRules() {
-    if (!primaryHotelId) return
+    if (!selectedHotelId) return
     setSavingRules(true)
     setRulesNotice('')
     try {
-      await updateHotel(primaryHotelId, {
+      await updateHotel(selectedHotelId, {
         minimumStay:           Number(rules.minimumStay) || 1,
         maximumStay:           rules.maximumStay ? Number(rules.maximumStay) : null,
         bookingWindow:         Number(rules.bookingWindow) || 365,
@@ -842,7 +851,7 @@ export default function HostAvailabilityPage() {
     { label: 'Available today', value: String(availToday),   note: `of ${rooms.length} room${rooms.length !== 1 ? 's' : ''}` },
     { label: 'Occupancy today', value: `${occupancy}%`,      note: 'Booked / total capacity' },
     { label: 'Blocked today',   value: String(blockedToday), note: 'Owner or maintenance hold' },
-    { label: 'Rooms tracked',   value: String(rooms.length), note: primaryHotelId ? 'Live data' : 'No property yet' },
+    { label: 'Rooms tracked',   value: String(rooms.length), note: selectedHotelId ? 'Live data' : 'No property yet' },
   ]
 
   // ── Monthly calendar ──
@@ -867,6 +876,39 @@ export default function HostAvailabilityPage() {
       actions={[{ label: 'Pricing', href: '/host/pricing' }]}
       stats={stats}
     >
+      {/* ── Listing selector (only when host has multiple properties) ── */}
+      {hotels.length > 1 && (
+        <SectionCard>
+          <div className="flex flex-wrap items-center gap-3">
+            <span className="shrink-0 text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
+              Listing
+            </span>
+            <div className="flex flex-wrap gap-2">
+              {hotels.map((h) => (
+                <button
+                  key={h.id}
+                  type="button"
+                  onClick={() => {
+                    setSelectedHotelId(h.id)
+                    setRooms([])
+                    setByRoomDate({})
+                    setPriceOverrides({})
+                  }}
+                  className={[
+                    'rounded-xl border px-3 py-1.5 text-sm font-semibold transition-colors',
+                    selectedHotelId === h.id
+                      ? 'border-slate-900 bg-slate-900 text-white'
+                      : 'border-gray-200 bg-white text-slate-700 hover:bg-gray-50',
+                  ].join(' ')}
+                >
+                  {h.name || `Property ${h.id}`}
+                </button>
+              ))}
+            </div>
+          </div>
+        </SectionCard>
+      )}
+
       {/* ── Allotment Grid ── */}
       <SectionCard>
         <div className="flex flex-wrap items-start justify-between gap-3">
@@ -898,7 +940,7 @@ export default function HostAvailabilityPage() {
         </div>
 
         {/* Banners */}
-        {!hostLoading && !primaryHotelId && (
+        {!hostLoading && !selectedHotelId && (
           <div className="mt-5 flex flex-col gap-2 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 sm:flex-row sm:items-center sm:justify-between">
             <span className="font-semibold">You haven't created a listing yet.</span>
             <Link to="/host/listings/new"
@@ -907,10 +949,10 @@ export default function HostAvailabilityPage() {
             </Link>
           </div>
         )}
-        {!hostLoading && !gridLoading && primaryHotelId && rooms.length === 0 && (
+        {!hostLoading && !gridLoading && selectedHotelId && rooms.length === 0 && (
           <div className="mt-5 flex flex-col gap-2 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 sm:flex-row sm:items-center sm:justify-between">
             <span className="font-semibold">No rooms found. Add rooms to manage inventory.</span>
-            <Link to={`/host/listings/${primaryHotelId}/rooms`}
+            <Link to={`/host/listings/${selectedHotelId}/rooms`}
               className="shrink-0 rounded-lg bg-amber-800 px-4 py-2 text-xs font-bold text-white hover:bg-amber-900">
               Add rooms →
             </Link>
@@ -955,7 +997,7 @@ export default function HostAvailabilityPage() {
           {draggedPrice != null && (
             <div className="flex items-center gap-2 rounded-xl border border-violet-200 bg-violet-50 px-3 py-2 text-sm font-semibold text-violet-800">
               <GripHorizontal size={14} />
-              Dragging ${Number(draggedPrice).toLocaleString()} — drop on target dates
+              Dragging {formatCurrencyAmount(draggedPrice)} — drop on target dates
             </div>
           )}
         </div>

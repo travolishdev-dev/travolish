@@ -23,7 +23,10 @@ function getDestinationImage(city) {
 
 function formatDate(dateStr) {
   if (!dateStr) return null
-  const d = new Date(dateStr)
+  // Parse as local time to avoid UTC-midnight offset shifting the displayed day
+  const [year, month, day] = dateStr.split('-').map(Number)
+  if (!year || !month || !day) return null
+  const d = new Date(year, month - 1, day)
   if (Number.isNaN(d.getTime())) return null
   return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
 }
@@ -50,9 +53,15 @@ export function saveSearch({ destination, checkIn, checkOut, adults, children })
   )
   const entry = {
     city,
+    // Display strings for the card UI
     dates: formatDates(checkIn, checkOut),
     guests: formatGuests(adults, children),
     image: getDestinationImage(city),
+    // Raw values so clicking a card fully restores the search state
+    checkIn: checkIn || null,
+    checkOut: checkOut || null,
+    adults: Number(adults) || 2,
+    children: Number(children) || 0,
   }
   try {
     localStorage.setItem(

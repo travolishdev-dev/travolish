@@ -8,6 +8,7 @@ import {
 import { HostField } from '../../components/host/HostFormFields'
 import { getBankAccounts, registerBankAccount, deleteBankAccount, setPrimaryBankAccount } from '../../services/bankAccountsApi'
 import CountrySelect from '../../components/common/CountrySelect'
+import { currencyForCountry } from '../../data/countries'
 import toast from 'react-hot-toast'
 import useHostContext from '../../hooks/useHostContext'
 
@@ -209,6 +210,16 @@ export default function HostBankAccountsPage() {
           <SectionHeading eyebrow="Add account" title="New payout destination" />
 
           <div className="mt-6 grid gap-4">
+            <CountrySelect
+              label="Country"
+              value={formState.country}
+              onChange={(v) => setFormState((prev) => ({
+                ...prev,
+                country: v,
+                currency: currencyForCountry(v) || prev.currency,
+              }))}
+              placeholder="Select country"
+            />
             <HostField
               label="Account holder"
               value={formState.accountName}
@@ -250,12 +261,6 @@ export default function HostBankAccountsPage() {
               value={formState.currency}
               onChange={updateField('currency')}
               placeholder="USD / EUR / INR"
-            />
-            <CountrySelect
-              label="Country"
-              value={formState.country}
-              onChange={(v) => setFormState((prev) => ({ ...prev, country: v }))}
-              placeholder="Select country"
             />
             <button
               onClick={handleSave}

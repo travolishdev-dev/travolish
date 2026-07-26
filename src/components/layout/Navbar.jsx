@@ -203,10 +203,10 @@ export default function Navbar() {
     const handleEscape = (e) => {
       if (e.key === 'Escape') setIsMenuOpen(false)
     }
-    document.addEventListener('pointerdown', handleClickOutside)
+    document.addEventListener('pointerdown', handleClickOutside, true)
     document.addEventListener('keydown', handleEscape)
     return () => {
-      document.removeEventListener('pointerdown', handleClickOutside)
+      document.removeEventListener('pointerdown', handleClickOutside, true)
       document.removeEventListener('keydown', handleEscape)
     }
   }, [])
@@ -282,7 +282,7 @@ export default function Navbar() {
             {/* User Menu */}
             <div className="relative" ref={menuRef}>
               <button
-                onClick={() => (user ? setIsMenuOpen(!isMenuOpen) : openAuthModal())}
+                onClick={() => (user ? setIsMenuOpen((prev) => !prev) : openAuthModal())}
                 className={`flex items-center gap-3 rounded-full pl-3 pr-1.5 py-1.5 transition-all duration-200 ${
                   isTransparent
                     ? 'border border-white/25 hover:bg-white/10'
@@ -307,6 +307,9 @@ export default function Navbar() {
                     exit={{ opacity: 0, scale: 0.95, y: -5 }}
                     transition={{ duration: 0.15 }}
                     className="absolute end-0 top-14 w-80 max-w-[calc(100vw-2rem)] bg-white rounded-2xl shadow-[0_16px_48px_rgba(15,23,42,0.14)] ring-1 ring-black/[0.05] overflow-hidden z-50"
+                    onMouseDown={(e) => {
+                      if (e.target.closest('a, button')) setIsMenuOpen(false)
+                    }}
                   >
                     {user ? (
                       <div>

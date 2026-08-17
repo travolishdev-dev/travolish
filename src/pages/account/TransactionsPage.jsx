@@ -9,6 +9,7 @@ import {
   StatusPill,
 } from '../../components/portal/PortalUI'
 import { listBookings } from '../../services/bookingsApi'
+import { getReceipt } from '../../services/paymentsApi'
 import { printReceipt } from '../../lib/receiptPrinter'
 import usePortalViewer from '../../hooks/usePortalViewer'
 import useAuthStore from '../../stores/useAuthStore'
@@ -64,13 +65,29 @@ export default function TransactionsPage() {
       .finally(() => setLoading(false))
   }, [backendUserId, viewer.email])
 
-  const handleReceipt = (bookingId) => {
+  const handleReceipt = async (bookingId) => {
     setReceiptError(null)
-    const booking = bookings.find((b) => b.id === bookingId)
-    if (booking) {
-      printReceipt(booking, { id: booking.hotelId }, formatCurrency)
-    } else {
-      setReceiptError(t('account:transactions.receiptError'))
+    try {
+      // Prefer the backend-generated receipt (includes receipt number, tax breakdown, PDF URL)
+      const receipt = await getReceipt(bookingId)
+      if (receipt?.pdfUrl) {
+        // Open the backend-stored PDF in a new tab
+        window.open(receipt.pdfUrl, '_blank', 'noopener,noreferrer')
+      } else {
+        // Backend receipt exists but no PDF yet — fall back to client-side print
+        // and pass the receipt data so amounts stay consistent
+        const booking = bookings.find((b) => b.id === bookingId)
+        if (booking) printReceipt(booking, { id: booking.hotelId, receiptData: receipt }, formatCurrency)
+      }
+    } catch {
+      // Receipt not found on backend (e.g. pay-at-property booking) — fall back to
+      // client-side generation from the booking record we already have
+      const booking = bookings.find((b) => b.id === bookingId)
+      if (booking) {
+        printReceipt(booking, { id: booking.hotelId }, formatCurrency)
+      } else {
+        setReceiptError(t('account:transactions.receiptError'))
+      }
     }
   }
 

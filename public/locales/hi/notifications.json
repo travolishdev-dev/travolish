@@ -15,7 +15,7 @@
   "markRead": "पढ़ा हुआ चिह्नित करें",
   "dismiss": "खारिज करें",
   "groups": { "today": "आज", "thisWeek": "इस सप्ताह", "earlier": "पहले" },
-  "actions": { "viewBooking": "बुकिंग देखें", "browseStays": "स्टे ब्राउज़ करें", "leaveReview": "समीक्षा छोड़ें", "viewTrips": "यात्राएं देखें" },
+  "actions": { "viewBooking": "बुकिंग देखें", "browseStays": "स्टे ब्राउज़ करें", "leaveReview": "समीक्षा छोड़ें", "viewTrips": "यात्राएं देखें", "viewListing": "लिस्टिंग देखें" },
   "settingsTitle": "चुनें कि अपडेट आप तक कैसे पहुंचें।",
   "settingsMobileTitle": "अलर्ट",
   "settingsDesc": "नियंत्रित करें कि आप कौन सी सूचनाएं प्राप्त करते हैं और वे कैसे दी जाती हैं।",
@@ -61,7 +61,9 @@
     "loyaltyUpdates": "लॉयल्टी अपडेट",
     "loyaltyUpdatesDesc": "अर्जित अंक और पुरस्कार मील के पत्थर।",
     "accountAlerts": "खाता अलर्ट",
-    "accountAlertsDesc": "सुरक्षा और खाता गतिविधि अपडेट।"
+    "accountAlertsDesc": "सुरक्षा और खाता गतिविधि अपडेट।",
+    "listingSubmittedForReview": "लिस्टिंग समीक्षा",
+    "listingSubmittedForReviewDesc": "जब आपकी लिस्टिंग सबमिट की जाए या समीक्षा की आवश्यकता हो।"
   },
   "channels": {
     "email": "ईमेल",

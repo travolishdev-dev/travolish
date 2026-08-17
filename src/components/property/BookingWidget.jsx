@@ -131,8 +131,10 @@ export default function BookingWidget({ property, rooms = [], sticky = true }) {
     Number(cheapestRoom?.pricePerNight ?? property.price ?? 0) || 0,
   )
   const roomTotal = basePrice * chargeableNights
-  const serviceFee = Math.round(roomTotal * 0.1)
-  const taxes = Math.round(roomTotal * 0.08)
+  // Rates match the backend PaymentService constants:
+  //   platformFee = 2.5% of base, tax = 18% GST on (base + platformFee)
+  const serviceFee = Math.round(roomTotal * 0.025)
+  const taxes = Math.round((roomTotal + serviceFee) * 0.18)
   const total = roomTotal + serviceFee + taxes
   const guestLabel = formatGuestSummary(adults, children)
   const dateLabel = formatDateRange(checkIn, checkOut)

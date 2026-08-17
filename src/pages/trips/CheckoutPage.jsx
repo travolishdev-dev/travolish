@@ -25,6 +25,7 @@ import {
 } from '../../components/portal/PortalUI'
 import { getHotel, listRooms, getHotelAddOns } from '../../services/hotelsApi'
 import { checkAvailability, calculatePrice, createBooking } from '../../services/bookingsApi'
+import { createOrder, validatePayment } from '../../services/paymentsApi'
 import useAuthStore from '../../stores/useAuthStore'
 import useCurrency from '../../hooks/useCurrency'
 import { formatCurrencyAmount, currencyConfig } from '../../lib/currency'
@@ -60,6 +61,21 @@ const CURRENCY_OPTIONS = Object.values(currencyConfig).map((c) => ({ code: c.cod
 // Stored prices are in INR; formatCurrencyAmount converts using rateFromInr.
 function formatMoney(value, currencyCode) {
   return formatCurrencyAmount(value, currencyCode)
+}
+
+/**
+ * Lazily loads the Razorpay checkout SDK from their CDN.
+ * Resolves immediately if the script is already present on the page.
+ */
+function loadRazorpayScript() {
+  return new Promise((resolve, reject) => {
+    if (window.Razorpay) { resolve(); return }
+    const script = document.createElement('script')
+    script.src = 'https://checkout.razorpay.com/v1/checkout.js'
+    script.onload = resolve
+    script.onerror = () => reject(new Error('Failed to load Razorpay payment SDK'))
+    document.head.appendChild(script)
+  })
 }
 
 export default function CheckoutPage() {
@@ -252,12 +268,20 @@ export default function CheckoutPage() {
     nights > 0
 
   // ── Submit booking ──────────────────────────────────────────────────────────
+  //
+  // Three-step Razorpay checkout:
+  //   1. Create booking (PENDING) on our backend
+  //   2. Create Razorpay order → open SDK popup
+  //   3. Validate signature on our backend → show confirmation
+  //
+  // If the user closes the popup or payment fails the booking stays PENDING and
+  // will be expired by the backend's cancelExpiredPayments() scheduler (15 min).
   async function handleReserve() {
     if (!canReserve || !hotel) return
     setIsSubmitting(true)
     setSubmitError(null)
     try {
-      // Re-verify at submit time — catches stale state and any dates the host blocked after page load
+      // Step 0 — re-verify availability at submit time
       let freshAvail = false
       try { freshAvail = await checkAvailability(selectedRoom.id, checkIn, checkOut) } catch { /* network */ }
       if (freshAvail !== true) {
@@ -265,6 +289,8 @@ export default function CheckoutPage() {
         setSubmitError(t('datesUnavailable'))
         return
       }
+
+      // Step 1 — create the booking record (status PENDING until payment succeeds)
       const booking = await createBooking({
         roomId: selectedRoom.id,
         hotelId: hotel.id,
@@ -275,19 +301,68 @@ export default function CheckoutPage() {
         checkIn,
         checkOut,
         basePrice: selectedRoom.pricePerNight,
-        // Include pricing breakdown fields so the backend stores the full picture
         seasonalAdjustment: priceBreakdown?.seasonalAdjustment ?? 0,
         dynamicPricingAdjustment: priceBreakdown?.dynamicPricingAdjustment ?? 0,
-        // Promo code discount: stored as positive value, applied as reduction
         promotionalDiscount: priceBreakdown?.promotionalDiscount
           ? Math.abs(priceBreakdown.promotionalDiscount)
           : 0,
-        // totalPrice already reflects any applied promo discount
+        // Backend stores the full price; displayTotal may include add-ons
         totalPrice: priceBreakdown ? priceBreakdown.totalPrice : selectedRoom.pricePerNight * nights,
       })
-      setConfirmedBooking(booking)
-    } catch {
-      setSubmitError(t('bookingFailed'))
+
+      // Step 2 — create the Razorpay order and open the payment popup.
+      // Charges are always processed in INR; currency selector is display-only.
+      const orderData = await createOrder({
+        amount: displayTotal,
+        currency: 'INR',
+        bookingId: booking.id,
+      })
+
+      await loadRazorpayScript()
+
+      // Open the Razorpay popup and wait for the user to complete or dismiss it.
+      await new Promise((resolve, reject) => {
+        const rzp = new window.Razorpay({
+          key: orderData.keyId,
+          order_id: orderData.orderId,
+          amount: Math.round(orderData.amount * 100), // paise
+          currency: orderData.currency ?? 'INR',
+          name: 'Travolish',
+          description: `Booking #${booking.id} · ${hotel.name}`,
+          prefill: {
+            name: `${firstName} ${lastName}`.trim(),
+            email,
+            contact: phone,
+          },
+          theme: { color: '#1C1F2E' },
+          handler: async (response) => {
+            // Step 3 — backend verifies the HMAC signature and marks payment COMPLETED
+            try {
+              const payment = await validatePayment({
+                razorpayOrderId: response.razorpay_order_id,
+                razorpayPaymentId: response.razorpay_payment_id,
+                razorpaySignature: response.razorpay_signature,
+              })
+              setConfirmedBooking({
+                ...booking,
+                paymentId: payment.razorpayPaymentId ?? response.razorpay_payment_id,
+              })
+              resolve()
+            } catch {
+              reject(new Error(t('paymentValidationFailed', 'Payment could not be verified. Please contact support with your booking ID.')))
+            }
+          },
+          modal: {
+            ondismiss: () => reject(new Error(t('paymentCancelled', 'Payment was cancelled. Your booking request has not been confirmed.'))),
+          },
+        })
+        rzp.on('payment.failed', (response) => {
+          reject(new Error(response.error?.description ?? t('paymentFailed', 'Payment failed. Please try again or use a different payment method.')))
+        })
+        rzp.open()
+      })
+    } catch (err) {
+      setSubmitError(err?.message ?? t('bookingFailed'))
     } finally {
       setIsSubmitting(false)
     }
@@ -341,6 +416,11 @@ export default function CheckoutPage() {
                   {confirmedBooking.status?.toLowerCase() ?? 'pending'}
                 </span>
               </p>
+              {confirmedBooking.paymentId && (
+                <p className="mt-1 text-xs text-muted">
+                  Payment ref: <span className="font-medium text-dark">{confirmedBooking.paymentId}</span>
+                </p>
+              )}
             </div>
           </div>
         </SectionCard>

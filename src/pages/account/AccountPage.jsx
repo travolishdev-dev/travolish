@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import {
   CheckCircle2,
   Compass,
@@ -22,6 +23,7 @@ import usePortalViewer from '../../hooks/usePortalViewer'
 import { formatPhoneWithCountryCode } from '../../lib/phone'
 import useAuthStore from '../../stores/useAuthStore'
 import { getGuestVerificationStatus } from '../../services/guestKycApi'
+import { listEmergencyContacts } from '../../services/emergencyContactsApi'
 
 function kycTone(raw) {
   const s = (raw ?? '').toUpperCase()
@@ -52,6 +54,19 @@ export default function AccountPage() {
     if (!guestId) return
     getGuestVerificationStatus(guestId).then(setKycStatus).catch(() => {})
   }, [guestId])
+
+  // Emergency contacts — scoped to this page only (same queryKey as EmergencyContactsPage
+  // so the React Query cache is shared when both are mounted).
+  const { data: emergencyContacts = [] } = useQuery({
+    queryKey: ['emergencyContacts', guestId],
+    queryFn: () => listEmergencyContacts(guestId),
+    enabled: !!guestId,
+    staleTime: 30_000,
+  })
+  const primaryContact =
+    emergencyContacts.find((c) => c.isPrimary) ?? emergencyContacts[0] ?? null
+  const contactCount = emergencyContacts.length
+
   const isVerified = viewer.badges.includes('Identity verified') || isPreview
   const verificationStatus = isVerified ? t('verified') : t('notVerified')
   const formattedPhone = viewer.phone ? formatPhoneWithCountryCode(viewer.phone, '+91') : null
@@ -61,7 +76,7 @@ export default function AccountPage() {
     Boolean(viewer.phone),
     Boolean(viewer.bio),
     viewer.preferences.length > 0,
-    Boolean(viewer.emergencyContact),
+    Boolean(primaryContact),
   ]
   const completedItems = completenessItems.filter(Boolean).length
   const profileCompletion = Math.round((completedItems / completenessItems.length) * 100)
@@ -199,7 +214,7 @@ export default function AccountPage() {
                 [t('fields.phone'), formattedPhone],
                 [t('fields.bio'), viewer.bio],
                 [t('fields.travelPrefs'), viewer.preferences.length > 0],
-                [t('fields.emergencyContact'), viewer.emergencyContact],
+                [t('fields.emergencyContact'), primaryContact],
                 [t('fields.identity'), isVerified],
               ].map(([label, complete]) => (
                 <div key={label} className="flex items-center gap-2 text-sm">
@@ -250,7 +265,9 @@ export default function AccountPage() {
                 <div>
                   <p className="text-sm font-semibold text-dark">{t('travelStyle')}</p>
                   <p className="text-sm text-muted">
-                    {viewer.travelStyle ?? t('notConfigured')}
+                    {viewer.travelStyle
+                      ? t(`travelStyleOptions.${viewer.travelStyle}`, { defaultValue: viewer.travelStyle })
+                      : t('notConfigured')}
                   </p>
                 </div>
               </div>
@@ -342,29 +359,50 @@ export default function AccountPage() {
         </SectionCard>
 
         <SectionCard>
-          <SectionHeading
-            eyebrow={t('support')}
-            title={t('emergency')}
-            description={t('emergencyDesc')}
-          />
+          <div className="flex items-start justify-between gap-4">
+            <SectionHeading
+              eyebrow={t('support')}
+              title={t('emergency')}
+              description={t('emergencyDesc')}
+            />
+            <Link
+              to="/account/emergency-contacts"
+              className="flex-shrink-0 inline-flex items-center gap-1.5 rounded-full border border-gray-200 bg-white px-3.5 py-2 text-xs font-semibold text-dark transition-colors hover:bg-gray-50"
+            >
+              {contactCount > 0 ? 'Manage' : 'Add contact'}
+            </Link>
+          </div>
 
           <div className="mt-6">
-            {viewer.emergencyContact ? (
-              <div className="rounded-2xl border border-gray-200 bg-[#fcfcfb] p-5">
+            {primaryContact ? (
+              <div className="rounded-2xl border border-emerald-200 bg-emerald-50/40 p-5">
                 <div className="flex items-start gap-4">
-                  <div className="rounded-2xl bg-emerald-50 p-3 text-emerald-700 flex-shrink-0">
+                  <div className="rounded-2xl bg-emerald-100 p-3 text-emerald-700 flex-shrink-0">
                     <HeartHandshake size={20} />
                   </div>
                   <div className="min-w-0 flex-1">
-                    <p className="text-lg font-semibold text-dark">
-                      {viewer.emergencyContact.name}
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="text-base font-semibold text-dark">
+                        {primaryContact.name}
+                      </p>
+                      <span className="rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-semibold text-emerald-800">
+                        Primary
+                      </span>
+                    </div>
+                    {primaryContact.relationship && (
+                      <p className="text-sm text-muted">{primaryContact.relationship}</p>
+                    )}
+                    <p className="mt-3 inline-flex items-center rounded-xl bg-white px-3 py-1.5 text-sm font-medium text-dark shadow-sm">
+                      {primaryContact.phone}
                     </p>
-                    <p className="text-sm text-muted">
-                      {viewer.emergencyContact.relation}
-                    </p>
-                    <p className="mt-3 inline-flex items-center rounded-xl bg-gray-100 px-3 py-1.5 text-sm font-medium text-dark">
-                      {viewer.emergencyContact.phone}
-                    </p>
+                    {contactCount > 1 && (
+                      <p className="mt-3 text-xs text-muted">
+                        +{contactCount - 1} more contact{contactCount - 1 === 1 ? '' : 's'} ·{' '}
+                        <Link to="/account/emergency-contacts" className="font-medium text-dark underline underline-offset-2">
+                          Manage all
+                        </Link>
+                      </p>
+                    )}
                   </div>
                 </div>
               </div>
@@ -372,7 +410,7 @@ export default function AccountPage() {
               <div className="rounded-2xl border border-dashed border-gray-200 bg-[#fcfcfb] px-4 py-6 text-center">
                 <p className="text-sm text-muted">{t('noEmergency')}</p>
                 <Link
-                  to="/account/edit"
+                  to="/account/emergency-contacts"
                   className="mt-2 inline-block text-sm font-medium text-dark underline underline-offset-2"
                 >
                   {t('addEmergency')}

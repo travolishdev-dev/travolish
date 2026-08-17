@@ -5,6 +5,7 @@ import { ArrowUpRight, Loader2, MessageCircle, Send, Sparkles, X } from 'lucide-
 import TravolishWordmark from '../common/TravolishWordmark'
 import { getOrCreateConversation, getMessages, sendMessage } from '../../services/chatApi'
 import useAuthStore from '../../stores/useAuthStore'
+import MarkdownText from '../common/MarkdownText'
 
 const SUPPORT_USER_ID = 4
 
@@ -39,13 +40,9 @@ export default function TravellerAssistantWidget() {
 
   const [isOpen, setIsOpen] = useState(false)
   const [input, setInput] = useState('')
-  const [messages, setMessages] = useState([
-    {
-      id: 'welcome',
-      sender: 'assistant',
-      text: "Hello! I'm Travolish AI, your friendly travel assistant. How can I help you with your travel plans or a current booking today? 😊",
-    },
-  ])
+  // No text stored for the welcome message — it's rendered from i18n at display
+  // time so the correct locale is always used regardless of when the component mounts.
+  const [messages, setMessages] = useState([{ id: 'welcome', sender: 'assistant' }])
   const [conversationId, setConversationId] = useState(null)
   const [loadingHistory, setLoadingHistory] = useState(false)
   const [initError, setInitError] = useState(false)
@@ -54,6 +51,9 @@ export default function TravellerAssistantWidget() {
   const [isTyping, setIsTyping] = useState(false)
   const [isBubbleVisible, setIsBubbleVisible] = useState(false)
   const bottomRef = useRef(null)
+  // Tracks the latest AI message ID without closing over stale `messages` state.
+  // Updated by the effect below whenever `messages` changes.
+  const lastAiIdRef = useRef(null)
 
   const quickPrompts = useMemo(() => [
     t('assistant.quickPrompt1'),
@@ -98,6 +98,13 @@ export default function TravellerAssistantWidget() {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
 
+  // Keep lastAiIdRef current so reply-detection in sendPrompt always sees the
+  // latest AI message ID, not a stale closure value from when sendPrompt ran.
+  useEffect(() => {
+    const latestAi = messages.filter((m) => m.sender === 'assistant').slice(-1)[0]
+    lastAiIdRef.current = latestAi?.id ?? null
+  }, [messages])
+
   const sendPrompt = async (prompt) => {
     const trimmed = prompt.trim()
     if (!trimmed || sending || isTyping) return
@@ -136,15 +143,16 @@ export default function TravellerAssistantWidget() {
 
     if (!sent) return
 
-    // Capture the last known AI message ID before polling so we can detect
-    // when a new reply arrives rather than relying on a fixed timeout.
-    const lastAiId = messages.filter((m) => m.sender === 'assistant').slice(-1)[0]?.id ?? null
+    // Read from the ref (not a closure over `messages`) so we always compare
+    // against the actual latest AI message at the moment each poll runs.
+    const lastAiId = lastAiIdRef.current
 
     setIsTyping(true)
     try {
       let gotReply = false
-      for (let attempt = 0; attempt < 5 && !gotReply; attempt++) {
-        await new Promise((resolve) => setTimeout(resolve, 1500))
+      // 8 attempts × 2 s = 16 s max — covers Gemini free-tier cold starts (~8–12 s).
+      for (let attempt = 0; attempt < 8 && !gotReply; attempt++) {
+        await new Promise((resolve) => setTimeout(resolve, 2000))
         const history = await getMessages(conversationId, { pageSize: 50 }).catch(() => null)
         if (!history) continue
         const items = (history?.content ?? (Array.isArray(history) ? history : []))
@@ -290,7 +298,9 @@ export default function TravellerAssistantWidget() {
                     <Sparkles size={11} className="text-white" />
                   </div>
                   <div className="rounded-2xl rounded-bl-md bg-white px-4 py-3 text-sm leading-relaxed text-slate-700 shadow-sm ring-1 ring-slate-100/80">
-                    {message.text}
+                    {/* Welcome message has no stored text — fall back to the i18n key.
+                        All other assistant messages always carry text from the DB. */}
+                    <MarkdownText text={message.text ?? t('assistant.welcome')} />
                   </div>
                 </div>
               ) : (

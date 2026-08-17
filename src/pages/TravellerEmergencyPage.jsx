@@ -125,7 +125,7 @@ export default function TravellerEmergencyPage() {
       ]}
       accent="from-rose-50 via-white to-sky-50"
     >
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px] xl:items-start">
         <SectionCard>
           <SectionHeading
             eyebrow={t('emergency.sosEyebrow')}
@@ -138,7 +138,7 @@ export default function TravellerEmergencyPage() {
               const Icon = contact.icon
               const isActive = activating === contact.key
               return (
-                <div key={contact.key} className="rounded-[28px] border border-gray-200 bg-[#fcfcfb] p-5">
+                <div key={contact.key} className="flex flex-col rounded-[28px] border border-gray-200 bg-[#fcfcfb] p-5">
                   <div className="flex items-start justify-between gap-4">
                     <div className="rounded-2xl bg-rose-50 p-3 text-brand">
                       <Icon size={22} />
@@ -147,7 +147,7 @@ export default function TravellerEmergencyPage() {
                   </div>
                   <p className="mt-5 text-sm font-semibold text-muted">{contact.label}</p>
                   <p className="mt-1 text-2xl font-semibold text-dark">{contact.value}</p>
-                  <p className="mt-2 text-sm leading-6 text-muted">{contact.note}</p>
+                  <p className="mt-2 flex-1 text-sm leading-6 text-muted">{contact.note}</p>
                   <button
                     type="button"
                     onClick={() => setPendingContact(contact)}

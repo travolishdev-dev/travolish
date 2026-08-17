@@ -28,15 +28,17 @@ export default defineConfig(({ mode }) => {
         output: {
           manualChunks: {
             // Heavy animation library
-            'vendor-framer': ['framer-motion'],
+            'vendor-framer':    ['framer-motion'],
             // Map library (leaflet + react-leaflet)
-            'vendor-leaflet': ['leaflet', 'react-leaflet'],
+            'vendor-leaflet':   ['leaflet', 'react-leaflet'],
             // React Query
-            'vendor-query': ['@tanstack/react-query'],
+            'vendor-query':     ['@tanstack/react-query'],
             // Date utilities
-            'vendor-datefns': ['date-fns'],
+            'vendor-datefns':   ['date-fns'],
+            // Date picker — ~85 KB, split so it only loads for users who open a date picker
+            'vendor-daypicker': ['react-day-picker'],
             // React core
-            'vendor-react': ['react', 'react-dom', 'react-router-dom'],
+            'vendor-react':     ['react', 'react-dom', 'react-router-dom'],
           },
         },
       },

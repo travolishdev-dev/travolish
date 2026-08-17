@@ -34,7 +34,8 @@
     "viewBooking": "عرض الحجز",
     "browseStays": "تصفح الإقامات",
     "leaveReview": "اترك تقييماً",
-    "viewTrips": "عرض الرحلات"
+    "viewTrips": "عرض الرحلات",
+    "viewListing": "عرض الإعلان"
   },
   "settingsTitle": "اختر كيف تصلك التحديثات.",
   "settingsMobileTitle": "التنبيهات",
@@ -81,7 +82,9 @@
     "loyaltyUpdates": "تحديثات الولاء",
     "loyaltyUpdatesDesc": "النقاط المكتسبة ومراحل المكافآت.",
     "accountAlerts": "تنبيهات الحساب",
-    "accountAlertsDesc": "تحديثات الأمان ونشاط الحساب."
+    "accountAlertsDesc": "تحديثات الأمان ونشاط الحساب.",
+    "listingSubmittedForReview": "مراجعة الإعلان",
+    "listingSubmittedForReviewDesc": "عند تقديم إعلانك أو عند الحاجة إلى مراجعته."
   },
   "channels": {
     "email": "البريد الإلكتروني",

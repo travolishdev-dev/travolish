@@ -22,7 +22,8 @@ function deriveProfile(user) {
   return {
     id: user.id,
     avatar_url: user.avatarUrl || user.imageKey || null,
-    full_name: [user.firstName, user.lastName].filter(Boolean).join(' '),
+    // Prefer preferredName (nickname mode) over firstName+lastName (formal mode)
+    full_name: user.preferredName || [user.firstName, user.lastName].filter(Boolean).join(' '),
     email: user.email,
     role: rawRole.toLowerCase(),   // 'guest' | 'host' | 'admin'
     // Pass through all profile fields so viewer and edit-profile pages have them
@@ -110,11 +111,11 @@ const useAuthStore = create((set, get) => ({
 
   // Step 2 of email signup — verify the code, which creates the user and
   // returns the same token pair as the OAuth flows.
-  verifyEmailSignup: async (email, code, { firstName, lastName } = {}) => {
+  verifyEmailSignup: async (email, code, { firstName, lastName, preferredName } = {}) => {
     const res = await fetch(`${BASE_URL}/api/auth/signup/verify`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, code, firstName, lastName }),
+      body: JSON.stringify({ email, code, firstName, lastName, preferredName }),
     })
     if (!res.ok) {
       const err = await res.json().catch(() => ({}))

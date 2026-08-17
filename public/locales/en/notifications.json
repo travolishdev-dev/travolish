@@ -34,7 +34,8 @@
     "viewBooking": "View booking",
     "browseStays": "Browse stays",
     "leaveReview": "Leave review",
-    "viewTrips": "View trips"
+    "viewTrips": "View trips",
+    "viewListing": "View listing"
   },
   "settingsTitle": "Choose how updates reach you.",
   "settingsMobileTitle": "Alerts",
@@ -81,7 +82,9 @@
     "loyaltyUpdates": "Loyalty updates",
     "loyaltyUpdatesDesc": "Points earned and reward milestones.",
     "accountAlerts": "Account alerts",
-    "accountAlertsDesc": "Security and account activity updates."
+    "accountAlertsDesc": "Security and account activity updates.",
+    "listingSubmittedForReview": "Listing review",
+    "listingSubmittedForReviewDesc": "When your listing is submitted or requires review."
   },
   "channels": {
     "email": "Email",

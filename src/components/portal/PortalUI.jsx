@@ -5,6 +5,7 @@ import {
   BellRing,
   CalendarRange,
   CreditCard,
+  HeartHandshake,
   Home,
   LifeBuoy,
   Menu,
@@ -34,6 +35,7 @@ const ACCOUNT_NAV_GROUP_DEFS = [
       { labelKey: 'paymentMethods', href: '/account/payments', icon: CreditCard },
       { labelKey: 'transactions', href: '/account/transactions', icon: Receipt },
       { labelKey: 'notificationSettings', href: '/account/notification-settings', icon: BellRing },
+      { labelKey: 'emergencyContacts', href: '/account/emergency-contacts', icon: HeartHandshake },
     ],
   },
   {
@@ -413,6 +415,16 @@ export function PortalShell({
   accent = 'from-rose-50 via-white to-amber-50',
   children,
 }) {
+  const { pathname } = useLocation()
+  const { t } = useTranslation('nav')
+  const accountNavGroups = useMemo(
+    () =>
+      ACCOUNT_NAV_GROUP_DEFS.map((g) => ({
+        title: t(`nav:${g.titleKey}`),
+        items: g.items.map((d) => ({ ...d, label: t(`nav:${d.labelKey}`) })),
+      })),
+    [t],
+  )
   const mobilePadding = mobileBottomAction
     ? 'pb-[calc(10.5rem+env(safe-area-inset-bottom))]'
     : 'pb-[calc(5.75rem+env(safe-area-inset-bottom))]'
@@ -465,7 +477,67 @@ export function PortalShell({
         </Motion.section>
 
         <PreviewModeNotice />
-        {children}
+
+        <div className="grid gap-6 xl:grid-cols-[280px_minmax(0,1fr)]">
+          <aside className="space-y-4 xl:sticky xl:top-28 xl:self-start">
+            {/* Desktop sidebar — full nav list */}
+            <SectionCard className="hidden xl:block">
+              <div className="space-y-6 pt-4">
+                {accountNavGroups.map((group) => (
+                  <div key={group.title}>
+                    <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted">
+                      {group.title}
+                    </p>
+                    <div className="mt-3 space-y-2">
+                      {group.items.map((item) => {
+                        const Icon = item.icon
+                        const isActive = isActiveRoute(pathname, item.href)
+                        return (
+                          <Link
+                            key={item.href}
+                            to={item.href}
+                            className={`flex items-center gap-3 rounded-2xl px-4 py-3 text-sm font-semibold transition-all ${
+                              isActive
+                                ? 'bg-dark text-white shadow-sm'
+                                : 'text-dark hover:bg-gray-50'
+                            }`}
+                          >
+                            <Icon size={16} />
+                            {item.label}
+                          </Link>
+                        )
+                      })}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </SectionCard>
+
+            {/* Tablet chip-grid — sm to xl */}
+            <div className="hidden sm:grid grid-cols-2 gap-2 sm:grid-cols-3 xl:hidden">
+              {accountNavGroups.flatMap((group) => group.items).map((item) => {
+                const Icon = item.icon
+                const isActive = isActiveRoute(pathname, item.href)
+                return (
+                  <Link
+                    key={item.href}
+                    to={item.href}
+                    className={`inline-flex items-center gap-2 rounded-2xl border px-3 py-3 text-sm font-semibold transition-colors ${
+                      isActive
+                        ? 'border-dark bg-dark text-white'
+                        : 'border-gray-200 bg-white text-dark hover:bg-gray-50'
+                    }`}
+                  >
+                    <Icon size={15} />
+                    {item.label}
+                  </Link>
+                )
+              })}
+            </div>
+          </aside>
+
+          <div className="space-y-6">{children}</div>
+        </div>
       </div>
     </main>
   )

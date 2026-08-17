@@ -24,6 +24,7 @@ const TYPE_TONE = {
   REVIEW_REQUEST: 'sky',
   PROMOTIONAL_OFFER: 'violet',
   ACCOUNT_ALERT: 'warning',
+  LISTING_SUBMITTED_FOR_REVIEW: 'sky',
 }
 
 const TYPE_ACTION = {
@@ -35,7 +36,8 @@ const TYPE_ACTION = {
   PAYMENT_RECEIVED:    (_n, t) => ({ label: t('actions.viewTrips'),   href: '/trips' }),
   PAYMENT_FAILED:      (_n, t) => ({ label: t('actions.viewTrips'),   href: '/trips' }),
   REVIEW_REQUEST:      (n, t) => ({ label: t('actions.leaveReview'), href: n.hotelId ? `/reviews/new?hotelId=${n.hotelId}` : '/trips' }),
-  PROMOTIONAL_OFFER:   (_n, t) => ({ label: t('actions.browseStays'), href: '/search' }),
+  PROMOTIONAL_OFFER:             (_n, t) => ({ label: t('actions.browseStays'), href: '/search' }),
+  LISTING_SUBMITTED_FOR_REVIEW:  (n, t)  => ({ label: t('actions.viewListing'), href: n.hotelId ? `/host/listings/${n.hotelId}` : '/host/listings' }),
 }
 
 const SECTION_KEYS = { Today: 'groups.today', 'This week': 'groups.thisWeek', Earlier: 'groups.earlier' }

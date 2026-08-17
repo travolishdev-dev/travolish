@@ -23,6 +23,7 @@ const SecurityPage                = lazy(() => import('./pages/account/SecurityP
 const PaymentMethodsPage          = lazy(() => import('./pages/account/PaymentMethodsPage'))
 const TransactionsPage            = lazy(() => import('./pages/account/TransactionsPage'))
 const NotificationSettingsPage    = lazy(() => import('./pages/account/NotificationSettingsPage'))
+const EmergencyContactsPage       = lazy(() => import('./pages/account/EmergencyContactsPage'))
 const NotificationsPage           = lazy(() => import('./pages/NotificationsPage'))
 const TripsPage                   = lazy(() => import('./pages/trips/TripsPage'))
 const TripDetailPage              = lazy(() => import('./pages/trips/TripDetailPage'))
@@ -288,6 +289,16 @@ export default function App() {
             <AppLayout>
               <ProtectedRoute requireAuth>
                 <NotificationSettingsPage />
+              </ProtectedRoute>
+            </AppLayout>
+          }
+        />
+        <Route
+          path="/account/emergency-contacts"
+          element={
+            <AppLayout>
+              <ProtectedRoute requireAuth>
+                <EmergencyContactsPage />
               </ProtectedRoute>
             </AppLayout>
           }

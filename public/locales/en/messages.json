@@ -64,6 +64,7 @@
     "checkInNotes": "Please share the check-in notes again."
   },
   "assistant": {
+    "welcome": "Hello! I'm Travolish AI, your friendly travel assistant. How can I help you with your travel plans or a current booking today? 😊",
     "quickPrompt1": "Find stays with free cancellation",
     "quickPrompt2": "What should I check before booking?",
     "quickPrompt3": "Help me compare two properties"

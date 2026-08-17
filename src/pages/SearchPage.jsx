@@ -3,7 +3,8 @@ import { useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { MapPin, Search } from 'lucide-react'
 import { motion as Motion } from 'framer-motion'
-import { searchHotels, listRooms } from '../services/hotelsApi'
+import { useQuery, keepPreviousData } from '@tanstack/react-query'
+import { searchHotels } from '../services/hotelsApi'
 import { adaptHotels } from '../lib/hotelAdapter'
 import { geocodeMissing } from '../lib/geocoding'
 import { useSearchContext } from '../hooks/useSearchContext'
@@ -112,17 +113,21 @@ export default function SearchPage() {
   const [freeCancellationOnly, setFreeCancellationOnly] = useState(false)
   const [sortOption, setSortOption] = useState('recommended')
   const [searchTrigger, setSearchTrigger] = useState(0)
-  const [allProperties, setAllProperties] = useState([])
-  const [isLoading, setIsLoading] = useState(false)
-  const [totalResults, setTotalResults] = useState(0)
   const [selectedPropertyId, setSelectedPropertyId] = useState(null)
-  const sharedLocation = useNativeAppLocationStore()
+
+  // allProperties holds the adapted + geocoded result set.
+  // It starts from the React Query response and may be enriched by geocodeMissing().
+  const [allProperties, setAllProperties] = useState([])
+
+  // Debounced API params — only changes after DEBOUNCE_MS quiet time so React Query
+  // doesn't fire on every keystroke.
+  const [debouncedApiParams, setDebouncedApiParams] = useState(null)
   const debounceRef = useRef(null)
   const geocodeControllerRef = useRef(null)
   const propertyCardRefs = useRef(new Map())
-  const roomsCacheRef = useRef(null)
+  const sharedLocation = useNativeAppLocationStore()
 
-  // Hydrate context from URL params on first mount so shared/bookmarked URLs work
+  // ── Sync URL search params on first mount ──────────────────────────────────
   useEffect(() => {
     const dest = searchParams.get('destination')
     const ci = searchParams.get('checkIn')
@@ -140,68 +145,81 @@ export default function SearchPage() {
 
   const destination = searchDraft.destination.trim()
 
+  // ── Build API params and debounce them ────────────────────────────────────
   useEffect(() => {
-    // Cancel any in-progress geocoding from previous search
-    geocodeControllerRef.current?.abort()
-    geocodeControllerRef.current = null
     clearTimeout(debounceRef.current)
 
     const { checkIn, checkOut, adults, children } = searchDraft
     const totalGuests = (Number(adults) || 0) + (Number(children) || 0)
     const parsedRating = Number(minRating) || undefined
-    // Send as city when the input matches a known destination for more precise backend filtering
     const knownDest = destination
       ? indianDestinations.find((d) => d.name.toLowerCase() === destination.toLowerCase())
       : null
 
-    debounceRef.current = setTimeout(async () => {
-      setIsLoading(true)
-      try {
-        const [searchResult, rooms] = await Promise.all([
-          searchHotels({
-            ...(knownDest ? { city: knownDest.name } : { query: destination || undefined }),
-            checkIn: checkIn || undefined,
-            checkOut: checkOut || undefined,
-            guests: totalGuests || undefined,
-            minRating: parsedRating,
-            pageSize: 50,
-          }),
-          listRooms(),
-        ])
-        roomsCacheRef.current = rooms
-        const adapted = adaptHotels(searchResult.content ?? [], rooms).map(enrichProperty)
-        setAllProperties(adapted)
-        setTotalResults(searchResult.totalElements ?? 0)
-        setIsLoading(false)
+    const newParams = {
+      ...(knownDest ? { city: knownDest.name } : { query: destination || undefined }),
+      checkIn: checkIn || undefined,
+      checkOut: checkOut || undefined,
+      guests: totalGuests || undefined,
+      minRating: parsedRating,
+      pageSize: 50,
+    }
 
-        // Geocode up to 12 properties missing coordinates, cancellable
-        const needsGeocode = adapted.some((p) => {
-          const { lat, lng } = p.coordinates ?? {}
-          return !Number.isFinite(lat) || !Number.isFinite(lng) || (lat === 0 && lng === 0)
-        })
-        if (needsGeocode) {
-          const controller = new AbortController()
-          geocodeControllerRef.current = controller
-          geocodeMissing(adapted, controller.signal).then((enriched) => {
-            if (!controller.signal.aborted) {
-              setAllProperties(enriched)
-              geocodeControllerRef.current = null
-            }
-          })
-        }
-      } catch {
-        setAllProperties([])
-        setTotalResults(0)
-        setIsLoading(false)
-      }
+    debounceRef.current = setTimeout(() => {
+      setDebouncedApiParams(newParams)
     }, destination ? DEBOUNCE_MS : 0)
+
+    return () => clearTimeout(debounceRef.current)
+  }, [destination, searchDraft.checkIn, searchDraft.checkOut, searchDraft.adults, searchDraft.children, minRating, searchTrigger]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── React Query — cached, deduplicated hotel search ───────────────────────
+  // Price is now included in each search result (cheapestRoomPrice field) so there
+  // is no longer any need to call GET /api/rooms on search and list pages.
+  const { data: searchResult, isFetching: isLoading } = useQuery({
+    queryKey: ['hotel-search', debouncedApiParams],
+    queryFn: () => searchHotels(debouncedApiParams),
+    enabled: debouncedApiParams !== null,
+    staleTime: 5 * 60 * 1000,   // re-use cached results for 5 minutes
+    placeholderData: keepPreviousData, // keep previous results visible while refetching
+  })
+
+  const totalResults = searchResult?.totalElements ?? 0
+
+  // ── Adapt API response + geocode missing coordinates ──────────────────────
+  useEffect(() => {
+    geocodeControllerRef.current?.abort()
+    geocodeControllerRef.current = null
+
+    const raw = searchResult?.content ?? []
+    if (!raw.length) {
+      setAllProperties([])
+      return
+    }
+
+    // adaptHotels now reads hotel.cheapestRoomPrice directly — no rooms array needed
+    const adapted = adaptHotels(raw, []).map(enrichProperty)
+    setAllProperties(adapted)
+
+    const needsGeocode = adapted.some((p) => {
+      const { lat, lng } = p.coordinates ?? {}
+      return !Number.isFinite(lat) || !Number.isFinite(lng) || (lat === 0 && lng === 0)
+    })
+    if (!needsGeocode) return
+
+    const controller = new AbortController()
+    geocodeControllerRef.current = controller
+    geocodeMissing(adapted, controller.signal).then((enriched) => {
+      if (!controller.signal.aborted) {
+        setAllProperties(enriched)
+        geocodeControllerRef.current = null
+      }
+    })
 
     return () => {
       geocodeControllerRef.current?.abort()
       geocodeControllerRef.current = null
-      clearTimeout(debounceRef.current)
     }
-  }, [destination, searchDraft.checkIn, searchDraft.checkOut, searchDraft.adults, searchDraft.children, minRating, searchTrigger]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [searchResult]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const parsedMinPrice = minPrice ? parseInt(minPrice, 10) : null
   const parsedMaxPrice = maxPrice ? parseInt(maxPrice, 10) : null
@@ -275,40 +293,17 @@ export default function SearchPage() {
     })
   }, [])
 
-  const handleBboxSearch = useCallback(async (bbox) => {
-    geocodeControllerRef.current?.abort()
-    geocodeControllerRef.current = null
-    setIsLoading(true)
-    const { checkIn, checkOut, adults, children } = searchDraft
-    const totalGuests = (Number(adults) || 0) + (Number(children) || 0)
-    const knownDest = destination
-      ? indianDestinations.find((d) => d.name.toLowerCase() === destination.toLowerCase())
-      : null
-    try {
-      const [searchResult, rooms] = await Promise.all([
-        searchHotels({
-          ...(knownDest ? { city: knownDest.name } : { query: destination || undefined }),
-          checkIn: checkIn || undefined,
-          checkOut: checkOut || undefined,
-          guests: totalGuests || undefined,
-          minRating: Number(minRating) || undefined,
-          pageSize: 50,
-          latMin: bbox.latMin,
-          latMax: bbox.latMax,
-          lngMin: bbox.lngMin,
-          lngMax: bbox.lngMax,
-        }),
-        roomsCacheRef.current ? Promise.resolve(roomsCacheRef.current) : listRooms(),
-      ])
-      const adapted = adaptHotels(searchResult.content ?? [], rooms).map(enrichProperty)
-      setAllProperties(adapted)
-      setTotalResults(searchResult.totalElements ?? 0)
-    } catch {
-      /* keep existing results on bbox search failure */
-    } finally {
-      setIsLoading(false)
-    }
-  }, [destination, searchDraft, minRating]) // eslint-disable-line react-hooks/exhaustive-deps
+  // Bbox search: update the debounced params directly so React Query's cache
+  // handles the re-fetch (and caches bbox results the same way as text searches).
+  const handleBboxSearch = useCallback((bbox) => {
+    setDebouncedApiParams((prev) => prev ? {
+      ...prev,
+      latMin: bbox.latMin,
+      latMax: bbox.latMax,
+      lngMin: bbox.lngMin,
+      lngMax: bbox.lngMax,
+    } : prev)
+  }, [])
 
   return (
     <Motion.main

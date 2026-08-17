@@ -84,7 +84,6 @@ export default function usePortalViewer() {
       { label: 'Member since', value: joinedYear ?? '—' },
     ],
     preferences: [],
-    emergencyContact: null,
     savedAddresses: [],
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }), [fullName, user?.email, user?.phone, user?.city, user?.travelStyle, user?.bio,

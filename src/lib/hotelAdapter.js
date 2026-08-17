@@ -41,7 +41,12 @@ function buildCapacityMap(rooms = []) {
 }
 
 export function adaptHotel(hotel, priceMap = {}, capacityMap = {}) {
-  const price = priceMap[hotel.id]
+  // Price resolution order:
+  //  1. priceMap[hotel.id]      — rooms array passed by the detail page
+  //  2. hotel.cheapestRoomPrice — field now returned by GET /api/hotels/search,
+  //     so the search/list pages never need to call GET /api/rooms
+  //  3. null                    — display "Price on request"
+  const price = priceMap[hotel.id] ?? hotel.cheapestRoomPrice ?? undefined
 
   // Build image gallery: cover first, then gallery uploads, then placeholders to fill 3 slots
   const realImage = hotel.imageUrl ?? null
@@ -67,12 +72,12 @@ export function adaptHotel(hotel, priceMap = {}, capacityMap = {}) {
       name: hotel.hostName ?? 'Host',
       superhost: hotel.superhost ?? false,
     },
+    // amenities: prefer the array from the entity; search response already includes it
     amenities: hotel.amenities ?? [],
     beds: hotel.beds ?? 1,
-    bedrooms: hotel.bedrooms ?? 1,
-    bathrooms: hotel.bathrooms ?? 1,
-    // Hotel-level capacity takes priority; fall back to max room capacity from rooms data.
-    // null means unknown — the search filter will pass unknowns rather than hide them.
+    bedrooms: hotel.bedrooms ?? hotel.numBedrooms ?? 1,
+    bathrooms: hotel.bathrooms ?? hotel.numBathrooms ?? 1,
+    // Capacity resolution: entity field → search response field → room capacity map → unknown
     guests: hotel.maxGuests ?? hotel.guests ?? capacityMap[hotel.id] ?? null,
     description: hotel.description || '',
     houseRules: hotel.houseRules ?? null,

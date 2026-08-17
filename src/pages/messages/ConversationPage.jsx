@@ -11,6 +11,7 @@ import {
 import { getConversation, getMessages, sendMessage } from '../../services/chatApi'
 import { getUser } from '../../services/usersApi'
 import useAuthStore from '../../stores/useAuthStore'
+import MarkdownText from '../../components/common/MarkdownText'
 
 function formatTime(dt) {
   if (!dt) return ''
@@ -34,6 +35,9 @@ export default function ConversationPage() {
   const [sending, setSending] = useState(false)
   const [otherUserName, setOtherUserName] = useState(null)
   const bottomRef = useRef(null)
+  // Ref mirror of `sending` so the polling effect can check it without
+  // listing `sending` as a dependency (which would restart the interval on each send).
+  const sendingRef = useRef(false)
 
   useEffect(() => {
     async function load() {
@@ -63,6 +67,34 @@ export default function ConversationPage() {
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
+
+  // Keep sendingRef current so the polling interval can skip during an in-flight send.
+  useEffect(() => { sendingRef.current = sending }, [sending])
+
+  // Poll every 5 s so AI and host replies appear without a page reload.
+  // Starts only after the conversation has been loaded (conversation !== null).
+  // Preserves optimistic messages (tmp- prefix) that haven't been confirmed yet.
+  useEffect(() => {
+    if (!conversation) return
+    const timer = setInterval(async () => {
+      if (sendingRef.current) return
+      try {
+        const msgs = await getMessages(id)
+        const fresh = (msgs.content ?? msgs).filter((m) => !m.isDeleted).reverse()
+        setMessages((prev) => {
+          const freshIds = new Set(fresh.map((m) => String(m.id)))
+          // Keep any optimistic message whose real DB counterpart hasn't arrived yet.
+          const pending = prev.filter(
+            (m) => String(m.id).startsWith('tmp-') && !freshIds.has(String(m.id))
+          )
+          return pending.length ? [...fresh, ...pending] : fresh
+        })
+      } catch {
+        // Silent — user still sees the existing messages.
+      }
+    }, 5000)
+    return () => clearInterval(timer)
+  }, [id, conversation])
 
   const quickReplies = useMemo(() => [
     t('quickReply.looksGreat'),
@@ -186,7 +218,7 @@ export default function ConversationPage() {
                     isMe ? 'bg-dark text-white' : 'border border-gray-200 bg-[#fcfcfb] text-dark'
                   }`}
                 >
-                  <p>{message.messageText}</p>
+                  <MarkdownText text={message.messageText} />
                   {messageAttachments.length > 0 && (
                     <div className="mt-3 grid gap-2">
                       {messageAttachments.map((file) => (

@@ -23,15 +23,23 @@ export default function AuthModal() {
   // Email signup flow: 'options' -> 'email' -> 'code'
   const [step, setStep] = useState('options')
   const [email, setEmail] = useState('')
-  const [firstName, setFirstName] = useState('')
   const [code, setCode] = useState('')
   const [submitting, setSubmitting] = useState(false)
+
+  // Name-entry mode: 'nickname' (single preferred-name field) or 'formal' (first + last)
+  const [nameMode, setNameMode] = useState('nickname')
+  const [nickname, setNickname] = useState('')
+  const [firstName, setFirstName] = useState('')
+  const [lastName, setLastName] = useState('')
 
   const resetAndClose = () => {
     setStep('options')
     setEmail('')
-    setFirstName('')
     setCode('')
+    setNameMode('nickname')
+    setNickname('')
+    setFirstName('')
+    setLastName('')
     setSubmitting(false)
     closeAuthModal()
   }
@@ -76,9 +84,10 @@ export default function AuthModal() {
     }
     setSubmitting(true)
     try {
-      await verifyEmailSignup(email.trim(), code.trim(), {
-        firstName: firstName.trim() || undefined,
-      })
+      const namePayload = nameMode === 'nickname'
+        ? { preferredName: nickname.trim() || undefined }
+        : { firstName: firstName.trim() || undefined, lastName: lastName.trim() || undefined }
+      await verifyEmailSignup(email.trim(), code.trim(), namePayload)
       resetAndClose()
       toast.success(t('toast.welcome'))
     } catch (error) {
@@ -201,16 +210,64 @@ export default function AuthModal() {
                       {t(role === 'guest' ? 'emailStep.descGuest' : 'emailStep.descHost')}
                     </p>
 
-                    <label className="block text-sm font-semibold text-dark mb-1.5">
-                      {t('emailStep.firstName')} <span className="text-muted font-normal">{t('emailStep.optional')}</span>
-                    </label>
-                    <input
-                      type="text"
-                      value={firstName}
-                      onChange={(e) => setFirstName(e.target.value)}
-                      placeholder={t('emailStep.firstNamePlaceholder')}
-                      className="w-full px-4 py-3 mb-4 rounded-xl border border-gray-300 text-base focus:outline-none focus:ring-2 focus:ring-primary/40"
-                    />
+                    {/* Name entry — optional, two modes */}
+                    <p className="text-sm font-semibold text-dark mb-2">
+                      {t('emailStep.whatToCall')}{' '}
+                      <span className="text-muted font-normal">{t('emailStep.optional')}</span>
+                    </p>
+
+                    {/* Mode toggle */}
+                    <div className="flex bg-gray-100 p-1 rounded-xl mb-3">
+                      <button
+                        type="button"
+                        onClick={() => setNameMode('nickname')}
+                        className={`flex-1 py-1.5 text-xs font-semibold rounded-lg transition-all ${
+                          nameMode === 'nickname'
+                            ? 'bg-white text-dark shadow-sm'
+                            : 'text-muted hover:text-dark'
+                        }`}
+                      >
+                        {t('emailStep.modeNickname')}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setNameMode('formal')}
+                        className={`flex-1 py-1.5 text-xs font-semibold rounded-lg transition-all ${
+                          nameMode === 'formal'
+                            ? 'bg-white text-dark shadow-sm'
+                            : 'text-muted hover:text-dark'
+                        }`}
+                      >
+                        {t('emailStep.modeFormal')}
+                      </button>
+                    </div>
+
+                    {nameMode === 'nickname' ? (
+                      <input
+                        type="text"
+                        value={nickname}
+                        onChange={(e) => setNickname(e.target.value)}
+                        placeholder={t('emailStep.nicknamePlaceholder')}
+                        className="w-full px-4 py-3 mb-4 rounded-xl border border-gray-300 text-base focus:outline-none focus:ring-2 focus:ring-primary/40"
+                      />
+                    ) : (
+                      <div className="grid grid-cols-2 gap-3 mb-4">
+                        <input
+                          type="text"
+                          value={firstName}
+                          onChange={(e) => setFirstName(e.target.value)}
+                          placeholder={t('emailStep.firstNamePlaceholder')}
+                          className="w-full px-4 py-3 rounded-xl border border-gray-300 text-base focus:outline-none focus:ring-2 focus:ring-primary/40"
+                        />
+                        <input
+                          type="text"
+                          value={lastName}
+                          onChange={(e) => setLastName(e.target.value)}
+                          placeholder={t('emailStep.lastNamePlaceholder')}
+                          className="w-full px-4 py-3 rounded-xl border border-gray-300 text-base focus:outline-none focus:ring-2 focus:ring-primary/40"
+                        />
+                      </div>
+                    )}
 
                     <label className="block text-sm font-semibold text-dark mb-1.5">{t('emailStep.email')}</label>
                     <input

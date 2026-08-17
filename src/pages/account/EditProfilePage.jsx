@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Camera, CheckCheck, Loader2, UserRound } from 'lucide-react'
+import { Camera, CheckCheck, ChevronDown, Loader2, UserRound } from 'lucide-react'
 import {
   AccountShell,
   SectionCard,
@@ -9,10 +9,11 @@ import {
 } from '../../components/portal/PortalUI'
 import usePortalViewer from '../../hooks/usePortalViewer'
 import { findUserByEmail, getUser, updateUser } from '../../services/usersApi'
-import { getAvatarUploadUrl, uploadToGcs } from '../../services/storageApi'
+import { uploadAvatar } from '../../services/storageApi'
 import useAuthStore from '../../stores/useAuthStore'
 import { normalizePhoneForStorage, parsePhoneValue } from '../../lib/phone'
 import { PhoneField } from '../../components/common/PhoneField'
+import { TimeZoneField } from '../../components/common/TimeZoneField'
 
 function Field({ label, value, onChange, placeholder, textarea = false }) {
   const Component = textarea ? 'textarea' : 'input'
@@ -34,12 +35,52 @@ function Field({ label, value, onChange, placeholder, textarea = false }) {
   )
 }
 
-const COMPLETENESS_FIELD_KEYS = ['preferredName', 'email', 'phone', 'city', 'travelStyle', 'bio']
+// Predefined travel style options — stored as lowercase English keys in the DB.
+// Display labels are resolved via i18n at render time (account:travelStyleOptions.*).
+const TRAVEL_STYLE_OPTIONS = [
+  'budget', 'luxury', 'business', 'leisure', 'adventure', 'nature', 'family',
+]
 
-function computeCompleteness(formState, hasPhoto) {
+// A <select> styled to match the existing Field component.
+// Unknown/legacy free-text values are silently treated as unset (empty string).
+function TravelStyleSelect({ label, value, onChange, placeholder }) {
+  const { t } = useTranslation('account')
+  // Normalise: if the stored value is not one of our predefined keys, treat as unset
+  const safeValue = TRAVEL_STYLE_OPTIONS.includes(value) ? value : ''
+  return (
+    <label className="block">
+      <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.18em] text-muted">
+        {label}
+      </span>
+      <div className="relative">
+        <select
+          value={safeValue}
+          onChange={(e) => onChange({ target: { value: e.target.value } })}
+          className="w-full appearance-none rounded-2xl border border-gray-200 bg-[#fcfcfb] px-4 py-3 text-base text-dark outline-none transition-colors focus:border-dark md:text-sm"
+        >
+          <option value="" disabled>{placeholder}</option>
+          {TRAVEL_STYLE_OPTIONS.map((key) => (
+            <option key={key} value={key}>{t(`travelStyleOptions.${key}`)}</option>
+          ))}
+        </select>
+        <div className="pointer-events-none absolute inset-y-0 right-4 flex items-center">
+          <ChevronDown size={15} className="text-muted" />
+        </div>
+      </div>
+    </label>
+  )
+}
+
+const COMPLETENESS_FIELD_KEYS = ['email', 'phone', 'city', 'travelStyle', 'bio']
+
+function computeCompleteness(formState, nameMode, hasPhoto) {
   const filled = COMPLETENESS_FIELD_KEYS.filter((key) => !!formState[key]?.trim()).length
-  const total = COMPLETENESS_FIELD_KEYS.length + 1 // +1 for photo
-  return Math.round(((filled + (hasPhoto ? 1 : 0)) / total) * 100)
+  // Count the name as filled if any name value is present in the active mode
+  const hasName = nameMode === 'nickname'
+    ? !!formState.nickname?.trim()
+    : !!formState.firstName?.trim()
+  const total = COMPLETENESS_FIELD_KEYS.length + 2 // +1 name, +1 photo
+  return Math.round(((filled + (hasName ? 1 : 0) + (hasPhoto ? 1 : 0)) / total) * 100)
 }
 
 export default function EditProfilePage() {
@@ -50,9 +91,16 @@ export default function EditProfilePage() {
   const updateAvatar = useAuthStore((s) => s.updateAvatar)
   const patchUser = useAuthStore((s) => s.patchUser)
 
+  // Name-entry mode: 'nickname' or 'formal' — detected from loaded backend data
+  const [nameMode, setNameMode] = useState('formal')
+
   const [formState, setFormState] = useState({
-    preferredName: viewer.preferredName ?? '',
-    fullName: viewer.fullName ?? '',
+    // nickname mode
+    nickname: viewer.preferredName ?? '',
+    // formal mode
+    firstName: '',
+    lastName: '',
+    // shared
     email: viewer.email ?? '',
     phone: viewer.phone ?? '',
     phoneCountryCode: '+91',
@@ -83,19 +131,26 @@ export default function EditProfilePage() {
     fetch
       .then((data) => {
         if (!data) return
-        const name = [data.firstName, data.lastName].filter(Boolean).join(' ')
+        // Detect the name mode from stored data:
+        //   nickname mode  → preferredName is set, firstName is absent
+        //   formal mode    → firstName is set (default)
+        const hasFirstName = !!data.firstName?.trim()
+        const hasPreferred = !!data.preferredName?.trim()
+        const detectedMode = (!hasFirstName && hasPreferred) ? 'nickname' : 'formal'
+        setNameMode(detectedMode)
+
         setFormState((prev) => {
           const parsedPhone = parsePhoneValue(data.phone ?? prev.phone, prev.phoneCountryCode || '+91')
           return {
             ...prev,
-            fullName: name || prev.fullName,
-            preferredName: data.preferredName ?? data.firstName ?? prev.preferredName,
+            nickname: data.preferredName ?? prev.nickname,
+            firstName: data.firstName ?? prev.firstName,
+            lastName: data.lastName ?? prev.lastName,
             email: data.email ?? prev.email,
             phone: parsedPhone.phoneNumber ? `${parsedPhone.countryCode} ${parsedPhone.phoneNumber}`.trim() : '',
             phoneCountryCode: parsedPhone.countryCode,
             city: data.city ?? prev.city,
             timeZone: data.timeZone ?? prev.timeZone,
-            // Use ?? so an empty string from DB is still applied (distinguishes "not set" from "cleared")
             travelStyle: data.travelStyle != null ? data.travelStyle : prev.travelStyle,
             bio: data.bio != null ? data.bio : prev.bio,
           }
@@ -111,18 +166,19 @@ export default function EditProfilePage() {
 
     if (!file.type.startsWith('image/')) { setPhotoError(t('account:edit.photoTypeError')); return }
     if (file.size > 5 * 1024 * 1024) { setPhotoError(t('account:edit.photoSizeError')); return }
+    // userId is required for the upload endpoint — guard early so we don't
+    // set a preview that immediately gets cleared on failure.
+    if (!storedBackendUserId) { setPhotoError(t('account:edit.photoUploadError')); return }
 
     setUploadingPhoto(true)
     setPhotoError(null)
     setAvatarPreview(URL.createObjectURL(file))
 
     try {
-      const { signedUrl, publicUrl } = await getAvatarUploadUrl(file.name, file.type)
-      await uploadToGcs(signedUrl, file)
-      await updateAvatar(publicUrl)
-      if (storedBackendUserId) {
-        await updateUser(storedBackendUserId, { avatarUrl: publicUrl })
-      }
+      // Single call: uploads the file to R2 via the backend and saves the
+      // public URL in user.imageKey — no separate updateUser() call needed.
+      const { avatarUrl } = await uploadAvatar(storedBackendUserId, file)
+      await updateAvatar(avatarUrl)
     } catch {
       setPhotoError(t('account:edit.photoUploadError'))
       setAvatarPreview(null)
@@ -135,6 +191,12 @@ export default function EditProfilePage() {
   const updateField = (field) => (event) => {
     setSaved(false)
     setFormState((current) => ({ ...current, [field]: event.target.value }))
+  }
+
+  // For controlled components that call onChange(value) directly (not via event)
+  const setFieldValue = (field) => (value) => {
+    setSaved(false)
+    setFormState((current) => ({ ...current, [field]: value }))
   }
 
   const updatePhoneField = (combined) => {
@@ -156,14 +218,23 @@ export default function EditProfilePage() {
     setSaved(false)
     setSaveError(null)
     try {
-      const nameParts = (formState.fullName || '').trim().split(' ')
-      const firstName = nameParts[0] ?? ''
-      const lastName = nameParts.slice(1).join(' ')
       const normalizedPhone = normalizePhoneForStorage(formState.phone, formState.phoneCountryCode || '+91')
+
+      // Build name fields based on active mode
+      const nameFields = nameMode === 'nickname'
+        ? {
+            preferredName: formState.nickname?.trim() || undefined,
+            firstName: '',   // clear formal fields when switching to nickname
+            lastName: '',
+          }
+        : {
+            firstName: formState.firstName?.trim() || undefined,
+            lastName: formState.lastName?.trim() || undefined,
+            preferredName: undefined,  // don't overwrite; leave whatever was previously stored
+          }
+
       const payload = {
-        firstName: firstName || undefined,
-        lastName: lastName || undefined,
-        preferredName: formState.preferredName || undefined,
+        ...nameFields,
         email: formState.email || undefined,
         phone: normalizedPhone || undefined,
         city: formState.city || undefined,
@@ -174,9 +245,7 @@ export default function EditProfilePage() {
       await updateUser(storedBackendUserId, payload)
       // Sync saved values back into auth store so live preview and viewer reflect them
       patchUser({
-        firstName,
-        lastName: lastName || undefined,
-        preferredName: formState.preferredName || undefined,
+        ...nameFields,
         phone: normalizedPhone || undefined,
         city: formState.city || undefined,
         timeZone: formState.timeZone || undefined,
@@ -193,11 +262,10 @@ export default function EditProfilePage() {
 
   const hasPhoto = !!(avatarPreview || viewer.avatar)
   const completeness = useMemo(
-    () => computeCompleteness(formState, hasPhoto),
-    [formState, hasPhoto],
+    () => computeCompleteness(formState, nameMode, hasPhoto),
+    [formState, nameMode, hasPhoto],
   )
   const completenessLabels = useMemo(() => ({
-    preferredName: t('account:edit.fieldName'),
     email: t('account:edit.fieldEmail'),
     phone: t('account:edit.fieldPhone2'),
     city: t('account:edit.fieldCity'),
@@ -242,17 +310,82 @@ export default function EditProfilePage() {
             </div>
           ) : (
             <>
-              <div className="mt-6 grid gap-5 md:grid-cols-2">
-                <Field label={t('account:edit.fieldPreferredName')} value={formState.preferredName} onChange={updateField('preferredName')} placeholder={t('account:edit.fieldPreferredNameHint')} />
-                <Field label={t('account:edit.fieldFullName')} value={formState.fullName} onChange={updateField('fullName')} placeholder={t('account:edit.fieldFullNameHint')} />
+              <div className="mt-6 grid gap-5">
+                {/* Name entry — mode toggle */}
+                <div>
+                  <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.18em] text-muted">
+                    {t('account:edit.nameMode')}
+                  </span>
+                  <div className="flex bg-gray-100 p-1 rounded-xl mb-3">
+                    <button
+                      type="button"
+                      onClick={() => setNameMode('nickname')}
+                      className={`flex-1 py-1.5 text-xs font-semibold rounded-lg transition-all ${
+                        nameMode === 'nickname'
+                          ? 'bg-white text-dark shadow-sm'
+                          : 'text-muted hover:text-dark'
+                      }`}
+                    >
+                      {t('account:edit.nameModeNickname')}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setNameMode('formal')}
+                      className={`flex-1 py-1.5 text-xs font-semibold rounded-lg transition-all ${
+                        nameMode === 'formal'
+                          ? 'bg-white text-dark shadow-sm'
+                          : 'text-muted hover:text-dark'
+                      }`}
+                    >
+                      {t('account:edit.nameModeFormal')}
+                    </button>
+                  </div>
+
+                  {nameMode === 'nickname' ? (
+                    <Field
+                      label={t('account:edit.fieldNickname')}
+                      value={formState.nickname}
+                      onChange={updateField('nickname')}
+                      placeholder={t('account:edit.fieldNicknameHint')}
+                    />
+                  ) : (
+                    <div className="grid gap-4 md:grid-cols-2">
+                      <Field
+                        label={t('account:edit.fieldFirstName')}
+                        value={formState.firstName}
+                        onChange={updateField('firstName')}
+                        placeholder={t('account:edit.fieldFirstNameHint')}
+                      />
+                      <Field
+                        label={t('account:edit.fieldLastName')}
+                        value={formState.lastName}
+                        onChange={updateField('lastName')}
+                        placeholder={t('account:edit.fieldLastNameHint')}
+                      />
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="mt-5 grid gap-5 md:grid-cols-2">
                 <Field label={t('account:edit.fieldEmail')} value={formState.email} onChange={updateField('email')} placeholder={t('account:edit.fieldEmailHint')} />
                 <PhoneField label={t('account:edit.fieldPhone')} value={formState.phone} onChange={updatePhoneField} placeholder={t('account:edit.fieldPhoneHint')} />
                 <Field label={t('account:edit.fieldCity')} value={formState.city} onChange={updateField('city')} placeholder={t('account:edit.fieldCityHint')} />
-                <Field label={t('account:edit.fieldTimeZone')} value={formState.timeZone} onChange={updateField('timeZone')} placeholder={t('account:edit.fieldTimeZoneHint')} />
+                <TimeZoneField
+                  label={t('account:edit.fieldTimeZone')}
+                  value={formState.timeZone}
+                  onChange={setFieldValue('timeZone')}
+                  detectLabel={t('account:edit.fieldTimeZoneDetect')}
+                />
               </div>
 
               <div className="mt-5 grid gap-5">
-                <Field label={t('account:edit.fieldTravelStyle')} value={formState.travelStyle} onChange={updateField('travelStyle')} placeholder={t('account:edit.fieldTravelStyleHint')} />
+                <TravelStyleSelect
+                  label={t('account:edit.fieldTravelStyle')}
+                  value={formState.travelStyle}
+                  onChange={updateField('travelStyle')}
+                  placeholder={t('account:edit.travelStylePlaceholder')}
+                />
                 <Field label={t('account:edit.fieldBio')} value={formState.bio} onChange={updateField('bio')} placeholder={t('account:edit.fieldBioHint')} textarea />
               </div>
             </>
@@ -331,13 +464,18 @@ export default function EditProfilePage() {
                   </div>
                   <div>
                     <p className="text-lg font-semibold text-dark">
-                      {formState.preferredName || <span className="text-muted">Preferred name</span>}
+                      {nameMode === 'nickname'
+                        ? (formState.nickname || <span className="text-muted">{t('account:edit.fieldNickname')}</span>)
+                        : ([formState.firstName, formState.lastName].filter(Boolean).join(' ') || <span className="text-muted">{t('account:edit.fieldFirstName')}</span>)
+                      }
                     </p>
                     <p className="text-sm text-muted">{formState.city || 'City'}</p>
                   </div>
                 </div>
-                {formState.travelStyle && (
-                  <p className="mt-4 text-sm leading-6 text-muted">{formState.travelStyle}</p>
+                {TRAVEL_STYLE_OPTIONS.includes(formState.travelStyle) && (
+                  <p className="mt-4 text-sm leading-6 text-muted">
+                    {t(`account:travelStyleOptions.${formState.travelStyle}`)}
+                  </p>
                 )}
                 {formState.bio && (
                   <p className="mt-3 text-sm leading-6 text-dark line-clamp-3">{formState.bio}</p>

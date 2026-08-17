@@ -64,6 +64,7 @@
     "checkInNotes": "Pourriez-vous partager à nouveau les instructions d'arrivée ?"
   },
   "assistant": {
+    "welcome": "Bonjour ! Je suis Travolish AI, votre assistant de voyage. Comment puis-je vous aider avec vos projets de voyage ou une réservation en cours ? 😊",
     "quickPrompt1": "Trouver des séjours avec annulation gratuite",
     "quickPrompt2": "Que dois-je vérifier avant de réserver ?",
     "quickPrompt3": "Aidez-moi à comparer deux propriétés"

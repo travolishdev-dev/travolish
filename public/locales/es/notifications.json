@@ -23,7 +23,7 @@
   "markRead": "Marcar como leído",
   "dismiss": "Descartar",
   "groups": { "today": "Hoy", "thisWeek": "Esta semana", "earlier": "Antes" },
-  "actions": { "viewBooking": "Ver reserva", "browseStays": "Buscar estancias", "leaveReview": "Dejar reseña", "viewTrips": "Ver viajes" },
+  "actions": { "viewBooking": "Ver reserva", "browseStays": "Buscar estancias", "leaveReview": "Dejar reseña", "viewTrips": "Ver viajes", "viewListing": "Ver anuncio" },
   "settingsTitle": "Elige cómo recibes las actualizaciones.",
   "settingsMobileTitle": "Alertas",
   "settingsDesc": "Controla qué notificaciones recibes y cómo se entregan.",
@@ -69,7 +69,9 @@
     "loyaltyUpdates": "Actualizaciones de fidelidad",
     "loyaltyUpdatesDesc": "Puntos ganados y hitos de recompensas.",
     "accountAlerts": "Alertas de cuenta",
-    "accountAlertsDesc": "Actualizaciones de seguridad y actividad de la cuenta."
+    "accountAlertsDesc": "Actualizaciones de seguridad y actividad de la cuenta.",
+    "listingSubmittedForReview": "Revisión de anuncio",
+    "listingSubmittedForReviewDesc": "Cuando tu anuncio se envía o requiere revisión."
   },
   "channels": {
     "email": "Correo electrónico",

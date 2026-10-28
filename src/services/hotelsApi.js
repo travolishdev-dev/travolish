@@ -56,6 +56,10 @@ export async function getHotelAddOns(hotelId) {
   return get('/api/addons', { hotelId })
 }
 
+export async function getHotelPaymentConfig(hotelId) {
+  return get(`/api/hotels/${hotelId}/payment-config`)
+}
+
 export async function getNearbyAttractions(hotelId) {
   return get(`/api/hotels/${hotelId}/nearby`)
 }

@@ -7,8 +7,25 @@ import {
 } from '../../components/host/HostPortalUI'
 import { getPayoutBalance, getPayoutHistory, requestPayout } from '../../services/payoutsApi'
 import { getBankAccounts } from '../../services/bankAccountsApi'
+import { formatCurrencyAmount } from '../../lib/currency'
 import toast from 'react-hot-toast'
 import useHostContext from '../../hooks/useHostContext'
+
+function formatInr(value) {
+  if (value === null || value === undefined || value === '—') return '—'
+  const n = Number(value)
+  if (!Number.isFinite(n)) return String(value)
+  return formatCurrencyAmount(n, 'INR')
+}
+
+function mapPayoutStatus(status) {
+  if (!status) return '—'
+  const s = String(status).toUpperCase()
+  if (s === 'COMPLETED') return 'Paid'
+  if (s === 'PENDING' || s === 'APPROVED' || s === 'PROCESSING') return 'In progress'
+  if (s === 'FAILED' || s === 'CANCELLED') return s.charAt(0) + s.slice(1).toLowerCase()
+  return status
+}
 
 export default function HostPayoutsPage() {
   const { hostId, loading: hostLoading } = useHostContext()
@@ -18,40 +35,50 @@ export default function HostPayoutsPage() {
   const [loading, setLoading] = useState(false)
   const [requesting, setRequesting] = useState(false)
 
+  function applyBalance(balanceData) {
+    if (!balanceData) return
+    setSummary({
+      available: balanceData.availableBalance ?? balanceData.available,
+      pending: balanceData.pendingBalance ?? balanceData.pending,
+      pendingRelease:
+        balanceData.pendingReleaseBalance ?? balanceData.pendingRelease ?? balanceData.reserveBalance,
+      currency: balanceData.currency ?? 'INR',
+      minPayout: balanceData.minPayoutAmount,
+      nextTransferDays: balanceData.nextPayoutDaysRemaining,
+    })
+  }
+
   useEffect(() => {
     if (hostLoading || !hostId) return
+    setLoading(true)
     Promise.all([
       getPayoutBalance(hostId).catch(() => null),
       getPayoutHistory(hostId).catch(() => null),
       getBankAccounts(hostId).catch(() => null),
-    ]).then(([balanceData, historyData, bankData]) => {
-      if (balanceData) {
-        setSummary({
-          available: balanceData.availableBalance ?? balanceData.available ?? '—',
-          pending: balanceData.pendingBalance ?? balanceData.pending ?? '—',
-          reserveHold: balanceData.reserveBalance ?? balanceData.reserveHold ?? '—',
-          nextTransfer: balanceData.nextPayoutDate ?? balanceData.nextTransfer ?? '—',
-        })
-      }
-      const items = historyData?.content ?? (Array.isArray(historyData) ? historyData : null)
-      if (items?.length) {
-        setHistory(
-          items.map((p) => ({
-            id: p.id,
-            date: p.payoutDate ?? p.createdAt ?? p.date,
-            amount: p.amount,
-            status: p.status,
-            destination: p.bankAccountName ?? p.destination ?? '—',
-            note: p.description ?? p.note ?? '',
-          })),
-        )
-      }
-      const bankItems = bankData?.content ?? (Array.isArray(bankData) ? bankData : null)
-      if (bankItems?.length) {
-        const primary = bankItems.find((b) => b.isPrimary) ?? bankItems[0]
-        if (primary) setPrimaryBankAccountId(primary.id)
-      }
-    }).finally(() => setLoading(false))
+    ])
+      .then(([balanceData, historyData, bankData]) => {
+        applyBalance(balanceData)
+        const items = historyData?.content ?? (Array.isArray(historyData) ? historyData : null)
+        if (items?.length) {
+          setHistory(
+            items.map((p) => ({
+              id: p.id,
+              date: p.completedDate ?? p.requestedDate ?? p.payoutDate ?? p.createdAt,
+              amount: p.netAmount ?? p.amount,
+              status: mapPayoutStatus(p.status ?? p.payoutStatus),
+              rawStatus: p.status ?? p.payoutStatus,
+              destination: p.bankAccountName ?? p.destination ?? '—',
+              note: p.description ?? p.note ?? '',
+            })),
+          )
+        }
+        const bankItems = bankData?.content ?? (Array.isArray(bankData) ? bankData : null)
+        if (bankItems?.length) {
+          const primary = bankItems.find((b) => b.isPrimary) ?? bankItems[0]
+          if (primary) setPrimaryBankAccountId(primary.id)
+        }
+      })
+      .finally(() => setLoading(false))
   }, [hostId, hostLoading])
 
   async function handleRequestPayout() {
@@ -60,6 +87,11 @@ export default function HostPayoutsPage() {
       return
     }
     const availableAmount = Number(summary?.available ?? 0)
+    const min = Number(summary?.minPayout ?? 100)
+    if (availableAmount < min) {
+      toast.error(`Minimum payout is ${formatInr(min)}.`)
+      return
+    }
     if (availableAmount <= 0) {
       toast.error('No available balance to transfer.')
       return
@@ -71,17 +103,9 @@ export default function HostPayoutsPage() {
         amount: availableAmount,
         description: 'Manual payout request',
       })
-      toast.success('Payout request submitted. Funds will arrive in your bank account within 1–3 business days.')
-      // Refresh balance
+      toast.success('Payout request submitted. An admin will review before transfer.')
       const updated = await getPayoutBalance(hostId).catch(() => null)
-      if (updated) {
-        setSummary({
-          available: updated.availableBalance ?? updated.available ?? '—',
-          pending: updated.pendingBalance ?? updated.pending ?? '—',
-          reserveHold: updated.reserveBalance ?? updated.reserveHold ?? '—',
-          nextTransfer: updated.nextPayoutDate ?? updated.nextTransfer ?? '—',
-        })
-      }
+      applyBalance(updated)
     } catch (err) {
       const msg = err?.message?.includes('400')
         ? 'Payout request failed — ensure your bank account is verified and balance is available.'
@@ -92,21 +116,34 @@ export default function HostPayoutsPage() {
     }
   }
 
+  const minNote =
+    summary?.minPayout != null
+      ? `Minimum transfer ${formatInr(summary.minPayout)}`
+      : 'Minimum transfer ₹100'
+
   return (
     <HostShell
       eyebrow="Payouts"
       title="Payouts"
       mobileTitle="Payouts"
-      description="Available balance and recent transfers."
+      description="Available balance and recent transfers (INR)."
       actions={[
         { label: 'Bank accounts', href: '/host/bank-accounts', secondary: true },
         { label: 'KYC', href: '/host/kyc' },
       ]}
       stats={[
-        { label: 'Available', value: summary?.available ?? '—', note: 'Ready to transfer' },
-        { label: 'Pending', value: summary?.pending ?? '—', note: 'Awaiting stay completion' },
-        { label: 'Reserve', value: summary?.reserveHold ?? '—', note: 'Security / damage hold' },
-        { label: 'Next transfer', value: summary?.nextTransfer ?? '—', note: 'Projected payout run' },
+        { label: 'Available', value: formatInr(summary?.available), note: 'Ready to transfer' },
+        {
+          label: 'Pending release',
+          value: formatInr(summary?.pendingRelease),
+          note: 'After guest check-out',
+        },
+        { label: 'In payout', value: formatInr(summary?.pending), note: 'Awaiting admin / bank' },
+        {
+          label: 'Next cycle',
+          value: summary?.nextTransferDays != null ? `${summary.nextTransferDays}d` : '—',
+          note: 'Since last completed payout',
+        },
       ]}
     >
       <SectionCard>
@@ -114,7 +151,7 @@ export default function HostPayoutsPage() {
           <SectionHeading
             eyebrow="Balance"
             title="Manual payout request"
-            description="Transfer your available balance to your primary bank account. Funds arrive within 1–3 business days via NEFT/IMPS."
+            description={`Transfer your available balance to your primary bank account via IMPS/NEFT. ${minNote}.`}
           />
           <button
             type="button"
@@ -129,11 +166,11 @@ export default function HostPayoutsPage() {
         <div className="mt-6 grid gap-4 lg:grid-cols-3">
           <div className="rounded-2xl border border-gray-200 bg-[#fcfbf8] p-4">
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted">
-              Schedule
+              Earnings timing
             </p>
-            <p className="mt-2 text-lg font-semibold text-dark">Weekly, every Friday</p>
+            <p className="mt-2 text-lg font-semibold text-dark">After check-out</p>
             <p className="mt-2 text-sm leading-6 text-muted">
-              Payouts are queued after checkout completion and reserve checks.
+              Lodging earnings move to available once the stay has ended.
             </p>
           </div>
           <div className="rounded-2xl border border-gray-200 bg-[#fcfbf8] p-4">
@@ -142,20 +179,19 @@ export default function HostPayoutsPage() {
             </p>
             <p className="mt-2 text-lg font-semibold text-dark">Primary bank account</p>
             <p className="mt-2 text-sm leading-6 text-muted">
-              Change default payout account from Bank accounts.
+              Must be verified; linked to Razorpay X for transfers.
             </p>
           </div>
           <div className="rounded-2xl border border-gray-200 bg-[#fcfbf8] p-4">
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted">
-              Reserve release
+              Admin review
             </p>
-            <p className="mt-2 text-lg font-semibold text-dark">48h after checkout</p>
+            <p className="mt-2 text-lg font-semibold text-dark">Approve then process</p>
             <p className="mt-2 text-sm leading-6 text-muted">
-              Security holds release when no incident is open.
+              Payouts are not sent automatically; ops approves each request.
             </p>
           </div>
         </div>
-
       </SectionCard>
 
       <SectionCard>
@@ -179,8 +215,8 @@ export default function HostPayoutsPage() {
                 <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                   <div>
                     <div className="flex flex-wrap items-center gap-2">
-                      <p className="text-lg font-semibold text-dark">{entry.amount}</p>
-                      <StatusPill tone={entry.status === 'Paid' ? 'success' : 'warning'}>
+                      <p className="text-lg font-semibold text-dark">{formatInr(entry.amount)}</p>
+                      <StatusPill tone={entry.rawStatus === 'COMPLETED' ? 'success' : 'warning'}>
                         {entry.status}
                       </StatusPill>
                     </div>

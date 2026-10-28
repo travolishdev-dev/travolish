@@ -23,6 +23,7 @@ import {
   StatusPill,
 } from '../../components/portal/PortalUI'
 import { cancelBooking, getBooking } from '../../services/bookingsApi'
+import { getReceipt } from '../../services/paymentsApi'
 import { getHotel } from '../../services/hotelsApi'
 import useCurrency from '../../hooks/useCurrency'
 import { printReceipt } from '../../lib/receiptPrinter'
@@ -99,7 +100,18 @@ export default function TripDetailPage() {
   const [cancelError, setCancelError] = useState(null)
   const { formatCurrency } = useCurrency()
 
-  const handleDownloadReceipt = () => printReceipt(booking, hotel, formatCurrency)
+  const handleDownloadReceipt = async () => {
+    try {
+      const receipt = await getReceipt(booking.id)
+      if (receipt?.pdfUrl) {
+        window.open(receipt.pdfUrl, '_blank', 'noopener,noreferrer')
+        return
+      }
+      printReceipt(booking, { ...hotel, receiptData: receipt }, formatCurrency)
+    } catch {
+      printReceipt(booking, hotel, formatCurrency)
+    }
+  }
 
   useEffect(() => {
     async function load() {

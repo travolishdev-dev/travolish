@@ -25,12 +25,10 @@ export async function processRefund(body) {
 }
 
 /**
- * Step 1 of Razorpay checkout — creates a Razorpay order on the backend and
- * returns { orderId, keyId, amount, currency }.
- * The frontend then opens the Razorpay popup with these values and calls
- * validatePayment() once the user completes the payment.
+ * Step 1 of Razorpay checkout — server computes amount from booking + hotel payment config.
+ * Returns { orderId, paymentId, keyId, amount, currency }.
  *
- * @param {{ amount: number, currency: string, bookingId: number }} body
+ * @param {{ bookingId: number, currency?: string }} body
  */
 export async function createOrder(body) {
   return post('/api/payments/create-order', body)

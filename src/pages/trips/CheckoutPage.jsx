@@ -23,8 +23,14 @@ import {
   SectionHeading,
   StatusPill,
 } from '../../components/portal/PortalUI'
-import { getHotel, listRooms, getHotelAddOns } from '../../services/hotelsApi'
-import { checkAvailability, calculatePrice, createBooking } from '../../services/bookingsApi'
+import { getHotel, listRooms, getHotelAddOns, getHotelPaymentConfig } from '../../services/hotelsApi'
+import { checkAvailability, calculatePrice, createBooking, getBooking } from '../../services/bookingsApi'
+import {
+  computeCheckoutAmounts,
+  defaultPaymentConfig,
+  isPayAtPropertyOnly,
+  rupeesToPaise,
+} from '../../lib/paymentAmounts'
 import { createOrder, validatePayment } from '../../services/paymentsApi'
 import useAuthStore from '../../stores/useAuthStore'
 import useCurrency from '../../hooks/useCurrency'
@@ -146,6 +152,7 @@ export default function CheckoutPage() {
   // ── Add-ons state ───────────────────────────────────────────────────────────
   const [addOns, setAddOns] = useState(CHECKOUT_ADDONS)
   const [selectedAddOns, setSelectedAddOns] = useState([])
+  const [paymentConfig, setPaymentConfig] = useState(defaultPaymentConfig())
 
   // ── Submit state ────────────────────────────────────────────────────────────
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -158,14 +165,18 @@ export default function CheckoutPage() {
     async function load() {
       setIsLoadingHotel(true)
       try {
-        const [hotelData, hotelRooms, fetchedAddOns] = await Promise.all([
+        const [hotelData, hotelRooms, fetchedAddOns, hotelPayConfig] = await Promise.all([
           getHotel(propertyId),
           listRooms(propertyId),
           getHotelAddOns(propertyId).catch(() => []),
+          getHotelPaymentConfig(propertyId).catch(() => null),
         ])
         if (cancelled) return
         setHotel(hotelData)
         setRooms(hotelRooms)
+        setPaymentConfig(hotelPayConfig
+          ? { ...defaultPaymentConfig(), ...hotelPayConfig }
+          : defaultPaymentConfig())
         if (!incomingBooking?.bookingMode) {
           setBookingMode(
             hotelData.bookingMode ||
@@ -251,7 +262,14 @@ export default function CheckoutPage() {
       ? Math.round(selectedRoom.pricePerNight * nights) + addOnTotal
       : addOnTotal
   const promoDiscount = appliedPromo ? Math.min(75, Math.round(grossTotal * 0.08)) : 0
-  const displayTotal = Math.max(0, grossTotal - promoDiscount)
+  const staySubtotal = Math.max(0, grossTotal - promoDiscount)
+  const chargeAmounts = useMemo(
+    () => computeCheckoutAmounts(staySubtotal, paymentConfig),
+    [staySubtotal, paymentConfig],
+  )
+  const payAtPropertyOnly = isPayAtPropertyOnly(paymentConfig)
+  const skipsOnlinePayment = payAtPropertyOnly || bookingMode === 'request'
+  const displayTotal = skipsOnlinePayment ? staySubtotal : chargeAmounts.totalAmount
   const buttonLabel = bookingMode === 'request' ? t('sendRequest') : t('confirmReserve')
 
   const dateLabel =
@@ -303,29 +321,30 @@ export default function CheckoutPage() {
         basePrice: selectedRoom.pricePerNight,
         seasonalAdjustment: priceBreakdown?.seasonalAdjustment ?? 0,
         dynamicPricingAdjustment: priceBreakdown?.dynamicPricingAdjustment ?? 0,
-        promotionalDiscount: priceBreakdown?.promotionalDiscount
+        promotionalDiscount: (priceBreakdown?.promotionalDiscount
           ? Math.abs(priceBreakdown.promotionalDiscount)
-          : 0,
-        // Backend stores the full price; displayTotal may include add-ons
-        totalPrice: priceBreakdown ? priceBreakdown.totalPrice : selectedRoom.pricePerNight * nights,
+          : 0) + promoDiscount,
+        totalPrice: staySubtotal,
       })
 
-      // Step 2 — create the Razorpay order and open the payment popup.
-      // Charges are always processed in INR; currency selector is display-only.
+      if (skipsOnlinePayment) {
+        const fresh = await getBooking(booking.id)
+        setConfirmedBooking(fresh)
+        return
+      }
+
       const orderData = await createOrder({
-        amount: displayTotal,
         currency: 'INR',
         bookingId: booking.id,
       })
 
       await loadRazorpayScript()
 
-      // Open the Razorpay popup and wait for the user to complete or dismiss it.
       await new Promise((resolve, reject) => {
         const rzp = new window.Razorpay({
           key: orderData.keyId,
           order_id: orderData.orderId,
-          amount: Math.round(orderData.amount * 100), // paise
+          amount: rupeesToPaise(orderData.amount),
           currency: orderData.currency ?? 'INR',
           name: 'Travolish',
           description: `Booking #${booking.id} · ${hotel.name}`,
@@ -336,16 +355,17 @@ export default function CheckoutPage() {
           },
           theme: { color: '#1C1F2E' },
           handler: async (response) => {
-            // Step 3 — backend verifies the HMAC signature and marks payment COMPLETED
             try {
               const payment = await validatePayment({
                 razorpayOrderId: response.razorpay_order_id,
                 razorpayPaymentId: response.razorpay_payment_id,
                 razorpaySignature: response.razorpay_signature,
               })
+              const fresh = await getBooking(booking.id)
               setConfirmedBooking({
-                ...booking,
+                ...fresh,
                 paymentId: payment.razorpayPaymentId ?? response.razorpay_payment_id,
+                paymentStatus: payment.paymentStatus,
               })
               resolve()
             } catch {
@@ -413,9 +433,17 @@ export default function CheckoutPage() {
               <p className="mt-1 text-sm text-muted">
                 Confirmation #{confirmedBooking.id} · Status:{' '}
                 <span className="font-medium capitalize text-dark">
-                  {confirmedBooking.status?.toLowerCase() ?? 'pending'}
+                  {(confirmedBooking.status ?? 'PENDING').toLowerCase()}
                 </span>
               </p>
+              {confirmedBooking.paymentStatus && (
+                <p className="mt-1 text-xs text-muted">
+                  Payment:{' '}
+                  <span className="font-medium capitalize text-dark">
+                    {confirmedBooking.paymentStatus.toLowerCase()}
+                  </span>
+                </p>
+              )}
               {confirmedBooking.paymentId && (
                 <p className="mt-1 text-xs text-muted">
                   Payment ref: <span className="font-medium text-dark">{confirmedBooking.paymentId}</span>
@@ -637,8 +665,50 @@ export default function CheckoutPage() {
                 </div>
               )}
 
+              <div className="flex items-center justify-between gap-4 border-t border-gray-100 pt-4">
+                <span>{t('staySubtotal', 'Stay subtotal')}</span>
+                <span>{formatMoney(staySubtotal, currency)}</span>
+              </div>
+
+              {!skipsOnlinePayment && paymentConfig?.secureWithPartialPayment
+                && (paymentConfig.advancePaymentPercent ?? 0) > 0 && (
+                <div className="flex items-center justify-between gap-4 text-sm text-muted">
+                  <span>
+                    {t('advanceDueNow', 'Advance due now ({{pct}}%)', {
+                      pct: paymentConfig.advancePaymentPercent,
+                      defaultValue: `Advance due now (${paymentConfig.advancePaymentPercent}%)`,
+                    })}
+                  </span>
+                  <span>{formatMoney(chargeAmounts.baseAmount, currency)}</span>
+                </div>
+              )}
+
+              {!skipsOnlinePayment && (
+                <>
+                  <div className="flex items-center justify-between gap-4 text-sm text-muted">
+                    <span>{t('serviceFee', 'Service fee (2.5%)')}</span>
+                    <span>{formatMoney(chargeAmounts.platformFee, currency)}</span>
+                  </div>
+                  <div className="flex items-center justify-between gap-4 text-sm text-muted">
+                    <span>{t('gst', 'GST (18%)')}</span>
+                    <span>{formatMoney(chargeAmounts.taxAmount, currency)}</span>
+                  </div>
+                </>
+              )}
+
+              {skipsOnlinePayment && payAtPropertyOnly && (
+                <p className="text-sm text-muted">
+                  {t('payAtPropertyNote', 'You will pay the host at check-in. No online charge today.')}
+                </p>
+              )}
+              {skipsOnlinePayment && bookingMode === 'request' && !payAtPropertyOnly && (
+                <p className="text-sm text-muted">
+                  {t('requestNoPayNote', 'Payment is collected after the host approves your request.')}
+                </p>
+              )}
+
               <div className="flex items-center justify-between border-t border-gray-100 pt-4 text-lg font-semibold">
-                <span>{t('total')}</span>
+                <span>{skipsOnlinePayment ? t('total') : t('dueNow', 'Due now')}</span>
                 <span>{formatMoney(displayTotal, currency)}</span>
               </div>
             </div>

@@ -9,7 +9,7 @@ import {
   StatusPill,
 } from '../../components/portal/PortalUI'
 import { listBookings } from '../../services/bookingsApi'
-import { getReceipt } from '../../services/paymentsApi'
+import { getReceipt, getPaymentHistory } from '../../services/paymentsApi'
 import { printReceipt } from '../../lib/receiptPrinter'
 import usePortalViewer from '../../hooks/usePortalViewer'
 import useAuthStore from '../../stores/useAuthStore'
@@ -26,17 +26,25 @@ function fmt(d) {
   try { return format(parseISO(d), 'MMM d, yyyy') } catch { return d }
 }
 
-function adaptBooking(b, t) {
+function adaptBooking(b, t, paymentByBookingId) {
   const cancelled = b.status === 'CANCELLED'
+  const payment = paymentByBookingId?.get(b.id)
+  const paid = payment?.paymentStatus === 'COMPLETED'
+  const rawAmount = paid && payment.totalAmount != null
+    ? Number(payment.totalAmount)
+    : Number(b.totalPrice ?? 0)
+  const method = paid
+    ? (payment.paymentMethod || 'Razorpay')
+    : (cancelled ? t('account:transactions.refundAdjusted', 'Refund / adjustment') : t('account:transactions.payAtBooking', 'Pay at booking'))
   return {
     id: b.id,
     type: cancelled ? t('account:transactions.bookingCancelled') : t('account:transactions.hotelBooking'),
     direction: cancelled ? 'credit' : 'debit',
-    status: b.status,
+    status: paid ? payment.paymentStatus : b.status,
     note: `Booking #${b.id} · Room ${b.roomId}`,
     date: fmt(b.checkInDate),
-    method: t('account:transactions.cardOnFile'),
-    rawAmount: Number(b.totalPrice ?? 0),
+    method,
+    rawAmount,
   }
 }
 
@@ -45,6 +53,7 @@ export default function TransactionsPage() {
   const { viewer } = usePortalViewer()
   const backendUserId = useAuthStore((s) => s.backendUserId)
   const [bookings, setBookings] = useState([])
+  const [paymentByBookingId, setPaymentByBookingId] = useState(() => new Map())
   const [loading, setLoading] = useState(true)
   const [query, setQuery] = useState('')
   const [receiptError, setReceiptError] = useState(null)
@@ -63,6 +72,21 @@ export default function TransactionsPage() {
       })
       .catch(() => {})
       .finally(() => setLoading(false))
+
+    if (backendUserId) {
+      getPaymentHistory({ page: 0, size: 100 })
+        .then((page) => {
+          const content = page?.content ?? page ?? []
+          const map = new Map()
+          for (const p of content) {
+            if (p.bookingId != null) {
+              map.set(p.bookingId, p)
+            }
+          }
+          setPaymentByBookingId(map)
+        })
+        .catch(() => {})
+    }
   }, [backendUserId, viewer.email])
 
   const handleReceipt = async (bookingId) => {
@@ -93,11 +117,11 @@ export default function TransactionsPage() {
 
   const transactions = useMemo(
     () =>
-      bookings.map((b) => adaptBooking(b, t)).map((txn) => ({
+      bookings.map((b) => adaptBooking(b, t, paymentByBookingId)).map((txn) => ({
         ...txn,
         amount: formatCurrency(txn.rawAmount),
       })),
-    [bookings, formatCurrency, t],
+    [bookings, formatCurrency, paymentByBookingId, t],
   )
 
   const visible = useMemo(() => {
